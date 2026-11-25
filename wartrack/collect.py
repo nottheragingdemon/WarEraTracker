@@ -327,12 +327,20 @@ def collect_companies(c, db, scope):
                 pending.append((u, d["nextCursor"]))
     ids = list(owned)
     rows = []
+    import time as _t
+    t0, est_ok = _t.monotonic(), True
+    log(f"companies: {len(ids)} owned, fetching details")
     for i in range(0, len(ids), 40):
         chunk = ids[i:i + 40]
+        if (i // 40) % 5 == 0:
+            log(f"  companies {i}/{len(ids)} ({_t.monotonic() - t0:.0f}s, api calls so far: {c.n})")
+        if est_ok and _t.monotonic() - t0 > 600:  # keep the hourly run bounded: wages from the company record for the rest
+            est_ok = False
+            log("  estimates: 10 minute budget used, the rest use the wages listed on each company")
         details = c.batch([("company.getById", {"companyId": x}) for x in chunk])
         active = [(cid, d) for cid, d in zip(chunk, details) if d and not d.get("disabledAt")]  # inactive companies pay no wages
         # live hourly money cost of the real employees and the manager (not lagged, not cached)
-        est = c.batch([("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in active], official=True) if active else []
+        est = c.batch([("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in active], official=True) if active and est_ok else [None] * len(active)
         for (cid, d), e in zip(active, est):
             ws = d.get("workers") or []
             if e:
