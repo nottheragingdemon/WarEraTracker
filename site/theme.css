@@ -118,11 +118,14 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 
 /* phones: tables that opt in (table.stack) become one card per row, so every value is visible without sideways scrolling */
 @media (max-width:640px){
- table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%}
- table.stack thead{display:none}
- table.stack tr{border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:0 0 10px;background:var(--panel-2)}
- table.stack td{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border:0;white-space:normal;text-align:right}
- table.stack td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex:none}
- table.stack td.n{white-space:nowrap}
+ html:not(.plain-tables) table.stack,html:not(.plain-tables) table.stack tbody,html:not(.plain-tables) table.stack tr,html:not(.plain-tables) table.stack td{display:block;width:100%}
+ html:not(.plain-tables) table.stack thead{display:none}
+ html:not(.plain-tables) table.stack tr{border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:0 0 10px;background:var(--panel-2)}
+ html:not(.plain-tables) table.stack td{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border:0;white-space:normal;text-align:right}
+ html:not(.plain-tables) table.stack td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex:none}
+ html:not(.plain-tables) table.stack td.n{white-space:nowrap}
 }
 @media (max-width:640px){.header-top{flex-wrap:wrap}}
+
+.view-switch{display:none}
+@media (max-width:640px){.view-switch{display:inline-flex}}
