@@ -202,50 +202,6 @@ function inScope(e,rowCountry,rowMu){ // does a bounty ranking row belong to the
   if(st.mu>=0)return(t==="mu"&&e===st.mu)||(t==="user"&&rowMu===st.mu);
   if(st.country>=0)return(t==="country"&&e===st.country)||(t==="user"&&rowCountry===st.country)||(t==="mu"&&(relMu[e]===st.country));
   return true}
-function bountyHist(){
-  var COL=["var(--s1)","var(--s2)","#0e7a4f","#7a52c7"],sel=[];
-  ["user","mu","country"].forEach(function(k){if(st[k]>=0)sel.push(st[k])});
-  var rows=D.bounty.filter(function(r){var d=r[0].slice(0,10);return(!st.from||d>=st.from)&&(!st.to||d<=st.to)});
-  var by={};rows.forEach(function(r){(by[r[1]]=by[r[1]]||[]).push([Date.parse(r[0]),r[2]])});
-  var ids=sel.filter(function(e){return by[e]});
-  if(!ids.length)ids=Object.keys(by).map(Number).filter(function(e){return D.ents[e][0]==="country"}).sort(function(a,b){var x=by[a],y=by[b];return y[y.length-1][1]-x[x.length-1][1]}).slice(0,4);
-  var card=el("div",{class:"card"},[el("h2",{text:"Bounty over time"+(sel.length?" (selected)":" (top 4 countries)")})]);
-  var series=ids.map(function(e,i){return{e:e,c:COL[i%4],p:by[e].sort(function(a,b){return a[0]-b[0]})}}).filter(function(s){return s.p.length>=2});
-  if(!series.length){card.appendChild(el("div",{class:"note",text:"A line needs at least two snapshots inside the selected dates. Snapshots are taken with every refresh."}));return card}
-  var W=640,H=190,L=54,B=22,T=8,R=10,t0=Infinity,t1=-Infinity,mx=0;
-  series.forEach(function(s){s.p.forEach(function(q){if(q[0]<t0)t0=q[0];if(q[0]>t1)t1=q[0];if(q[1]>mx)mx=q[1]})});
-  var X=function(t){return L+(t1>t0?(t-t0)/(t1-t0):0)*(W-L-R)},Y=function(v){return T+(1-(mx?v/mx:0))*(H-T-B)};
-  var NS="http://www.w3.org/2000/svg",svg=document.createElementNS(NS,"svg");svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.style.width="100%";svg.style.height="auto";
-  function sv(tag,a){var e=document.createElementNS(NS,tag);for(var k in a)e.setAttribute(k,a[k]);return e}
-  [0,.5,1].forEach(function(f){var y=Y(mx*f);svg.appendChild(sv("line",{x1:L,x2:W-R,y1:y,y2:y,stroke:"var(--line)","stroke-width":1}));var tx=sv("text",{x:L-6,y:y+3,"text-anchor":"end","font-size":10,fill:"var(--ink2)"});tx.textContent=fmt(mx*f);svg.appendChild(tx)});
-  [t0,t1].forEach(function(t,i){var tx=sv("text",{x:X(t),y:H-6,"text-anchor":i?"end":"start","font-size":10,fill:"var(--ink2)"});tx.textContent=new Date(t).toISOString().slice(5,16).replace("T"," ");svg.appendChild(tx)});
-  series.forEach(function(s){svg.appendChild(sv("polyline",{points:s.p.map(function(q){return X(q[0]).toFixed(1)+","+Y(q[1]).toFixed(1)}).join(" "),fill:"none",stroke:s.c,"stroke-width":2,"stroke-linejoin":"round"}));
-    var l=s.p[s.p.length-1];svg.appendChild(sv("circle",{cx:X(l[0]),cy:Y(l[1]),r:4,fill:s.c,stroke:"var(--panel)","stroke-width":2}))});
-  svg.addEventListener("mousemove",function(ev){var r=svg.getBoundingClientRect(),t=t0+((ev.clientX-r.left)/r.width*W-L)/(W-L-R)*(t1-t0),best=null;
-    series.forEach(function(s){s.p.forEach(function(q){var d=Math.abs(q[0]-t);if(!best||d<best.d)best={d:d,s:s,q:q}})});
-    if(best)tip(ev,nm(best.s.e)+" · "+new Date(best.q[0]).toISOString().slice(0,16).replace("T"," ")+" · "+fmt(best.q[1]))});
-  svg.addEventListener("mouseleave",untip);card.appendChild(svg);
-  var lg=el("div",{class:"seg"});series.forEach(function(s){var l=s.p[s.p.length-1];lg.appendChild(el("span",{class:"note"},[el("span",{text:"● ",style:"color:"+s.c}),nm(s.e)+" "+fmt(l[1])]))});card.appendChild(lg);
-  return card}
-function vBounty(v){
-  var bs=battleSet(),spec=null;["user","mu","country"].forEach(function(k){if(!spec&&st[k]>=0)spec=[k,st[k]]});
-  var tot=0,series=[];bs.forEach(function(i){var x=spec?(val(1,i,spec[1])||{t:0}).t:sideTot(1,i)[2];tot+=x;series.push([D.battles[i][2],x])});
-  if(st.country>=0){var t0=countryTotals(bs);v.appendChild(kpis([["Money earned by "+nm(st.country),fmt(t0.money)],["Share of all battle money",(function(){var a=0;bs.forEach(function(i){a+=sideTot(1,i)[2]});return a?(100*t0.money/a).toFixed(1)+"%":"–"})()]]))}
-  var allM=0,allD=0,selM=0,selD=0;bs.forEach(function(i){allM+=sideTot(1,i)[2];allD+=sideTot(0,i)[2];if(spec){var m=val(1,i,spec[1]),d=val(0,i,spec[1]);if(m)selM+=m.t;if(d)selD+=d.t}});
-  var perM=function(m,d){return d>0?fmt(m/(d/1e6)):"–"};
-  v.appendChild(kpis([["Battles",String(bs.length)],[spec?"Selected money earned":"Money earned (all)",fmt(tot)],["Money per 1M damage (all battles)",perM(allM,allD)]].concat(spec?[[tname(spec[0])+" "+nm(spec[1])+": money per 1M damage",perM(selM,selD)]]:[])));
-  v.appendChild(dayChart(series,"Money earned in battles (battle money ranking)"+(spec?" · "+tname(spec[0])+" "+nm(spec[1]):"")));
-  var per=function(m,d){return d>0?fmt(m/(d/1e6)):"–"};
-  var pHead=["Money per 1M damage (all)"].concat(sels().map(function(p){return nm(p[1])+": money per 1M dmg"}));
-  v.appendChild(battleTable(bs,1,"Battles: money earned, and money per million damage",pHead,function(i){var t0=sideTot(0,i),t1=sideTot(1,i),o=[per(t1[2],t0[2])];
-    sels().forEach(function(p){var m=val(1,i,p[1]),d=val(0,i,p[1]);o.push(m&&d?per(m.t,d.t):"–")});return o},true));
-  v.appendChild(bountyHist());
-  var by={};D.bounty.forEach(function(r){var d=r[0].slice(0,10);if((st.from&&d<st.from)||(st.to&&d>st.to))return;if(!inScope(r[1],r[3],r[4]))return;(by[r[1]]=by[r[1]]||{c:r[3],m:r[4],p:[]}).p.push([r[0],r[2]])});
-  var rows=Object.keys(by).map(function(e){var o=by[e],p=o.p.sort(function(a,b){return a[0]<b[0]?-1:1});return{e:+e,c:o.c,m:o.m,first:p[0][1],last:p[p.length-1][1],n:p.length,d:p[p.length-1][1]-p[0][1]}}).sort(function(a,b){return b.d-a.d||b.last-a.last});
-  var card=el("div",{class:"card"},[el("h2",{text:"Bounty ranking (top 40)"}),el("div",{class:"note",text:"Cumulative bounty ranking snapshots (top 200 per ranking). Change appears once there are two snapshots. Not tied to single battles, so see the money table above for per-battle earnings."})]);
-  card.appendChild(mk(["Type","Entity","Country","MU","First","Latest","Change","Snapshots"],rows.slice(0,40).map(function(r){var t=D.ents[r.e][0];return[tname(t),nm(r.e),t==="country"?nm(r.e):nm(r.c),t==="mu"?nm(r.e):nm(r.m),fmt(r.first),fmt(r.last),{node:el("span",{class:r.d>0?"pos":"",text:(r.d>0?"+":"")+fmt(r.d)})},String(r.n)]}),[4,5,6,7]));
-  v.appendChild(card)}
-
 /* bounty (battle money) per million damage, one row per country of the selected alliance */
 function vBpm(v){
   var aid=st.alliance,note="";
@@ -268,7 +224,8 @@ function vBpm(v){
   COLS=COLS.concat([["Battles",function(r){return r.n}],["Damage (M)",function(r){return r.d}],["Money",function(r){return r.m}],
     ["Money per 1M damage",function(r){return per(r.m,r.d)}],["Attacker damage (M)",function(r){return r.dA}],["Attacker money per 1M",function(r){return per(r.mA,r.dA)}],
     ["Defender damage (M)",function(r){return r.dD}],["Defender money per 1M",function(r){return per(r.mD,r.dD)}]]);
-  var PPM=COLS.length-5;   // index of the "Money per 1M damage" column
+  COLS.splice(2,0,COLS.splice(COLS.length-5,1)[0]);   // "Money per 1M damage" becomes the third column
+  var PPM=2;
   if(st.bcol===undefined||st.bcolView!==st.bview){st.bcol=PPM;st.bdir=-1;st.bcolView=st.bview}
   var kf=COLS[st.bcol][1];
   rows.sort(function(a,b){var x=kf(a),y=kf(b);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return(x<y?-1:x>y?1:0)*st.bdir});
@@ -280,8 +237,9 @@ function vBpm(v){
   var shown=rows.slice(0,isMu?st.limit*2:rows.length);
   var mx=Math.max.apply(null,shown.map(function(r){return per(r.m,r.d)||0}).concat([1]));
   var tr=function(r){var o=[nm(r.c)];if(isMu)o.push(nm(relMu[r.c]));return o.concat([String(r.n),fmt(r.d/1e6),fmt(r.m),barCell(pf(per(r.m,r.d)),per(r.m,r.d)||0,mx),fmt(r.dA/1e6),pf(per(r.mA,r.dA)),fmt(r.dD/1e6),pf(per(r.mD,r.dD))])};
-  var all=shown.map(tr);
-  all.push(["Total"].concat(isMu?[""]:[],["",fmt(T.d/1e6),fmt(T.m),pf(per(T.m,T.d)),fmt(T.dA/1e6),pf(per(T.mA,T.dA)),fmt(T.dD/1e6),pf(per(T.mD,T.dD))]));
+  var mvp=function(a){var x=a.splice(a.length-5,1)[0];a.splice(2,0,x);return a};
+  var all=shown.map(tr).map(mvp);
+  all.push(mvp(["Total"].concat(isMu?[""]:[],["",fmt(T.d/1e6),fmt(T.m),pf(per(T.m,T.d)),fmt(T.dA/1e6),pf(per(T.mA,T.dA)),fmt(T.dD/1e6),pf(per(T.mD,T.dD))])));
   var first=isMu?2:1,numCols=[];for(var q=first;q<COLS.length;q++)numCols.push(q);
   var tw=mk(COLS.map(function(c){return c[0]}),all,numCols);
   [].slice.call(tw.querySelectorAll("th")).forEach(function(th,i){th.style.cursor="pointer";th.setAttribute("aria-sort",i===st.bcol?(st.bdir>0?"ascending":"descending"):"none");
@@ -291,41 +249,7 @@ function vBpm(v){
   if(isMu&&rows.length>shown.length){var more=el("button",{class:"chip",text:"Show more ("+(rows.length-shown.length)+" left)"});more.onclick=function(){st.limit+=50;render()};card.appendChild(more)}
   v.appendChild(card)}
 
-function vContracts(v){
-  var bs=battleSet(),bset=new Set(bs),useB=st.alliance>=0,C=st.country;
-  var rows=D.contracts.filter(function(c){var d=c[2].slice(0,10);if((st.from&&d<st.from)||(st.to&&d>st.to))return false;
-    if(C>=0){var bidC=c[12].some(function(m){return relMu[m]===C});if(c[4]!==C&&relMu[c[9]]!==C&&!bidC)return false} // for the country, or won / bid by one of its MUs
-    if(st.mu>=0&&c[9]!==st.mu&&c[12].indexOf(st.mu)<0)return false;
-    if(st.user>=0&&c[10]!==st.user&&c[11]!==st.user&&c[13].indexOf(st.user)<0)return false;
-    if(useB&&!bset.has(c[1]))return false;return true});
-  var use=rows;
-  var sum=function(list,f){return list.reduce(function(a,c){return a+(c[3]==="won"?(c[8]||0):0)},0)};
-  var won=use.filter(function(c){return c[3]==="won"});
-  var k=[];
-  if(C>=0){var recv=won.filter(function(c){return relMu[c[9]]===C}),paid=won.filter(function(c){return c[4]===C});
-    k.push(["Payout received by "+nm(C)+" MUs",fmt(sum(recv))],["Won by its MUs",String(recv.length)],["Payout for contracts posted for "+nm(C),fmt(sum(paid))],["Contracts posted for it (won)",String(paid.length)])}
-  if(st.mu>=0){var rm=won.filter(function(c){return c[9]===st.mu});k.push(["Payout received by "+nm(st.mu),fmt(sum(rm))],["Contracts won by it",String(rm.length)])}
-  if(st.user>=0){var ru=won.filter(function(c){return c[10]===st.user});k.push(["Payout received by "+nm(st.user),fmt(sum(ru))],["Contracts won by them",String(ru.length)])}
-  if(k.length)v.appendChild(kpis(k));
-  var s={};use.forEach(function(c){var o=s[c[3]]=s[c[3]]||[0,0,0];o[0]++;o[1]+=c[7]||0;o[2]+=c[8]||0});
-  var w0=s.won||[0,0,0];
-  v.appendChild(kpis([["Contracts"+(C>=0||st.mu>=0||st.user>=0?" in selection":""),String(use.length)],["Won",String(w0[0])],["Paid out (won)",fmt(w0[2])],["Posted budget",fmt(use.reduce(function(a,c){return a+(c[7]||0)},0))]]));
-  var c1=el("div",{class:"card"},[el("h2",{text:"By status"})]);
-  c1.appendChild(mk(["Status","Count","Budget","Payout"],Object.keys(s).sort(function(a,b){return s[b][0]-s[a][0]}).map(function(k2){return[k2,String(s[k2][0]),fmt(s[k2][1]),fmt(s[k2][2])]}),[1,2,3]));v.appendChild(c1);
-  rows.sort(function(a,b){return a[2]<b[2]?1:-1});
-  var head=["Created","Status","Region","Attacker","Defender","Total damage","Attacker damage","Defender damage"],sc=[];
-  sels().forEach(function(p){sc.push(head.length,head.length+1,head.length+2);head.push(tname(p[0])+" damage: "+nm(p[1]),"…for attacker","…for defender")});
-  var base=head.length;head=head.concat(["For","Side","Min damage","Budget","Payout","Winner MU","Winner MU country","Winner"]);
-  var c2=el("div",{class:"card"},[el("h2",{text:"Contracts with their battle (latest "+Math.min(rows.length,st.limit)+")"})]);
-  c2.appendChild(mk(head,rows.slice(0,st.limit).map(function(c){var b=c[1],r=[fmtD(c[2]),c[3]];
-    if(b>=0){var B=D.battles[b],tt=sideTot(0,b);r.push(region(B),nm(B[4]),nm(B[5]),fmt(tt[2]),fmt(tt[0]),fmt(tt[1]));sels().forEach(function(p){r.push(selCell(0,b,p[1]),selSide(0,b,p[1],"a"),selSide(0,b,p[1],"d"))})}
-    else{r.push("–","–","–","–","–","–");sels().forEach(function(){r.push("–","–","–")})}
-    return r.concat([nm(c[4]),c[5],fmt(c[6]),fmt(c[7]),fmt(c[8]),c[9]>=0?nm(c[9]):"–",c[9]>=0&&relMu[c[9]]!=null?nm(relMu[c[9]]):"–",c[10]>=0?nm(c[10]):"–"])}),[5,6,7].concat(sc).concat([base+2,base+3,base+4]),sc));
-  if(rows.length>st.limit){var m=el("button",{class:"chip",text:"Show more ("+(rows.length-st.limit)+" left)"});m.onclick=function(){st.limit+=100;render()};c2.appendChild(m)}
-  if(!rows.length)c2.appendChild(el("div",{class:"note",text:"No contracts match this selection."}));
-  v.appendChild(c2)}
-
-var TABS=[["damage","Damage",vDamage],["orders","Orders",vOrders],["bounty","Bounty",vBounty],["bpm","Bounty per 1M damage",vBpm],["contracts","Contracts",vContracts]];
+var TABS=[["damage","Damage",vDamage],["orders","Orders",vOrders],["bpm","Bounty per 1M damage",vBpm]];
 function render(){
   var tabs=$("tabs");tabs.textContent="";TABS.forEach(function(t){var b=el("button",{role:"tab",text:t[1],"aria-selected":String(st.tab===t[0])});b.onclick=function(){st.tab=t[0];st.limit=50;try{location.hash=t[0]}catch(e){}render()};tabs.appendChild(b)});
   var v=$("view");v.textContent="";TABS.filter(function(t){return t[0]===st.tab})[0][2](v)}
