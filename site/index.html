@@ -292,7 +292,9 @@ function setRange(days){var mx=D.battles.length?D.battles[D.battles.length-1][2]
   if(!days){$("f-from").value=mn;$("f-to").value=mx;return}var d=new Date(mx+"T00:00:00Z");d.setUTCDate(d.getUTCDate()-days+1);var f=d.toISOString().slice(0,10);$("f-from").value=f<mn?mn:f;$("f-to").value=mx}
 function fillFilters(){
   function opts(sel,type,byName){var l=entsOf[type].slice();l.sort(byName?function(a,b){return nm(a).localeCompare(nm(b))}:byDmg);l.forEach(function(i){sel.appendChild(el("option",{value:String(i),text:nm(i)}))})}
-  opts($("f-alliance"),"alliance");opts($("f-country"),"country",true);
+  opts($("f-alliance"),"alliance");
+  (function(){var a=$("f-alliance"),o=[].slice.call(a.options).filter(function(x){return x.textContent==="The Emerald Accord"})[0];
+    if(o){a.value=o.value;[].slice.call(a.options).forEach(function(x){if(x!==o)a.removeChild(x)});a.disabled=true;a.title="The alliance is fixed to The Emerald Accord"}})();opts($("f-country"),"country",true);
   var mn=D.battles.length?D.battles[0][2].slice(0,10):"",mx=D.battles.length?D.battles[D.battles.length-1][2].slice(0,10):"";
   ["f-from","f-to"].forEach(function(i){$(i).min=mn;$(i).max=mx;$(i).addEventListener("change",function(){readFilters("date")})});
   $("f-alliance").addEventListener("change",function(){readFilters("alliance")});$("f-country").addEventListener("change",function(){readFilters("country")});
