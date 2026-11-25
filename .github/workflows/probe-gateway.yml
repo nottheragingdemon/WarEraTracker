@@ -1,24 +1,19 @@
 name: probe-gateway
-# One-off, manual: checks what the public warerastats gateway serves without any key.
-# No secrets are used or sent.
+# One-off, manual. Sends the repo's WARERA_API_KEY to gateway.warerastats.io (authorised by the owner) to see what it serves.
 on: workflow_dispatch
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe warerastats gateway (no key)
+      - name: Probe warerastats gateway (with key)
+        env:
+          K: ${{ secrets.WARERA_API_KEY }}
         run: |
           set +e
           B=https://gateway.warerastats.io
-          echo "== openapi"; curl -s -m 30 -o /tmp/o.json -w "%{http_code}\n" $B/openapi.json; head -c 300 /tmp/o.json; echo
-          python3 - <<'PY'
-          import json
-          try:
-              d=json.load(open('/tmp/o.json')); print(sorted(k[1:] for k in d.get("paths",{})))
-          except Exception as e: print("no openapi:",e)
-          PY
-          echo "== company.getCompanies"; curl -s -m 30 -w "\n%{http_code}\n" -G "$B/trpc/company.getCompanies" --data-urlencode 'input={"userId":"6828643930891af9015a8fcd","perPage":2}' | head -c 400
-          echo "== wage transactions for a user"
-          curl -s -m 30 -w "\n%{http_code}\n" -G "$B/trpc/transaction.getPaginatedTransactions" --data-urlencode 'input={"userId":"681500fb943d23778b805c53","transactionType":"wage","limit":3}' | head -c 1500
-          echo "== wage transactions for a country"
-          curl -s -m 30 -w "\n%{http_code}\n" -G "$B/trpc/transaction.getPaginatedTransactions" --data-urlencode 'input={"countryId":"6813b6d446e731854c7ac7a4","transactionType":"wage","limit":3}' | head -c 1500
+          q(){ curl -s -m 40 -w "\n[http %{http_code}]\n" -H "X-API-Key: $K" -G "$B/trpc/$1" --data-urlencode "input=$2" | head -c "${3:-700}"; echo; }
+          echo "== company.getCompanies"; q company.getCompanies '{"userId":"6828643930891af9015a8fcd","perPage":2}'
+          echo "== company.getById";      q company.getById '{"companyId":"6828643930891af9015a8fdf"}' 500
+          echo "== wage transactions, one user";  q transaction.getPaginatedTransactions '{"userId":"681500fb943d23778b805c53","transactionType":"wage","limit":3}' 1500
+          echo "== wage transactions, one country"; q transaction.getPaginatedTransactions '{"countryId":"6813b6d446e731854c7ac7a4","transactionType":"wage","limit":3}' 1500
+          echo "== region.getRegionsObject (size only)"; curl -s -m 60 -H "X-API-Key: $K" -o /tmp/r.json -w "[http %{http_code}] bytes %{size_download}\n" "$B/trpc/region.getRegionsObject"
