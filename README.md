@@ -17,3 +17,12 @@ filterable by alliance, country, MU and player. Data comes from `api2.warera.io`
 The API key is never stored in the repo. This repo is public, so the `state` branch (the collected game data) is public too.
 
 Run locally: `WARERA_API_KEY=... sh refresh.sh` then `uv run streamlit run streamlit_app.py`.
+
+## Apps
+`site/index.html` (WarEra Tracker), `site/company.html` (Company tax tracker) and `site/ask.html` (Ask Claude: plain-English questions answered as tables; needs Claude's artifact runtime). `streamlit_app.py` serves the first two with navigation.
+
+## Alerts (optional)
+Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook). Each hourly refresh then posts new battles involving the tracked alliance's countries and bounty jumps on those countries (default +25% and at least +20,000; tune with `ALERT_BOUNTY_PCT` / `ALERT_BOUNTY_MIN`). The first run only records a baseline.
+
+## Tax sampling
+`.github/workflows/tax-sample.yml` records region tax rates every 15 minutes (one public API call), so tax history is finer than the hourly refresh. The page shows a warning when `data.json` is more than 3 hours old.

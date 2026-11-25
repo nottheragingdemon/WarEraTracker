@@ -198,8 +198,9 @@ async function ask(){
 var EX=["Top 10 players by damage in the last 3 days, with country and MU","Bounty on each Emerald Accord country over time, latest 20 snapshots","Contracts won this week: total payout per MU","Which countries have the most citizen-owned companies abroad?","Region tax collected per day for the 10 highest regions"];
 EX.forEach(function(t){var b=el("button",{class:"chip",text:t});b.onclick=function(){$("q").value=t};$("ex").appendChild(b)});
 $("go").onclick=ask;$("q").addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))ask()});
+function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
-  D=d;build();
+  D=d;build();stale();
   $("meta").textContent="Data updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+T.battles.rows.length+" battles · ask in plain English, Claude returns a table";
   sample=await window.claude.use("sample");
   if(sample)$("go").disabled=false;else $("status").textContent="Asking Claude is not available here. Open this page in Claude (it needs the Ask Claude capability).";

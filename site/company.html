@@ -180,8 +180,9 @@ function vCompanies(v){
 
 
 function render(){var v=$("view");v.textContent="";vCompanies(v)}
+function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
 fetch("data.json").then(function(r){return r.json()}).then(function(d){
-  D=d;var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
+  D=d;stale();var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
   ["f-from","f-to"].forEach(function(i){if(days.length){$(i).min=days[0];$(i).max=days[days.length-1]}$(i).addEventListener("change",function(){st.from=$("f-from").value;st.to=$("f-to").value;render()})});
   if(days.length){$("f-from").value=st.from=days[0];$("f-to").value=st.to=days[days.length-1]}
   $("meta").textContent="Updated "+fmtD(D.generated)+" UTC"+(D.companiesAt?" · companies collected "+fmtD(D.companiesAt)+" UTC":"")+" · data from api2.warera.io";

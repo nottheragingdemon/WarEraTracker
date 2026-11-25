@@ -27,6 +27,10 @@ jobs:
         env:
           WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
         run: sh refresh.sh
+      - name: Alerts (only if ALERT_WEBHOOK_URL is set)
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: python3 -m wartrack alerts
       - name: Save history to the state branch
         run: |
           git config user.name "warera-tracker"; git config user.email "warera-tracker@users.noreply.github.com"

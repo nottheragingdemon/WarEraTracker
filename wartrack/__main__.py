@@ -24,6 +24,8 @@ def main():
     c.add_argument("--player-limit", type=int, default=800, help="max new players to look up per run")
     c.add_argument("--bounty-top", type=int, default=200)
 
+    sub.add_parser("alerts", help="send webhook alerts (new battles, bounty jumps); needs ALERT_WEBHOOK_URL")
+
     x = sub.add_parser("export", help="write data.json for the dashboard")
     x.add_argument("--since", default=cfg.get("since", "7d")); x.add_argument("--alliance", default=cfg.get("alliance")); x.add_argument("--out", default="site/data.json")
     x.add_argument("--user-top", type=int, default=150); x.add_argument("--no-names", action="store_true")
@@ -58,6 +60,9 @@ def main():
         if "companies" in what: C.collect_companies(cl, db, scope)
         print(f"done, {cl.n} API calls")
         return
+    if a.cmd == "alerts":
+        from . import alerts as AL
+        AL.run(db, C.Scope(db, cfg.get("alliance"), C.parse_when(cfg.get("since", "7d")))); return
     R.load_countries(cl, db)
     if a.cmd == "export":
         from . import export as X
