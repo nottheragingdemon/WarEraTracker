@@ -133,3 +133,4 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 .site-foot{margin:8px 0 0;padding:18px 32px 28px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
 .site-foot a{color:var(--link,var(--accent))}
 @media (max-width:560px){.site-foot{padding:16px}}
+@media (max-width:640px){html:not(.plain-tables) table.stack td[data-label=""]{justify-content:flex-start;font-weight:600;text-align:left;padding-bottom:6px}html:not(.plain-tables) table.stack td[data-label=""]::before{content:none}}

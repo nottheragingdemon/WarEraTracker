@@ -33,3 +33,11 @@ window.weCsvWrap=function(tw){
     var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));a.download=name+".csv";document.body.appendChild(a);a.click();a.remove();
   };
   box.appendChild(bar);box.appendChild(tw);return box};
+
+/* phone table layout: cards (default) or a regular table, remembered per device; pages with a #view-switch get the buttons */
+(function(){function g(){try{return localStorage.getItem("we-view")}catch(e){return null}}
+function set(v){try{localStorage.setItem("we-view",v)}catch(e){}document.documentElement.classList.toggle("plain-tables",v==="table")}
+set(g()||"cards");
+document.addEventListener("DOMContentLoaded",function(){var w=document.getElementById("view-switch");if(!w)return;
+function mark(){var v=document.documentElement.classList.contains("plain-tables")?"table":"cards";w.querySelectorAll("button").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.view===v))})}
+mark();w.onclick=function(e){var b=e.target.closest("button");if(!b)return;set(b.dataset.view);mark()}})})();

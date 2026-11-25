@@ -12,6 +12,7 @@
   <div class="header-top">
     <a class="brand" href="index.html"><h1>💬 Ask WarEra</h1><div class="tag">Plain-English questions about WarEra, answered as tables</div></a>
     <div class="header-actions">
+      <div id="view-switch" class="theme-switch view-switch" role="group" aria-label="Table layout"><button type="button" data-view="cards" aria-pressed="true">Cards</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
       <div id="theme-switch" class="theme-switch" role="group" aria-label="Colour theme">
         <button type="button" data-theme-pref="auto" aria-pressed="true" title="Follow your device's light or dark setting">Auto</button>
         <button type="button" data-theme-pref="light" aria-pressed="false" aria-label="Light" title="Light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
@@ -121,8 +122,8 @@ var fmtN=function(v){return typeof v==="number"?(Math.abs(v)>=1e4?Math.round(v).
 function renderTable(title,cols,rows,note){
   var card=el("div",{class:"card"}),h=el("h2",{});h.appendChild(el("span",{text:title||"Result"}));
   var b=el("button",{class:"chip",text:"CSV"});b.onclick=function(){csv((title||"result").replace(/[^a-z0-9]+/gi,"_")+".csv",cols,rows)};h.appendChild(b);card.appendChild(h);
-  var sortCol=-1,dir=1,body=el("tbody"),t=el("table"),hr=el("tr");
-  function draw(){body.textContent="";rows.slice(0,1000).forEach(function(r){var tr=el("tr");r.forEach(function(v){tr.appendChild(el("td",{class:typeof v==="number"?"n":"",text:fmtN(v)}))});body.appendChild(tr)})}
+  var sortCol=-1,dir=1,body=el("tbody"),t=el("table",{class:"stack"}),hr=el("tr");
+  function draw(){body.textContent="";rows.slice(0,1000).forEach(function(r){var tr=el("tr");r.forEach(function(v,ci){tr.appendChild(el("td",{class:typeof v==="number"?"n":"","data-label":cols[ci]||"",text:fmtN(v)}))});body.appendChild(tr)})}
   cols.forEach(function(c,i){var th=el("th",{class:"s"+(rows.length&&typeof rows[0][i]==="number"?" n":""),text:c});th.onclick=function(){dir=sortCol===i?-dir:-1;sortCol=i;rows.sort(function(p,q){var x=p[i],y=q[i];if(x==null)return 1;if(y==null)return -1;return(x<y?-1:x>y?1:0)*(-dir)});draw()};hr.appendChild(th)});
   t.appendChild(el("thead",null,[hr]));t.appendChild(body);draw();var w=el("div",{class:"tw"});w.appendChild(t);card.appendChild(w);
   card.appendChild(el("div",{class:"note",text:rows.length+" rows"+(rows.length>1000?" (first 1000 shown)":"")+(note?" · "+note:"")}));$("tables").appendChild(card)}

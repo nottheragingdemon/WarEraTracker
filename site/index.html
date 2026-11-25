@@ -6,7 +6,6 @@
 <title>WarEra Tracker</title>
 <link rel="stylesheet" href="theme.css">
 <script src="theme.js"></script>
-<script>(function(){function g(){try{return localStorage.getItem("we-view")}catch(e){return null}}function set(v){try{localStorage.setItem("we-view",v)}catch(e){}document.documentElement.classList.toggle("plain-tables",v==="table")}set(g()||"cards");document.addEventListener("DOMContentLoaded",function(){var w=document.getElementById("view-switch");function mark(){var v=document.documentElement.classList.contains("plain-tables")?"table":"cards";w.querySelectorAll("button").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.view===v))})}mark();w.onclick=function(e){var b=e.target.closest("button");if(!b)return;set(b.dataset.view);mark()}})})()</script>
 </head>
 <body>
 <header>
