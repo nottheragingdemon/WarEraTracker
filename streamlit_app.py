@@ -1,4 +1,5 @@
 """WarEra apps: the war tracker dashboard and the Company tax tracker, each with the latest site/data.json inlined."""
+import hmac
 import json
 import re
 from pathlib import Path
@@ -55,14 +56,32 @@ def ask_warera():
     st.link_button("Open Ask WarEra", ASK_URL.rstrip("/"), type="primary")
 
 
-# Temporarily hidden while testing: set to () to bring these pages back (and see HIDDEN_PAGES in site/theme.js)
+# Temporarily hidden while testing. Open the app with ?key=<DEV_KEY> (DEV_KEY is set in the app's Secrets, never in the repo)
+# to see them; the unlock lasts for that browser session. Set HIDDEN = () to bring the pages back for everyone.
 HIDDEN = ("company-tax", "ask")
+
+
+def _unlocked():
+    if st.session_state.get("dev_ok"):
+        return True
+    try:
+        secret = str(st.secrets["DEV_KEY"])
+    except Exception:  # no secret configured: nobody is unlocked
+        return False
+    given = st.query_params.get("key", "")
+    if secret and hmac.compare_digest(str(given).encode(), secret.encode()):
+        st.session_state["dev_ok"] = True
+        return True
+    return False
+
+
 _pages = {
     "tracker": st.Page(tracker, title="WarEra Tracker", icon="⚔️", url_path="tracker", default=True),
     "company-tax": st.Page(company_tax, title="Company tax tracker", icon="🏭", url_path="company-tax"),
     "ask": st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
 }
-nav = st.navigation([pg for key, pg in _pages.items() if key not in HIDDEN], position="top")
+_dev = _unlocked()
+nav = st.navigation([pg for key, pg in _pages.items() if _dev or key not in HIDDEN], position="top")
 st.markdown(
     '<div style="text-align:right;font-size:14px"><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer">we.hawtre.net ↗</a></div>',
     unsafe_allow_html=True,
