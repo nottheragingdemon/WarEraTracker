@@ -19,3 +19,17 @@
     });
   });
 })();
+
+/* CSV export for any table: weCsvWrap(tableWrapper) returns a node with a "CSV" button above it */
+window.weCsvWrap=function(tw){
+  var box=document.createElement("div"),bar=document.createElement("div"),b=document.createElement("button");
+  bar.style.cssText="display:flex;justify-content:flex-end;margin:0 0 6px";b.type="button";b.className="chip";b.textContent="Download CSV";bar.appendChild(b);
+  b.onclick=function(){
+    var t=tw.querySelector("table");if(!t)return;
+    var esc=function(v){v=String(v==null?"":v).replace(/\s+/g," ").trim();return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+    var lines=[Array.prototype.map.call(t.querySelectorAll("thead th"),function(x){return esc(x.textContent)}).join(",")];
+    Array.prototype.forEach.call(t.querySelectorAll("tbody tr"),function(tr){lines.push(Array.prototype.map.call(tr.children,function(td){var c=td.querySelector("code");return esc(c?c.textContent:td.textContent)}).join(","))});
+    var card=tw.closest(".card"),h=card&&card.querySelector("h2"),name=((h&&h.textContent)||"table").toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")||"table";
+    var a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv"}));a.download=name+".csv";document.body.appendChild(a);a.click();a.remove();
+  };
+  box.appendChild(bar);box.appendChild(tw);return box};

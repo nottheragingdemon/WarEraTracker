@@ -101,7 +101,7 @@ function kpis(items){return el("div",{class:"kpis"},items.map(function(x){return
 function mk(head,rows,numCols,selCols){
   var t=el("table",{class:"stack"}),h=el("tr");head.forEach(function(x,i){var c=(numCols.indexOf(i)>=0?"n ":"")+((selCols||[]).indexOf(i)>=0?"sel":"");h.appendChild(el("th",{text:x,class:c.trim()}))});t.appendChild(el("thead",null,[h]));
   var tb=el("tbody");rows.forEach(function(r){var tr=el("tr");r.forEach(function(c,i){var cl=(numCols.indexOf(i)>=0?"n ":"")+((selCols||[]).indexOf(i)>=0?"sel":"");var td=el("td",{class:cl.trim(),"data-label":head[i]||""});if(c&&c.node)td.appendChild(c.node);else td.textContent=c==null?"–":c;tr.appendChild(td)});tb.appendChild(tr)});t.appendChild(tb);
-  return el("div",{class:"tw"},[t])}
+  return weCsvWrap(el("div",{class:"tw"},[t]))}
 function barCell(label,v,max){var n=el("div");n.appendChild(el("div",{text:label}));var b=el("div",{class:"bar"});b.style.width=Math.max(1,100*v/(max||1))+"%";n.appendChild(b);return{node:n}}
 function dayChart(series,title){
   var mn="",mxT="";series.forEach(function(p){if(!mn||p[0]<mn)mn=p[0];if(p[0]>mxT)mxT=p[0]});

@@ -90,7 +90,7 @@ function coName(id){return CO.names[id]||("…"+String(id).slice(-6))}
 function coTable(cols,rows,rc){
   var t=el("table"),h=el("tr");cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
   var b=el("tbody");rows.forEach(function(r){var tr=el("tr");if(rc&&rc(r))tr.style.opacity=".95";cols.forEach(function(c){tr.appendChild(el("td",{class:c[2]?"n":"",text:String(c[1](r))}))});b.appendChild(tr)});t.appendChild(b);
-  var w=el("div",{class:"tw"});w.appendChild(t);return w}
+  var w=el("div",{class:"tw"});w.appendChild(t);return weCsvWrap(w)}
 function coFromCache(cid){
   if(!D.companies||!D.companies.length)return false;
   var rows=D.companies.filter(function(r){var e=r[5]>=0?D.ents[r[5]]:null;return e&&e[1]===cid});
