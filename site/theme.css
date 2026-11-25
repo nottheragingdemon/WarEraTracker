@@ -129,3 +129,7 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 
 .view-switch{display:none}
 @media (max-width:640px){.view-switch{display:inline-flex}}
+
+.site-foot{margin:8px 0 0;padding:18px 32px 28px;border-top:1px solid var(--border);color:var(--muted);font-size:13px;text-align:center}
+.site-foot a{color:var(--link,var(--accent))}
+@media (max-width:560px){.site-foot{padding:16px}}

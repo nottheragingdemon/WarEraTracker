@@ -58,7 +58,7 @@ def main():
         if "bounty" in what: C.collect_bounty(cl, db, a.bounty_top, scope)
         if "contracts" in what: C.collect_contracts(cl, db, since, scope)
         if "companies" in what: C.collect_companies(cl, db, scope)
-        print(f"done, {cl.n} API calls")
+        print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
         return
     if a.cmd == "alerts":
         from . import alerts as AL
