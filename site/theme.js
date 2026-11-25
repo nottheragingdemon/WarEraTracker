@@ -55,6 +55,7 @@ var dev=false;try{dev=localStorage.getItem("we-dev")==="1"}catch(e){}
 var here=(location.pathname.split("/").pop()||"index.html");
 if(!dev&&HIDDEN_PAGES.indexOf(here)>=0){location.replace("index.html");return}
 document.addEventListener("DOMContentLoaded",function(){
+  if(!dev)document.querySelectorAll("#apps a[data-dev]").forEach(function(a){a.remove()});
   if(!dev)HIDDEN_PAGES.forEach(function(h){document.querySelectorAll('#apps a[href="'+h+'"]').forEach(function(a){a.remove()})});
   var f=document.querySelector(".site-foot"),n=0,t=0;if(!f)return;
   f.addEventListener("click",function(e){if(e.target.closest("a"))return;var now=Date.now();n=now-t>4000?1:n+1;t=now;
