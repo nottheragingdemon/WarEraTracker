@@ -63,7 +63,7 @@ function calc(){
     g.emp=r[2];g.mgr=r[3];g.nco=r[4];g.nem=r[5];g.si=g.nem?Math.min(1,g.w/g.nem):0;g.sm=g.nco?Math.min(1,g.n/g.nco):0;
     g.gi=g.emp*g.si;g.gm=g.mgr*g.sm;g.ti=g.wages*(ct[0]||0)/100;g.o=g.ti+g.gm;
     wages+=g.wages;staff+=g.w;gInc+=g.gi;gMan+=g.gm;return g}).sort(function(a,b){return b.o-a.o});
-  var empTax=wages*(ct[0]||0)/100,manTax=gMan,mpay=ct[1]>0?manTax/(ct[1]/100):null;
+  var empTax=wages*(ct[0]||0)/100,manTax=ct[1]===0?0:gMan,mpay=ct[1]>0?manTax/(ct[1]/100):null;
   /* hourly history: wages x the host's income tax rate at that time, held from each check to the next (max 6 h) */
   var keys={};list.forEach(function(g){keys[g.id]=1});
   (D.wageHist||[]).forEach(function(r){if(r[1]===st.src&&R[r[0]]&&R[r[0]][1]===st.host)keys[r[0]]=1});
@@ -73,7 +73,7 @@ function calc(){
   for(var i=0;i<runs.length;i++){
     var t0=runs[i],nx=i+1<runs.length?runs[i+1]:now,t1=Math.min(nx,t0+CAP);if(t1<=t0)continue;
     var n=0,w=0,wg=0,mt=0;Object.keys(per).forEach(function(k){var x=step(per[k],t0);if(x){n+=x[1];w+=x[2];wg+=x[3];var g=regs[k],cur=R[k];if(cur&&cur[4])mt+=cur[3]*Math.min(1,x[1]/cur[4])}});
-    var rt=step(rates,t0),rate=rt?rt[1]:ct[0],hrs=(t1-t0)/36e5,tax=wg*(rate||0)/100;
+    var rt=step(rates,t0),rate=rt?rt[1]:ct[0],mr=rt?rt[2]:ct[1],hrs=(t1-t0)/36e5,tax=wg*(rate||0)/100;if(mr===0)mt=0;
     ivs.push({t:t0,h:hrs,n:n,w:w,wages:wg,rate:rate,tax:tax,mt:mt});
     var a=t0;while(a<t1){var ds=a-a%864e5,b=Math.min(t1,ds+864e5),hh=(b-a)/36e5,key=new Date(ds).toISOString().slice(0,10),d=days[key]=days[key]||{day:key,h:0,n:0,w:0,paid:0,tax:0,mt:0};
       d.h+=hh;d.n+=n*hh;d.w+=w*hh;d.paid+=wg*hh;d.tax+=tax*hh;d.mt+=mt*hh;a=b}}
@@ -98,7 +98,7 @@ function render(){
   /* 1: per hour now */
   var c1=card("What "+hn+" collects on "+sn+" companies, per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
     [["Employees ("+M.staff+" workers)",m4(M.wages),String(M.rate==null?"–":M.rate+"%"),m4(M.empTax)],
-     ["Managers ("+M.ncomp+" companies)",M.mpay==null?"not exposed":m4(M.mpay),String(M.mrate==null?"–":M.mrate+"%"),m4(M.manTax)],
+     ["Managers ("+M.ncomp+" companies)",M.mrate===0?"not needed (0% tax)":M.mpay==null?"not exposed":m4(M.mpay),String(M.mrate==null?"–":M.mrate+"%"),m4(M.manTax)],
      ["Total","","",m4(M.hour)]]),
     note(M.hour.toFixed(4)+" /h × 24 = "+(M.hour*24).toFixed(2)+" /day. "+M.ncomp+" active "+sn+" companies across "+M.regs.length+" region(s) of "+hn+". Employee tax = the wages those companies pay each hour × "+hn+"’s income tax rate. The game does not expose what managers are paid, so manager tax is the game’s own region figure for managers, scaled by the share of the region’s companies that are "+sn+"’s (implied pay = that tax ÷ the manager rate).")]);
   v.appendChild(c1);
