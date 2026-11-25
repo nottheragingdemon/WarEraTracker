@@ -42,8 +42,15 @@ document.addEventListener("DOMContentLoaded",function(){var w=document.getElemen
 function mark(){var v=document.documentElement.classList.contains("plain-tables")?"table":"cards";w.querySelectorAll("button").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.view===v))})}
 mark();w.onclick=function(e){var b=e.target.closest("button");if(!b)return;set(b.dataset.view);mark()}})})();
 
-/* Temporarily hidden apps (testing): empty this list to bring them back. Hidden pages drop out of the menu and redirect to the Tracker. */
+/* Temporarily hidden apps (testing): empty HIDDEN_PAGES to bring them back for everyone.
+   Testing mode: tap the words "Supported by" in the footer 5 times to show them on this device (tap 5 times again to hide). */
 var HIDDEN_PAGES=["company.html","ask.html"];
-(function(){var here=(location.pathname.split("/").pop()||"index.html");
-if(HIDDEN_PAGES.indexOf(here)>=0){location.replace("index.html");return}
-document.addEventListener("DOMContentLoaded",function(){HIDDEN_PAGES.forEach(function(h){document.querySelectorAll('#apps a[href="'+h+'"]').forEach(function(a){a.remove()})})})})();
+(function(){
+var dev=false;try{dev=localStorage.getItem("we-dev")==="1"}catch(e){}
+var here=(location.pathname.split("/").pop()||"index.html");
+if(!dev&&HIDDEN_PAGES.indexOf(here)>=0){location.replace("index.html");return}
+document.addEventListener("DOMContentLoaded",function(){
+  if(!dev)HIDDEN_PAGES.forEach(function(h){document.querySelectorAll('#apps a[href="'+h+'"]').forEach(function(a){a.remove()})});
+  var f=document.querySelector(".site-foot"),n=0,t=0;if(!f)return;
+  f.addEventListener("click",function(e){if(e.target.closest("a"))return;var now=Date.now();n=now-t>4000?1:n+1;t=now;
+    if(n>=5){n=0;try{localStorage.setItem("we-dev",dev?"0":"1")}catch(x){}f.firstChild.textContent=dev?"Testing mode off. ":"Testing mode on. ";setTimeout(function(){location.reload()},700)}})})})();
