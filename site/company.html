@@ -35,7 +35,8 @@
 var D=null,st={tab:"companies",from:"",to:"",country:-1};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
-var fmt=function(n){if(n==null)return"–";var a=Math.abs(n);if(a>=1e9)return(n/1e9).toFixed(2)+"B";if(a>=1e6)return(n/1e6).toFixed(2)+"M";if(a>=1e4)return(n/1e3).toFixed(1)+"k";return Number(n).toLocaleString(undefined,{maximumFractionDigits:2})};
+var fmt=function(n){var o=new String(fmt0(n));o.raw=n==null?"":Math.round(n*100)/100;return o};
+var fmt0=function(n){if(n==null)return"–";var a=Math.abs(n);if(a>=1e9)return(n/1e9).toFixed(2)+"B";if(a>=1e6)return(n/1e6).toFixed(2)+"M";if(a>=1e4)return(n/1e3).toFixed(1)+"k";return Number(n).toLocaleString(undefined,{maximumFractionDigits:2})};
 var fmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};
 var TYPE={user:"Player",mu:"MU",country:"Country",alliance:"Alliance"};
 function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||(e[0]==="country"?e[1].slice(-6):TYPE[e[0]]+" …"+e[1].slice(-6))}
@@ -89,7 +90,7 @@ async function coLoad(){
 function coName(id){return CO.names[id]||("…"+String(id).slice(-6))}
 function coTable(cols,rows,rc){
   var t=el("table"),h=el("tr");cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
-  var b=el("tbody");rows.forEach(function(r){var tr=el("tr");if(rc&&rc(r))tr.style.opacity=".95";cols.forEach(function(c){tr.appendChild(el("td",{class:c[2]?"n":"",text:String(c[1](r))}))});b.appendChild(tr)});t.appendChild(b);
+  var b=el("tbody");rows.forEach(function(r){var tr=el("tr");if(rc&&rc(r))tr.style.opacity=".95";cols.forEach(function(c){var v=c[1](r),td=el("td",{class:c[2]?"n":"",text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});t.appendChild(b);
   var w=el("div",{class:"tw"});w.appendChild(t);return weCsvWrap(w)}
 function coFromCache(cid){
   if(!D.companies||!D.companies.length)return false;
