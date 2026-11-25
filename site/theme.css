@@ -1,4 +1,4 @@
-/* Shared look for WarEra Tracker, Company tax tracker and Ask Claude (dark by default; light via html[data-theme="light"]) */
+/* Shared look for WarEra Tracker, Company tax tracker and Ask WarEra (dark by default; light via html[data-theme="light"]) */
 :root{
   --bg:#0b0d10;--panel:#14181d;--panel-2:#1a1f25;--border:#2e3640;--border-strong:#636d7c;
   --text:#e6e9ee;--muted:#a1aab8;--faint:#848d9b;--focus:#6cb0fb;--accent:#4ade80;--accent-dim:#166534;
@@ -107,3 +107,22 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 .chart .col:hover{opacity:.8}
 .axis{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:4px 0 0 50px}
 #tip{position:fixed;pointer-events:none;background:var(--panel-2);color:var(--text);border:1px solid var(--border-strong);padding:4px 8px;border-radius:6px;font-size:12px;display:none;z-index:9;max-width:240px}
+@media (max-width:640px){
+ body{font-size:14px}
+ .card{padding:12px 10px}
+ .kpis{grid-template-columns:repeat(3,1fr);gap:8px}
+ .kpi{padding:10px 8px}
+ .idc code{font-size:10px}
+ .chartwrap{overflow-x:auto}
+}
+
+/* phones: tables that opt in (table.stack) become one card per row, so every value is visible without sideways scrolling */
+@media (max-width:640px){
+ table.stack,table.stack tbody,table.stack tr,table.stack td{display:block;width:100%}
+ table.stack thead{display:none}
+ table.stack tr{border:1px solid var(--border);border-radius:8px;padding:6px 10px;margin:0 0 10px;background:var(--panel-2)}
+ table.stack td{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border:0;white-space:normal;text-align:right}
+ table.stack td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;text-align:left;flex:none}
+ table.stack td.n{white-space:nowrap}
+}
+@media (max-width:640px){.header-top{flex-wrap:wrap}}

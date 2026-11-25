@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ask Claude about WarEra</title>
+<title>Ask WarEra</title>
 <link rel="stylesheet" href="theme.css">
 <script src="theme.js"></script>
 </head>
 <body>
 <header>
   <div class="header-top">
-    <a class="brand" href="index.html"><h1>💬 Ask Claude</h1><div class="tag">Plain-English questions about WarEra, answered as tables</div></a>
+    <a class="brand" href="index.html"><h1>💬 Ask WarEra</h1><div class="tag">Plain-English questions about WarEra, answered as tables</div></a>
     <div class="header-actions">
       <div id="theme-switch" class="theme-switch" role="group" aria-label="Colour theme">
         <button type="button" data-theme-pref="auto" aria-pressed="true" title="Follow your device's light or dark setting">Auto</button>
@@ -19,7 +19,7 @@
       </div>
     </div>
   </div>
-  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="ask.html" aria-current="page">Ask Claude</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="ask.html" aria-current="page">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
@@ -165,7 +165,7 @@ fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   D=d;build();stale();
   $("meta").textContent="Data updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+T.battles.rows.length+" battles · ask in plain English, Claude returns a table";
   sample=await window.claude.use("sample");
-  if(sample)$("go").disabled=false;else $("status").textContent="Asking Claude is not available here. Open this page in Claude (it needs the Ask Claude capability).";
+  if(sample)$("go").disabled=false;else $("status").textContent="Asking WarEra is not available here. Open this page in Claude (it needs the Ask WarEra capability).";
 }).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
 })();
 </script>

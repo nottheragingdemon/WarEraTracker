@@ -45,21 +45,21 @@ def company_tax():
 ASK_URL = "https://claude.ai/artifact/JaT33Me1TK4kUoGEXjJKZg"
 
 
-def ask_claude():
-    st.header("Ask Claude about WarEra")
+def ask_warera():
+    st.header("Ask WarEra")
     st.write(
         "Type a question in plain English and Claude queries the tracker data (and, for live facts, the WarEra API) "
         "and returns a table. It runs inside Claude, using your own Claude account, so access is controlled by who the "
         "page is shared with in Claude."
     )
-    st.link_button("Open Ask Claude", ASK_URL.rstrip("/"), type="primary")
+    st.link_button("Open Ask WarEra", ASK_URL.rstrip("/"), type="primary")
 
 
 nav = st.navigation(
     [
         st.Page(tracker, title="WarEra Tracker", icon="⚔️", url_path="tracker", default=True),
         st.Page(company_tax, title="Company tax tracker", icon="🏭", url_path="company-tax"),
-        st.Page(ask_claude, title="Ask Claude", icon="💬", url_path="ask"),
+        st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
     ],
     position="top",
 )

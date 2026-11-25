@@ -19,7 +19,7 @@
       </div>
     </div>
   </div>
-  <nav class="apps" id="apps"><a href="index.html" aria-current="page">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="ask.html">Ask Claude</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+  <nav class="apps" id="apps"><a href="index.html" aria-current="page">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
@@ -97,8 +97,8 @@ function countryKpis(bs){var t=countryTotals(bs);return kpis([
 /* ---------- widgets ---------- */
 function kpis(items){return el("div",{class:"kpis"},items.map(function(x){return el("div",{class:"kpi"},[el("b",{text:x[1]}),el("span",{text:x[0]})])}))}
 function mk(head,rows,numCols,selCols){
-  var t=el("table"),h=el("tr");head.forEach(function(x,i){var c=(numCols.indexOf(i)>=0?"n ":"")+((selCols||[]).indexOf(i)>=0?"sel":"");h.appendChild(el("th",{text:x,class:c.trim()}))});t.appendChild(el("thead",null,[h]));
-  var tb=el("tbody");rows.forEach(function(r){var tr=el("tr");r.forEach(function(c,i){var cl=(numCols.indexOf(i)>=0?"n ":"")+((selCols||[]).indexOf(i)>=0?"sel":"");var td=el("td",{class:cl.trim()});if(c&&c.node)td.appendChild(c.node);else td.textContent=c==null?"–":c;tr.appendChild(td)});tb.appendChild(tr)});t.appendChild(tb);
+  var t=el("table",{class:"stack"}),h=el("tr");head.forEach(function(x,i){var c=(numCols.indexOf(i)>=0?"n ":"")+((selCols||[]).indexOf(i)>=0?"sel":"");h.appendChild(el("th",{text:x,class:c.trim()}))});t.appendChild(el("thead",null,[h]));
+  var tb=el("tbody");rows.forEach(function(r){var tr=el("tr");r.forEach(function(c,i){var cl=(numCols.indexOf(i)>=0?"n ":"")+((selCols||[]).indexOf(i)>=0?"sel":"");var td=el("td",{class:cl.trim(),"data-label":head[i]||""});if(c&&c.node)td.appendChild(c.node);else td.textContent=c==null?"–":c;tr.appendChild(td)});tb.appendChild(tr)});t.appendChild(tb);
   return el("div",{class:"tw"},[t])}
 function barCell(label,v,max){var n=el("div");n.appendChild(el("div",{text:label}));var b=el("div",{class:"bar"});b.style.width=Math.max(1,100*v/(max||1))+"%";n.appendChild(b);return{node:n}}
 function dayChart(series,title){
