@@ -38,4 +38,10 @@ jobs:
       - name: Commit data.json (Streamlit redeploys on push)
         run: |
           git add site/data.json
-          git diff --cached --quiet || (git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)" && git push)
+          git diff --cached --quiet || {
+            git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
+            for i in 1 2 3; do
+              git pull --rebase -q origin main && git push && break
+              sleep 5
+            done
+          }

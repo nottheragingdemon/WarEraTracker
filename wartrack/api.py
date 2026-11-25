@@ -31,10 +31,20 @@ class Client:
         # gateway first (cached, de-duplicated), official API as the fallback; WARERA_GATEWAY=0 turns it off
         self.use_gateway = bool(self.key) and os.environ.get("WARERA_GATEWAY", "1") != "0"
         self.gw_fail = 0
+        self.gw_skip = set()
         self.gw_served = 0
 
     def _base(self):
         return GATEWAY if self.use_gateway else BASE
+
+    def _gw_reject(self, proc, e):
+        """The gateway refused this procedure (4xx): skip it for the rest of the run, keep the gateway for the others."""
+        try:
+            body = e.read()[:160].decode("utf-8", "replace")
+        except Exception:
+            body = ""
+        self.gw_skip.add(proc)
+        print(f"  [gateway] {proc}: HTTP {e.code} {body!r}; this procedure goes to the official API", flush=True)
 
     def _gw_bad(self, why):
         self.gw_fail += 1
@@ -67,8 +77,8 @@ class Client:
         for attempt in range(5):
             self._throttle()
             self.n += 1
-            gw = self.use_gateway
-            url = self._base() + tail
+            gw = self.use_gateway and proc not in self.gw_skip
+            url = (GATEWAY if gw else BASE) + tail
             try:
                 with urllib.request.urlopen(urllib.request.Request(url, headers=self._headers()), timeout=self.timeout) as r:
                     j = json.loads(r.read())
@@ -79,7 +89,11 @@ class Client:
                 return j["result"]["data"]
             except urllib.error.HTTPError as e:
                 if gw:
-                    self._gw_bad(f"HTTP {e.code}"); continue
+                    if 400 <= e.code < 500 and e.code != 429:
+                        self._gw_reject(proc, e)
+                    else:
+                        self._gw_bad(f"HTTP {e.code}")
+                    continue
                 if e.code == 429 or e.code >= 500:
                     time.sleep(5 * (attempt + 1)); continue
                 try:
@@ -103,7 +117,7 @@ class Client:
         for attempt in range(5):
             self._throttle()
             self.n += 1
-            gw = self.use_gateway and not official
+            gw = self.use_gateway and not official and not any(c[0] in self.gw_skip for c in calls)
             url = (GATEWAY if gw else BASE) + tail
             try:
                 with urllib.request.urlopen(urllib.request.Request(url, headers=self._headers()), timeout=self.timeout) as r:
@@ -116,7 +130,13 @@ class Client:
                 return [None if "error" in x else x["result"]["data"] for x in j]
             except urllib.error.HTTPError as e:
                 if gw:
-                    self._gw_bad(f"HTTP {e.code}"); continue
+                    if 400 <= e.code < 500 and e.code != 429:
+                        for c in calls:
+                            self.gw_skip.add(c[0])
+                        print(f"  [gateway] batch of {names[:50]}: HTTP {e.code}; these go to the official API", flush=True)
+                    else:
+                        self._gw_bad(f"HTTP {e.code}")
+                    continue
                 if e.code == 429 or e.code >= 500:
                     time.sleep(5 * (attempt + 1)); continue
                 raise ApiError(f"batch {names[:60]}: HTTP {e.code}")
