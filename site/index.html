@@ -157,15 +157,15 @@ function locOf(i){var b=D.battles[i];if(b[10]<0)return-1;var r=(D.regionsNow||{}
 function allianceChart(){
   var aid=st.alliance;
   if(aid<0){var ea=Object.keys(D.alliances||{}).filter(function(a){return nm(+a)==="The Emerald Accord"})[0];aid=ea!==undefined?+ea:-1}
-  var card=el("div",{class:"card"},[el("h2",{text:(st.metric?"Coin":"Damage")+" per country: "+(aid>=0?nm(aid):"alliance")})]);
+  var card=el("div",{class:"card"},[el("h2",{text:(["Damage","Coin","Coin per 1M damage"][st.metric])+" per country: "+(aid>=0?nm(aid):"alliance")})]);
   if(aid<0||!D.alliances[aid]){card.appendChild(el("div",{class:"note",text:"Select an alliance to chart its countries."}));return card}
-  var kind=st.metric,members=D.alliances[aid];
+  var kind=st.metric===1?1:0,per=st.metric===2,members=D.alliances[aid];
   var inRange=[];D.battles.forEach(function(b,i){var d=b[2].slice(0,10);if((!st.from||d>=st.from)&&(!st.to||d<=st.to))inRange.push(i)});
   var locs={};inRange.forEach(function(i){var l=locOf(i);if(l>=0)locs[l]=1});
   if(st.loc>=0&&!locs[st.loc])st.loc=-1;
   var pool=inRange.filter(function(i){return st.loc<0||locOf(i)===st.loc});
   var sel=pool.filter(function(i){return !st.bsel||st.bsel.has(i)});
-  card.appendChild(chips([[0,"Damage"],[1,"Coin"]],"metric"));
+  card.appendChild(chips([[0,"Damage"],[1,"Coin"],[2,"Coin per 1M damage"]],"metric"));
   var row=el("div",{class:"filters"}),lsel=el("select");lsel.appendChild(el("option",{value:"",text:"All"}));
   Object.keys(locs).map(Number).sort(function(a,b){return nm(a).localeCompare(nm(b))}).forEach(function(l){lsel.appendChild(el("option",{value:String(l),text:nm(l)}))});
   lsel.value=st.loc<0?"":String(st.loc);lsel.onchange=function(){st.loc=lsel.value===""?-1:+lsel.value;st.bsel=null;render()};
@@ -178,14 +178,15 @@ function allianceChart(){
     cb.onchange=function(){if(!st.bsel)st.bsel=new Set(pool);cb.checked?st.bsel.add(i):st.bsel.delete(i);render()};
     lb.appendChild(cb);lb.appendChild(document.createTextNode(" "+b[2].slice(0,10)+" "+region(b)+": "+nm(b[4])+" v "+nm(b[5])));list.appendChild(lb)});
   det.appendChild(list);card.appendChild(det);
-  var rows=members.map(function(c){var t=0,n=0;sel.forEach(function(i){var v=val(kind,i,c);if(v){t+=v.t;n++}});return{c:c,t:t,n:n}}).filter(function(r){return r.t>0}).sort(function(a,b){return b.t-a.t});
-  if(!rows.length){card.appendChild(el("div",{class:"note",text:"No "+(kind?"coin":"damage")+" recorded for these battles."}));return card}
+  var rows=members.map(function(c){var t=0,n=0,d=0,m=0;sel.forEach(function(i){var v=val(kind,i,c);if(v){t+=v.t;n++}if(per){var dv=val(0,i,c),mv=val(1,i,c);if(dv)d+=dv.t;if(mv)m+=mv.t}});
+    if(per){t=d>0?m/(d/1e6):0}return{c:c,t:t,n:n}}).filter(function(r){return r.t>0}).sort(function(a,b){return b.t-a.t});
+  if(!rows.length){card.appendChild(el("div",{class:"note",text:"No "+(per?"coin per damage":kind?"coin":"damage")+" recorded for these battles."}));return card}
   var mx=rows[0].t,tot=rows.reduce(function(a,r){return a+r.t},0),box=el("div",{class:"hbars"});
   rows.forEach(function(r,k){var line=el("div",{class:"hrow"}),bar=el("div",{class:"hbar"});bar.style.width=Math.max(1,100*r.t/mx)+"%";
     line.appendChild(el("span",{class:"hname",text:(k+1)+". "+nm(r.c)}));line.appendChild(el("div",{class:"htrack"},[bar]));line.appendChild(el("span",{class:"hval",text:fmt0(r.t)}));
     line.addEventListener("mousemove",function(e){tip(e,nm(r.c)+": "+fmt0(r.t)+" ("+(100*r.t/tot).toFixed(1)+"%, "+r.n+" battles)")});line.addEventListener("mouseleave",untip);box.appendChild(line)});
   card.appendChild(box);
-  card.appendChild(el("div",{class:"note",text:"Total "+fmt0(tot)+" over "+sel.length+" battles ("+(st.from||"start")+" to "+(st.to||"now")+"). Own and opposing side both count."}));
+  card.appendChild(el("div",{class:"note",text:(per?"Each bar is the country's total coin divided by its total damage in millions, over ":"Total "+fmt0(tot)+" over ")+sel.length+" battles ("+(st.from||"start")+" to "+(st.to||"now")+"). Own and opposing side both count."}));
   return card}
 
 /* ---------- views ---------- */
