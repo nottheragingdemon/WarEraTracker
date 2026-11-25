@@ -1,20 +1,12 @@
 name: probe-estimate
-# One-off, manual: calls the official API (key goes only to api2.warera.io) to inspect employee.getCompanyEstimate.
+# One-off, manual: official API only (the key goes to api2.warera.io).
 on: workflow_dispatch
 jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe
+      - uses: actions/checkout@v4
+      - name: Compare estimates with listed wages
         env:
-          K: ${{ secrets.WARERA_API_KEY }}
-        run: |
-          set +e
-          B=https://api2.warera.io/trpc
-          q(){ curl -s -m 40 -w "\n[http %{http_code}]\n" -H "X-API-Key: $K" -G "$B/$1" --data-urlencode "input=$2" | head -c "${3:-1200}"; echo; }
-          echo "== estimate, company with 5 workers (id from earlier scan)"
-          for c in 68e67d1f97ef61438563f0ac 6828643930891af9015a8fdf; do
-            echo "-- $c"; q employee.getCompanyEstimate "{\"companyId\":\"$c\"}"
-          done
-          echo "== company.getById for comparison"; q company.getById '{"companyId":"68e67d1f97ef61438563f0ac"}' 900
-          echo "== empty input (shows required fields)"; q employee.getCompanyEstimate '{}' 600
+          WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
+        run: python3 scripts/probe_estimate.py
