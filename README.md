@@ -1,25 +1,19 @@
-# 🎈 Blank app template
+# WarEra Tracker
 
-A simple Streamlit app template for you to modify!
+Dashboard for WarEra battle damage, orders, bounty, contracts and citizens' company locations/taxes,
+filterable by alliance, country, MU and player. Data comes from `api2.warera.io`.
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://blank-app-template.streamlit.app/)
+- `streamlit_app.py` serves `site/index.html` with `site/data.json` inlined (deploy on Streamlit Community Cloud).
+- `.github/workflows/refresh.yml` runs hourly: restores the history database from the `state` branch, collects new data,
+  rebuilds `site/data.json`, saves the database back to `state` (one force-pushed commit) and commits `data.json`.
+- `wartrack/` is the collector/exporter (standard library only). `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
 
-### How to run it on your own machine
+## Set up
+1. Repo **Settings → Secrets and variables → Actions → New repository secret**: `WARERA_API_KEY` = your API key.
+2. Repo **Settings → Actions → General → Workflow permissions: Read and write**.
+3. **Actions → Refresh data → Run workflow** once.
+4. On https://share.streamlit.io choose **Create app**, pick this repo, branch `main`, file `streamlit_app.py`.
 
-Prerequisite: install `uv` if you don't already have it.
+The API key is never stored in the repo. This repo is public, so the `state` branch (the collected game data) is public too.
 
-```
-$ curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-1. Sync the dependencies
-
-   ```
-   $ uv sync
-   ```
-
-2. Run the app
-
-   ```
-   $ uv run streamlit run streamlit_app.py
-   ```
+Run locally: `WARERA_API_KEY=... sh refresh.sh` then `uv run streamlit run streamlit_app.py`.

@@ -1,0 +1,37 @@
+name: Refresh data
+
+on:
+  schedule:
+    - cron: "17 * * * *"   # hourly; GitHub may start runs late or skip one
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Restore history from the state branch
+        run: sh state.sh restore
+      - name: Collect and export
+        env:
+          WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
+        run: sh refresh.sh
+      - name: Save history to the state branch
+        run: |
+          git config user.name "warera-tracker"; git config user.email "warera-tracker@users.noreply.github.com"
+          sh state.sh save
+      - name: Commit data.json (Streamlit redeploys on push)
+        run: |
+          git add site/data.json
+          git diff --cached --quiet || (git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)" && git push)
