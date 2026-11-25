@@ -22,7 +22,7 @@ Run locally: `WARERA_API_KEY=... sh refresh.sh` then `uv run streamlit run strea
 `site/index.html` (WarEra Tracker), `site/company.html` (Company tax tracker) and `site/ask.html` (Ask Claude: plain-English questions answered as tables; needs Claude's artifact runtime). `streamlit_app.py` serves the first two with navigation.
 
 ## Alerts (optional)
-Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook). Each hourly refresh then posts new battles involving the tracked alliance's countries. The first run only records a baseline.
+Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook). Each hourly refresh then posts: new battles involving the tracked alliance's countries; new contracts for those battles (grouped per battle); and bounty postings (a new entry or a rise of at least `ALERT_BOUNTY_MIN`, default 10,000) on players, MUs and countries of the alliance, with the active battle noted when there is one. The API doesn't tie bounties to a battle, so they are linked through the country. The first run only records a baseline.
 
 ## Tax sampling
 `.github/workflows/tax-sample.yml` records region tax rates every 15 minutes (one public API call), so tax history is finer than the hourly refresh. The page shows a warning when `data.json` is more than 3 hours old.
