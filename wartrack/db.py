@@ -30,6 +30,8 @@ CREATE TABLE IF NOT EXISTS region_rate(region TEXT, t INTEGER, emp REAL, mgr REA
 CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT, workers INT, wages REAL, mgr REAL);
 CREATE TABLE IF NOT EXISTS region_now(region TEXT PRIMARY KEY, name TEXT, country TEXT, emp REAL, mgr REAL, res REAL, companies INT, employees INT);
 CREATE TABLE IF NOT EXISTS country_tax(country TEXT PRIMARY KEY, name TEXT, income REAL, manager REAL, market REAL);
+CREATE TABLE IF NOT EXISTS country_now(country TEXT PRIMARY KEY, name TEXT, money REAL, wealth REAL, wealth_rank INT, population INT, development REAL, updated TEXT);
+CREATE TABLE IF NOT EXISTS wealth_now(eid TEXT PRIMARY KEY, country TEXT, mu TEXT, value REAL, rank INT, updated TEXT);
 CREATE TABLE IF NOT EXISTS wage_snap(region TEXT, owner_country TEXT, t INTEGER, companies INT, workers INT, wages REAL, mgr REAL, PRIMARY KEY(region,owner_country,t));
 CREATE TABLE IF NOT EXISTS rate_hist(country TEXT, t INTEGER, income REAL, manager REAL, PRIMARY KEY(country,t));
 CREATE TABLE IF NOT EXISTS alliances(id TEXT PRIMARY KEY, name TEXT, leader TEXT);

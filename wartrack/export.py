@@ -103,6 +103,10 @@ def export(db, out, since, scope=None):
         companies.append([r["name"], E("user", r["owner"]), r["item"], round(r["value"] or 0), r["region"], E("country", r["owner_country"]),
                           r["workers"] or 0, round(r["wages"] or 0, 6), round(r["mgr"] or 0, 6)])
         companies_at = r["seen"]
+    country_now = {str(E("country", r["country"])): [r["money"], r["wealth"], r["wealth_rank"], r["population"], r["development"]]
+                   for r in db.execute("SELECT * FROM country_now")}
+    wealth = [[E("user", r["eid"]), E("country", r["country"]), E("mu", r["mu"]), r["value"], r["rank"]]
+              for r in db.execute("SELECT * FROM wealth_now ORDER BY value DESC")]
     regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"]]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
@@ -125,7 +129,7 @@ def export(db, out, since, scope=None):
     data = {"v": 2, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
             "ents": ents, "battles": battles, "stats": stats, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
-            "regionsNow": regions_now, "countryTax": country_tax,
+            "regionsNow": regions_now, "countryNow": country_now, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs}
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))

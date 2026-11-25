@@ -57,6 +57,10 @@ function build(){
    rows:D.contracts.map(function(c){return[c[2],c[3],c[1],ent(c[4]),c[5],c[6],c[7],c[8],ent(c[9]),ent(c[10]),ent(c[11]),c[14]]})};
   T.companies={cols:["company","owner","item","est_value","region","owner_country"],
    rows:(D.companies||[]).map(function(c){return[c[0],ent(c[1]),c[2],c[3],regionName[c[4]]||c[4],ent(c[5])]})};
+  T.country_now={cols:["country","treasury","country_wealth","wealth_rank","population","development"],
+   rows:Object.keys(D.countryNow||{}).map(function(k){var r=D.countryNow[k];return[ent(+k),Math.round(r[0]*100)/100,Math.round(r[1]),r[2],r[3],r[4]]})};
+  T.player_wealth={cols:["rank","player","country","mu","wealth"],
+   rows:(D.wealthNow||[]).map(function(r){return[r[4],ent(r[0]),ent(r[1]),ent(r[2]),Math.round(r[3])]})};
   var td=[];Object.keys((D.taxHist||{}).days||{}).sort().forEach(function(d){var x=D.taxHist.days[d];Object.keys(x.r).forEach(function(rid){td.push([d,regionName[rid]||rid,x.h,x.r[rid]])})});
   T.region_tax_days={cols:["day","region","hours_tracked","tax_collected_whole_region"],rows:td};
   var am=[];Object.keys(D.alliances||{}).forEach(function(a){D.alliances[a].forEach(function(c){am.push([ent(+a),ent(c)])})});
@@ -70,7 +74,9 @@ var DOC={
  contracts:"mercenary contracts tied to tracked battles: budget, payout (current payout), winners, bid_count",
  companies:"companies owned by citizens of the tracked alliance's countries and the region they stand in (collected daily)",
  region_tax_days:"integrated region tax (employee+manager income tax) per region and UTC day since tracking began; hours_tracked = hours covered that day",
- alliance_members:"alliance to member country"};
+ alliance_members:"alliance to member country",
+ country_now:"current state of every country: treasury (money), country_wealth (game wealth ranking value and rank), population, development",
+ player_wealth:"richest players of the tracked alliance's countries (game userWealth ranking, top ~200 per country, latest snapshot): wealth, country, mu. The game does not say whether this counts companies"};
 
 /* ---------- query tool ---------- */
 function runQuery(q){

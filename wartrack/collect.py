@@ -191,6 +191,36 @@ def collect_bounty(c, db, top=200, scope=None):
     db.commit()
 
 
+def collect_wealth(c, db, top=200, scope=None):
+    """Richest players (userWealth ranking) per member country, newest snapshot only; unnamed players are looked up."""
+    members = scope.members if scope and scope.members else None
+    ts = now_iso()
+    if members:
+        streams = [c.pages("ranking.getRankingPage", rankingType="userWealth", limit=50, max_pages=max(1, top // 50), countryId=m) for m in members]
+    else:
+        streams = [c.pages("ranking.getRankingPage", rankingType="userWealth", limit=50, max_pages=max(1, top // 50))]
+    rows = []
+    for st in streams:
+        for e in st:
+            if e.get("user") and (not members or e.get("country") in members):
+                rows.append((e["user"], e.get("country"), e.get("mu"), e["value"], e.get("rank"), ts))
+    if not rows:
+        log("wealth: no data, kept the previous snapshot"); return
+    db.execute("DELETE FROM wealth_now")
+    db.executemany("INSERT OR REPLACE INTO wealth_now VALUES(?,?,?,?,?,?)", rows)
+    for r in rows:
+        db.execute("INSERT INTO users(id,country,mu) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET country=COALESCE(excluded.country,country), mu=COALESCE(excluded.mu,mu)", (r[0], r[1], r[2]))
+    need = [r["id"] for r in db.execute("SELECT u.id FROM users u JOIN wealth_now w ON w.eid=u.id WHERE u.name IS NULL")]
+    for i in range(0, len(need), 40):
+        chunk = need[i:i + 40]
+        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
+            if d:
+                db.execute("UPDATE users SET name=? WHERE id=?", (d.get("username"), u))
+                db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
+    db.commit()
+    log(f"wealth: {len(rows)} players ranked, {len(need)} names looked up")
+
+
 STATUSES = ["active", "won", "expiredNoBids", "expiredBattle", "expiredRound", "cancelled"]
 
 
@@ -267,6 +297,10 @@ def collect_regions(c, db):
                 db.execute("INSERT OR REPLACE INTO rate_hist VALUES(?,?,?,?)", (ct["_id"], now, cur[0], cur[1]))
             db.execute("INSERT OR REPLACE INTO country_tax VALUES(?,?,?,?,?)",
                        (ct["_id"], ct.get("name"), tx.get("income"), tx.get("manager"), tx.get("market")))
+            cw = (ct.get("rankings") or {}).get("countryWealth") or {}
+            db.execute("INSERT OR REPLACE INTO country_now VALUES(?,?,?,?,?,?,?,?)",
+                       (ct["_id"], ct.get("name"), ct.get("money"), cw.get("value"), cw.get("rank"),
+                        ct.get("currentPopulation"), ct.get("currentDevelopment"), now_iso()))
     except Exception as e:
         log(f"country taxes: skipped ({e})")
     db.commit()
