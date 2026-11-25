@@ -19,7 +19,7 @@ The API key is never stored in the repo. This repo is public, so the `state` bra
 Run locally: `WARERA_API_KEY=... sh refresh.sh` then `uv run streamlit run streamlit_app.py`.
 
 ## Apps
-`site/index.html` (WarEra Tracker), `site/company.html` (Company tax tracker) and `site/ask.html` (Ask WarEra: plain-English questions answered as tables; needs Claude's artifact runtime). `streamlit_app.py` serves the first two with navigation.
+`site/index.html` (WarEra Tracker), `site/company.html` (Company tax tracker: pick a host country and a source country; per-hour tax, daily and monthly owed, staff cross-check and day-by-day table) and `site/ask.html` (Ask WarEra: plain-English questions answered as tables; needs Claude's artifact runtime). `streamlit_app.py` serves the first two with navigation.
 
 ## Alerts (optional)
 Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook). Each hourly refresh then posts new battles involving the tracked alliance's countries. The first run only records a baseline.

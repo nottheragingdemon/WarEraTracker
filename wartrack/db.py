@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, 
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS region_rate(region TEXT, t INTEGER, emp REAL, mgr REAL, PRIMARY KEY(region,t));
 CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT);
+CREATE TABLE IF NOT EXISTS region_now(region TEXT PRIMARY KEY, name TEXT, country TEXT, emp REAL, mgr REAL, res REAL, companies INT, employees INT);
+CREATE TABLE IF NOT EXISTS country_tax(country TEXT PRIMARY KEY, name TEXT, income REAL, manager REAL, market REAL);
 CREATE TABLE IF NOT EXISTS alliances(id TEXT PRIMARY KEY, name TEXT, leader TEXT);
 CREATE TABLE IF NOT EXISTS alliance_members(alliance TEXT, country TEXT, PRIMARY KEY(alliance,country));
 CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, country TEXT, mu TEXT, name TEXT);
@@ -44,5 +46,9 @@ def connect(path):
     cols = [r[1] for r in db.execute("PRAGMA table_info(users)")]
     if cols and "name" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN name TEXT")
+    ccols = [r[1] for r in db.execute("PRAGMA table_info(companies)")]
+    for col, typ in (("workers", "INT"), ("wages", "REAL")):
+        if ccols and col not in ccols:
+            db.execute(f"ALTER TABLE companies ADD COLUMN {col} {typ}")
     db.executescript(SCHEMA)
     return db

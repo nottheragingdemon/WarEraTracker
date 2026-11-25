@@ -250,6 +250,20 @@ def collect_regions(c, db):
         cur = (float(inc.get("employeeIncomeTax") or 0), float(inc.get("managerIncomeTax") or 0))
         if last.get(r["_id"]) != cur:
             db.execute("INSERT OR REPLACE INTO region_rate VALUES(?,?,?,?)", (r["_id"], now, cur[0], cur[1])); changed += 1
+    db.execute("DELETE FROM region_now")
+    for r in d.values():
+        inc = r.get("income") or {}
+        db.execute("INSERT OR REPLACE INTO region_now VALUES(?,?,?,?,?,?,?,?)",
+                   (r["_id"], r.get("name") or r.get("code"), r.get("country"), float(inc.get("employeeIncomeTax") or 0),
+                    float(inc.get("managerIncomeTax") or 0), float(inc.get("strategicResourcesBonus") or 0),
+                    r.get("companyCount") or 0, r.get("employeeCount") or 0))
+    try:
+        for ct in c.call("country.getAllCountries"):
+            tx = ct.get("taxes") or {}
+            db.execute("INSERT OR REPLACE INTO country_tax VALUES(?,?,?,?,?)",
+                       (ct["_id"], ct.get("name"), tx.get("income"), tx.get("manager"), tx.get("market")))
+    except Exception as e:
+        log(f"country taxes: skipped ({e})")
     db.commit()
     log(f"regions: {len(d)} stored, tax rates changed in {changed}")
 
@@ -291,10 +305,11 @@ def collect_companies(c, db, scope):
         chunk = ids[i:i + 40]
         for cid, d in zip(chunk, c.batch([("company.getById", {"companyId": x}) for x in chunk])):
             if d:
+                ws = d.get("workers") or []
                 rows.append((cid, d.get("name"), d.get("user") or owned[cid], d.get("itemCode"), d.get("estimatedValue") or 0,
-                             d.get("region"), citizens.get(owned[cid]), ts))
+                             d.get("region"), citizens.get(owned[cid]), ts, len(ws), round(sum(float(w.get("wage") or 0) for w in ws), 4)))
     if rows or not ids:
         db.execute("DELETE FROM companies")
-        db.executemany("INSERT OR REPLACE INTO companies VALUES(?,?,?,?,?,?,?,?)", rows)
+        db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages) VALUES(?,?,?,?,?,?,?,?,?,?)", rows)
     db.commit()
     log(f"companies: {len(rows)} stored")
