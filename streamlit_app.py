@@ -20,6 +20,10 @@ def page(name: str) -> str:
     if old not in html:
         raise RuntimeError(f"{name} no longer loads data.json the expected way")
     html = re.sub(r'<nav class="apps" id="apps">.*?</nav>', "", html, flags=re.S)  # Streamlit's own navigation replaces it
+    css = (HERE / "site" / "theme.css").read_text(encoding="utf-8")
+    js = (HERE / "site" / "theme.js").read_text(encoding="utf-8")
+    html = html.replace('<link rel="stylesheet" href="theme.css">', "<style>" + css + "</style>")
+    html = html.replace('<script src="theme.js"></script>', "<script>" + js + "</script>")
     return html.replace(old, "Promise.resolve(" + data.replace("</", "<\\/") + ")", 1)
 
 
