@@ -1,3 +1,4 @@
+import os
 import json, datetime as dt, re
 
 ISO = "%Y-%m-%dT%H:%M:%S.%fZ"
@@ -359,18 +360,20 @@ def collect_companies(c, db, scope):
                 owned[cid] = u
             if d.get("nextCursor") and d["items"]:
                 pending.append((u, d["nextCursor"]))
-    ids = list(owned)
+    seen = {r["id"]: r["seen"] or "" for r in db.execute("SELECT id,seen FROM companies")}
+    ids = sorted(owned, key=lambda x: seen.get(x, ""))   # never-seen first, then the stalest: each run refreshes what fits the budget
     rows = []
     import time as _t
     t0, est_ok = _t.monotonic(), True
+    BUDGET = float(os.environ.get("WARTRACK_COMPANY_BUDGET", "480"))
     log(f"companies: {len(ids)} owned, fetching details")
     for i in range(0, len(ids), 40):
         chunk = ids[i:i + 40]
         if (i // 40) % 5 == 0:
             log(f"  companies {i}/{len(ids)} ({_t.monotonic() - t0:.0f}s, api calls so far: {c.n})")
-        if est_ok and _t.monotonic() - t0 > 600:  # keep the hourly run bounded: wages from the company record for the rest
-            est_ok = False
-            log("  estimates: 10 minute budget used, the rest use the wages listed on each company")
+        if _t.monotonic() - t0 > BUDGET:   # keep each run short; the remaining companies keep their last values and go first next run
+            log(f"  companies: time budget used after {i}/{len(ids)}; the rest are refreshed in the next runs")
+            break
         details = c.batch([("company.getById", {"companyId": x}) for x in chunk])
         active = [(cid, d) for cid, d in zip(chunk, details) if d and not d.get("disabledAt")]  # inactive companies pay no wages
         # live hourly money cost of the real employees and the manager (not lagged, not cached)
@@ -383,9 +386,12 @@ def collect_companies(c, db, scope):
                 wages, mgr = sum(float(w.get("wage") or 0) for w in ws), 0.0
             rows.append((cid, d.get("name"), d.get("user") or owned[cid], d.get("itemCode"), d.get("estimatedValue") or 0,
                          d.get("region"), citizens.get(owned[cid]), ts, len(ws), round(wages, 6), round(mgr, 6)))
-    if rows or not ids:
+    if ids:
+        db.executemany("DELETE FROM companies WHERE id=?", [(r["id"],) for r in db.execute("SELECT id FROM companies").fetchall() if r["id"] not in owned])
+    else:
         db.execute("DELETE FROM companies")
-        db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
-    snapshot_wages(db, rows)
+    db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
+    allrows = [tuple(r) for r in db.execute("SELECT id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr FROM companies")]
+    snapshot_wages(db, allrows)
     db.commit()
-    log(f"companies: {len(rows)} stored")
+    log(f"companies: {len(rows)} refreshed this run, {len(allrows)} stored")
