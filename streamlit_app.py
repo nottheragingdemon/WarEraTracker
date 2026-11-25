@@ -55,14 +55,14 @@ def ask_warera():
     st.link_button("Open Ask WarEra", ASK_URL.rstrip("/"), type="primary")
 
 
-nav = st.navigation(
-    [
-        st.Page(tracker, title="WarEra Tracker", icon="⚔️", url_path="tracker", default=True),
-        st.Page(company_tax, title="Company tax tracker", icon="🏭", url_path="company-tax"),
-        st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
-    ],
-    position="top",
-)
+# Temporarily hidden while testing: set to [] to bring these pages back (and see HIDDEN_PAGES in site/theme.js)
+HIDDEN = ("company-tax", "ask")
+_pages = [
+    st.Page(tracker, title="WarEra Tracker", icon="⚔️", url_path="tracker", default=True),
+    st.Page(company_tax, title="Company tax tracker", icon="🏭", url_path="company-tax"),
+    st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
+]
+nav = st.navigation([p for p in _pages if p.url_path not in HIDDEN or p.default], position="top")
 st.markdown(
     '<div style="text-align:right;font-size:14px"><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer">we.hawtre.net ↗</a></div>',
     unsafe_allow_html=True,

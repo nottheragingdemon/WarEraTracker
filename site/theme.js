@@ -41,3 +41,9 @@ set(g()||"cards");
 document.addEventListener("DOMContentLoaded",function(){var w=document.getElementById("view-switch");if(!w)return;
 function mark(){var v=document.documentElement.classList.contains("plain-tables")?"table":"cards";w.querySelectorAll("button").forEach(function(b){b.setAttribute("aria-pressed",String(b.dataset.view===v))})}
 mark();w.onclick=function(e){var b=e.target.closest("button");if(!b)return;set(b.dataset.view);mark()}})})();
+
+/* Temporarily hidden apps (testing): empty this list to bring them back. Hidden pages drop out of the menu and redirect to the Tracker. */
+var HIDDEN_PAGES=["company.html","ask.html"];
+(function(){var here=(location.pathname.split("/").pop()||"index.html");
+if(HIDDEN_PAGES.indexOf(here)>=0){location.replace("index.html");return}
+document.addEventListener("DOMContentLoaded",function(){HIDDEN_PAGES.forEach(function(h){document.querySelectorAll('#apps a[href="'+h+'"]').forEach(function(a){a.remove()})})})})();
