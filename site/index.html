@@ -28,10 +28,10 @@ button.chip[aria-pressed=true]{background:var(--s1);border-color:var(--s1);color
 .kpi span{font-size:11px;color:var(--ink2)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px}
 .card h2{font-size:13px;margin:0 0 8px;color:var(--ink2);font-weight:600}
-.chart{display:flex;align-items:flex-end;gap:3px;height:120px}
+.chartwrap{display:flex;gap:6px}.yax{display:flex;flex-direction:column;justify-content:space-between;height:120px;font-size:10px;color:var(--ink2);text-align:right;min-width:44px;line-height:1}.chart{flex:1;position:relative;display:flex;align-items:flex-end;gap:3px;height:120px}.gl{position:absolute;left:0;right:0;border-top:1px solid var(--line);pointer-events:none}.chart .col{position:relative;z-index:1}.idc{display:inline-flex;gap:6px;align-items:center}.idc code{font-size:11px;user-select:all}.idc .chip{padding:1px 8px;font-size:11px}
 .chart .col{flex:1;min-width:2px;background:var(--s1);border-radius:3px 3px 0 0}
 .chart .col:hover{opacity:.8}
-.axis{display:flex;justify-content:space-between;font-size:10px;color:var(--ink2);margin-top:4px}
+.axis{display:flex;justify-content:space-between;font-size:10px;color:var(--ink2);margin:4px 0 0 50px}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 th{font-size:11px;color:var(--ink2);font-weight:600}
@@ -136,11 +136,21 @@ function dayChart(series,title){
   var keys=Object.keys(days).sort(),card=el("div",{class:"card"},[el("h2",{text:title})]);
   if(!keys.length){card.appendChild(el("div",{class:"note",text:"No data in this selection."}));return card}
   var mx=Math.max.apply(null,keys.map(function(k){return days[k]}))||1,ch=el("div",{class:"chart"});
+  ["0","50%","calc(100% - 1px)"].forEach(function(t){var g=el("div",{class:"gl"});g.style.top=t;ch.appendChild(g)});
   keys.forEach(function(k){var c=el("div",{class:"col"});c.style.height=Math.max(2,100*days[k]/mx)+"%";c.addEventListener("mousemove",function(e){tip(e,k.replace("T"," ")+(L===13?":00":"")+": "+fmt(days[k]))});c.addEventListener("mouseleave",untip);ch.appendChild(c)});
-  card.appendChild(ch);card.appendChild(el("div",{class:"axis"},[el("span",{text:keys[0].replace("T"," ")}),el("span",{text:keys[keys.length-1].replace("T"," ")})]));return card}
+  var wrap=el("div",{class:"chartwrap"},[el("div",{class:"yax"},[el("span",{text:fmt(mx)}),el("span",{text:fmt(mx/2)}),el("span",{text:"0"})]),ch]);
+  card.appendChild(wrap);card.appendChild(el("div",{class:"axis"},[el("span",{text:keys[0].replace("T"," ")}),el("span",{text:keys[keys.length-1].replace("T"," ")})]));return card}
 function chips(opts,key,cb){var seg=el("div",{class:"seg"});opts.forEach(function(o){var b=el("button",{class:"chip",text:o[1],"aria-pressed":String(st[key]===o[0])});b.onclick=function(){st[key]=o[0];if(cb)cb();render()};seg.appendChild(b)});return seg}
 
 /* per-battle table shared by every tab: attacker, defender, totals per side, then the selected country / MU / player */
+function copyText(t,btn){
+  function done(ok){var o=btn.textContent==="Copied"||btn.textContent==="Select & copy"?"Copy":btn.textContent;btn.textContent=ok?"Copied":"Select & copy";setTimeout(function(){btn.textContent=o},1500)}
+  var ta=document.createElement("textarea");ta.value=t;ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();
+  var ok=false;try{ok=document.execCommand("copy")}catch(e){}document.body.removeChild(ta);
+  if(ok){done(true);return}
+  try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){done(true)},function(){done(false)});return}}catch(e){}
+  done(false)}
+function idCell(id){var w=el("span",{class:"idc"});w.appendChild(el("code",{text:id,title:"Battle id"}));var b=el("button",{class:"chip",text:"Copy","aria-label":"Copy battle id"});b.onclick=function(e){e.stopPropagation();copyText(id,b)};w.appendChild(b);return w}
 function battleRows(bs,kind){
   var rows=bs.map(function(i){var b=D.battles[i],t=sideTot(kind,i);return{i:i,b:b,t:t,sel:sels().map(function(p){var v=val(kind,i,p[1]);return v?v.t:0})}});
   if(st.sort==="total")rows.sort(function(x,y){return y.t[2]-x.t[2]});
@@ -149,19 +159,19 @@ function battleRows(bs,kind){
   return rows}
 function battleHead(kind,extra){
   var w=kind===0?"damage":"money";
-  var h=["Created","Battle","Region","Attacker","Defender","Total "+w,"Attacker "+w,"Defender "+w];
+  var h=["Created","Region","Attacker","Defender","Total "+w,"Attacker "+w,"Defender "+w];
   var sc=[];sels().forEach(function(p){sc.push(h.length,h.length+1,h.length+2);h.push(tname(p[0])+" "+w+": "+nm(p[1]),"…for attacker","…for defender")});
-  return{head:h.concat(extra||[]),sel:sc,num:[5,6,7].concat(sc)}}
+  return{head:h.concat(extra||[],["Battle"]),sel:sc,num:[4,5,6].concat(sc)}}
 function battleTable(bs,kind,title,extraHead,extraFn,numExtra){
   var card=el("div",{class:"card"},[el("h2",{text:title})]);
   if(numExtra===undefined)numExtra=false;
   var seg=chips([["date","Newest"],["total","Largest total"]].concat(sels().length?[["sel","Largest selected"]]:[]),"sort");card.appendChild(seg);
   var rows=battleRows(bs,kind),H=battleHead(kind,extraHead);
   var shown=rows.slice(0,st.limit).map(function(r){var b=r.b;
-    var c=[fmtD(b[2]),b[1]+" …"+b[0].slice(-4),region(b),nm(b[4]),nm(b[5]),fmt(r.t[2]),fmt(r.t[0]),fmt(r.t[1])];
+    var c=[fmtD(b[2]),region(b),nm(b[4]),nm(b[5]),fmt(r.t[2]),fmt(r.t[0]),fmt(r.t[1])];
     sels().forEach(function(p){c.push(selCell(kind,r.i,p[1]),selSide(kind,r.i,p[1],"a"),selSide(kind,r.i,p[1],"d"))});
-    return c.concat(extraFn?extraFn(r.i):[])});
-  var nums=H.num.slice();if(numExtra&&extraHead)for(var q=0;q<extraHead.length;q++)nums.push(H.head.length-extraHead.length+q);
+    return c.concat(extraFn?extraFn(r.i):[],[{node:idCell(b[0])}])});
+  var nums=H.num.slice();if(numExtra&&extraHead)for(var q=0;q<extraHead.length;q++)nums.push(H.head.length-1-extraHead.length+q);
   card.appendChild(mk(H.head,shown,nums,H.sel));
   if(rows.length>st.limit){var m=el("button",{class:"chip",text:"Show more ("+(rows.length-st.limit)+" left)"});m.onclick=function(){st.limit+=100;render()};card.appendChild(m)}
   if(!rows.length)card.appendChild(el("div",{class:"note",text:"No battles match this selection."}));
@@ -181,19 +191,6 @@ function vDamage(v){
   var arr=Object.keys(agg).map(function(e){return[+e,agg[e][0],agg[e][1]]}).sort(function(a,b){return b[1]-a[1]});
   var mx=arr.length?arr[0][1]:1;
   card.appendChild(mk([tname(by==="battle"?"country":by),"Battles","Damage"],arr.slice(0,25).map(function(r){return[nm(r[0]),String(r[2]),barCell(fmt(r[1]),r[1],mx)]}),[1,2]));
-  v.appendChild(card)}
-
-function vOrders(v){
-  var bs=battleSet(),set=new Set(bs),agg={};
-  D.orders.forEach(function(o){if(!set.has(o[0]))return;var e=o[2],t=D.ents[e][0];if(st.country>=0&&t==="country"&&e!==st.country)return;if(st.mu>=0&&t==="mu"&&e!==st.mu)return;
-    var k=e+"|"+o[1],a=agg[k]=agg[k]||{e:e,side:o[1],n:0,first:o[3],last:o[4]};a.n++;if(o[3]<a.first)a.first=o[3];if(o[4]>a.last)a.last=o[4]});
-  var arr=Object.keys(agg).map(function(k){return agg[k]}).sort(function(a,b){return b.n-a.n});
-  if(st.country>=0){var oc=0,oa=0,od=0;D.orders.forEach(function(o){if(set.has(o[0])&&o[2]===st.country){oc++;if(o[1]==="a")oa++;else od++}});v.appendChild(kpis([["Battles ordered into by "+nm(st.country),String(oc)],["Ordered to attacker side",String(oa)],["Ordered to defender side",String(od)]]))}
-  v.appendChild(kpis([["Battles in selection",String(bs.length)],["Distinct orders",String(arr.length)]]));
-  var ob={};D.orders.forEach(function(o){var e=o[2];if(e===st.country||e===st.mu)(ob[o[0]]=ob[o[0]]||[]).push(nm(e)+" → "+(o[1]==="a"?"attacker":"defender"))});
-  v.appendChild(battleTable(bs,0,"Battles with orders",sels().length?["Ordered (selected)"]:[],sels().length?function(i){return[(ob[i]||[]).join(", ")||"–"]}:null));
-  var card=el("div",{class:"card"},[el("h2",{text:"Orders: countries and MUs ordered into battles (top 40)"}),el("div",{class:"note",text:"The API only exposes current orders, so order history starts when collection began."})]);
-  card.appendChild(mk(["Type","Entity","Side","Battles","First seen","Last seen"],arr.slice(0,40).map(function(a){return[tname(D.ents[a.e][0]),nm(a.e),a.side==="a"?"attacker":"defender",String(a.n),fmtD(a.first),fmtD(a.last)]}),[3]));
   v.appendChild(card)}
 
 function inScope(e,rowCountry,rowMu){ // does a bounty ranking row belong to the current country / MU / player selection?
@@ -249,7 +246,7 @@ function vBpm(v){
   if(isMu&&rows.length>shown.length){var more=el("button",{class:"chip",text:"Show more ("+(rows.length-shown.length)+" left)"});more.onclick=function(){st.limit+=50;render()};card.appendChild(more)}
   v.appendChild(card)}
 
-var TABS=[["damage","Damage",vDamage],["orders","Orders",vOrders],["bpm","Bounty per 1M damage",vBpm]];
+var TABS=[["damage","Damage",vDamage],["bpm","Bounty per 1M damage",vBpm]];
 function render(){
   var tabs=$("tabs");tabs.textContent="";TABS.forEach(function(t){var b=el("button",{role:"tab",text:t[1],"aria-selected":String(st.tab===t[0])});b.onclick=function(){st.tab=t[0];st.limit=50;try{location.hash=t[0]}catch(e){}render()};tabs.appendChild(b)});
   var v=$("view");v.textContent="";TABS.filter(function(t){return t[0]===st.tab})[0][2](v)}
