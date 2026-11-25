@@ -37,7 +37,7 @@ var D=null,st={host:-1,src:-1,month:""};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
 function num(n,d){var o=new String(n==null||isNaN(n)?"–":Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}));o.raw=n==null||isNaN(n)?"":Math.round(n*1e4)/1e4;return o}
-var m2=function(n){return num(n,2)},m4=function(n){return num(n,4)},m0=function(n){return num(n,0)};
+var m1=function(n){return num(n,1)},m2=function(n){return num(n,2)},m4=function(n){return num(n,4)},m0=function(n){return num(n,0)};
 var fmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};
 function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||(e[1].slice(-6))}
 function tbl(cols,rows){
@@ -52,20 +52,33 @@ function monthName(m){return new Date(m+"-01T00:00:00Z").toLocaleString("en-GB",
 function nextMonthFirst(m){var y=+m.slice(0,4),mo=+m.slice(5,7);return new Date(Date.UTC(y,mo,1)).toISOString().slice(0,10)}
 
 /* ---------- model ---------- */
+var CAP=6*3600*1000;
 function hostOf(c){var r=(D.regionsNow||{})[c[4]];return r?r[1]:-1}
+function step(arr,t){var lo=0,hi=arr.length-1,k=-1;while(lo<=hi){var m=(lo+hi)>>1;if(arr[m][0]<=t){k=m;lo=m+1}else hi=m-1}return k<0?null:arr[k]}
 function calc(){
   var R=D.regionsNow||{},regs={},comps=[];
   D.companies.forEach(function(c){if(c[5]!==st.src||hostOf(c)!==st.host)return;comps.push(c);
     var g=regs[c[4]]=regs[c[4]]||{id:c[4],name:R[c[4]][0],n:0,w:0,wages:0};g.n++;g.w+=c[6]||0;g.wages+=c[7]||0});
-  var inc=0,man=0,wages=0,staff=0,list=Object.keys(regs).map(function(k){var g=regs[k],r=R[k],emp=r[2],mgr=r[3],nco=r[4],nem=r[5];
-    g.emp=emp;g.mgr=mgr;g.nco=nco;g.nem=nem;
-    g.si=nem?Math.min(1,g.w/nem):0;g.sm=nco?Math.min(1,g.n/nco):0;
-    g.inc=emp*g.si;g.man=mgr*g.sm;g.f=(emp+mgr)>0?(g.inc+g.man)/(emp+mgr):0;
-    inc+=g.inc;man+=g.man;wages+=g.wages;staff+=g.w;return g}).sort(function(a,b){return(b.inc+b.man)-(a.inc+a.man)});
-  var TH=D.taxHist||{days:{}},fac={};list.forEach(function(g){fac[g.id]=g.f});
-  var days={};Object.keys(TH.days||{}).forEach(function(d){var x=TH.days[d],o=0;for(var rid in x.r)if(fac[rid])o+=fac[rid]*x.r[rid];days[d]={day:d,h:x.h,owed:o,wages:wages*x.h}});
-  var ct=(D.countryTax||{})[st.host]||[null,null];
-  return{comps:comps,regs:list,inc:inc,man:man,hour:inc+man,wages:wages,staff:staff,days:days,rate:ct[0],mrate:ct[1],ncomp:comps.length}}
+  var ct=(D.countryTax||{})[st.host]||[null,null],wages=0,staff=0,gInc=0,gMan=0,list=Object.keys(regs).map(function(k){var g=regs[k],r=R[k];
+    g.emp=r[2];g.mgr=r[3];g.nco=r[4];g.nem=r[5];g.si=g.nem?Math.min(1,g.w/g.nem):0;g.sm=g.nco?Math.min(1,g.n/g.nco):0;
+    g.gi=g.emp*g.si;g.gm=g.mgr*g.sm;g.ti=g.wages*(ct[0]||0)/100;g.o=g.ti+g.gm;
+    wages+=g.wages;staff+=g.w;gInc+=g.gi;gMan+=g.gm;return g}).sort(function(a,b){return b.o-a.o});
+  var empTax=wages*(ct[0]||0)/100,manTax=gMan,mpay=ct[1]>0?manTax/(ct[1]/100):null;
+  /* hourly history: wages x the host's income tax rate at that time, held from each check to the next (max 6 h) */
+  var keys={};list.forEach(function(g){keys[g.id]=1});
+  (D.wageHist||[]).forEach(function(r){if(r[1]===st.src&&R[r[0]]&&R[r[0]][1]===st.host)keys[r[0]]=1});
+  var per={};(D.wageHist||[]).forEach(function(r){if(r[1]!==st.src||!keys[r[0]])return;(per[r[0]]=per[r[0]]||[]).push([r[2],r[3],r[4],r[5]])});
+  var rates=(D.rateHist||{})[st.host]||[],runs=(D.runs||[]).slice(),now=Date.now();
+  var ivs=[],days={};
+  for(var i=0;i<runs.length;i++){
+    var t0=runs[i],nx=i+1<runs.length?runs[i+1]:now,t1=Math.min(nx,t0+CAP);if(t1<=t0)continue;
+    var n=0,w=0,wg=0,mt=0;Object.keys(per).forEach(function(k){var x=step(per[k],t0);if(x){n+=x[1];w+=x[2];wg+=x[3];var g=regs[k],cur=R[k];if(cur&&cur[4])mt+=cur[3]*Math.min(1,x[1]/cur[4])}});
+    var rt=step(rates,t0),rate=rt?rt[1]:ct[0],hrs=(t1-t0)/36e5,tax=wg*(rate||0)/100;
+    ivs.push({t:t0,h:hrs,n:n,w:w,wages:wg,rate:rate,tax:tax,mt:mt});
+    var a=t0;while(a<t1){var ds=a-a%864e5,b=Math.min(t1,ds+864e5),hh=(b-a)/36e5,key=new Date(ds).toISOString().slice(0,10),d=days[key]=days[key]||{day:key,h:0,n:0,w:0,paid:0,tax:0,mt:0};
+      d.h+=hh;d.n+=n*hh;d.w+=w*hh;d.paid+=wg*hh;d.tax+=tax*hh;d.mt+=mt*hh;a=b}}
+  Object.keys(days).forEach(function(k){var d=days[k];d.o=d.tax+d.mt;d.n=d.h?d.n/d.h:0;d.w=d.h?d.w/d.h:0});
+  return{comps:comps,regs:list,wages:wages,staff:staff,ncomp:comps.length,rate:ct[0],mrate:ct[1],empTax:empTax,manTax:manTax,mpay:mpay,hour:empTax+manTax,gInc:gInc,days:days,ivs:ivs}}
 
 /* ---------- view ---------- */
 function render(){
@@ -73,46 +86,52 @@ function render(){
   if(st.host<0||st.src<0){v.appendChild(note("No collected companies yet. Company data is collected by the scheduled refresh; check back after the next run."));return}
   var M=calc(),hn=nm(st.host),sn=nm(st.src),today=new Date().toISOString().slice(0,10),mk=st.month;
   var dm=Object.keys(M.days).filter(function(d){return d.slice(0,7)===mk}).sort().map(function(d){return M.days[d]});
-  var owedM=dm.reduce(function(s,x){return s+x.owed},0),hM=dm.reduce(function(s,x){return s+x.h},0),hAll=monthDays(mk)*24;
+  var owedM=dm.reduce(function(s,x){return s+x.o},0),hM=dm.reduce(function(s,x){return s+x.h},0),hAll=monthDays(mk)*24;
   var est=hM>0?owedM/hM*hAll:M.hour*hAll,tdy=M.days[today];
   v.appendChild(kpis([
-    [m2(M.hour*24),"Tax owed a day",(tdy?m2(tdy.owed)+" so far today":"no tracking yet today")],
-    [m2(M.hour),"Owed per hour, right now",""],
-    [(M.rate==null?"–":M.rate+"%")+" · "+(M.mrate==null?"–":M.mrate+"%"),hn+"’s taxes","income · manager"],
+    [m2(M.hour*24),"Tax owed a day",(tdy?m2(tdy.o)+" so far today":"no tracking yet today")],
+    [m2(M.hour),"Owed per hour, right now","employees "+m4(M.empTax)+" · managers "+m4(M.manTax)],
+    [(M.rate==null?"–":M.rate+"%")+" · "+(M.mrate==null?"–":M.mrate+"%"),hn+"’s taxes","employee income · manager"],
     [m2(owedM),"Total owed, "+monthName(mk),"tracked "+num(hM,1)+" of "+m0(hAll)+" h"],
     [m2(est),"Estimated bill, full month",monthName(mk)]]));
-  if(!M.ncomp){v.appendChild(card("Nothing to assess",[note("No collected "+sn+" companies stand in "+hn+". Pick another pair.")]));return}
+  if(!M.ncomp){v.appendChild(card("Nothing to assess",[note("No active "+sn+" companies stand in "+hn+" right now. Pick another pair.")]));return}
   /* 1: per hour now */
-  var c1=card("What "+hn+" owes on "+sn+" companies, per hour, right now",[tbl([["Tax",function(r){return r[0]}],["Region total /h",function(r){return m4(r[1])},1],["Share of region",function(r){return r[2]},1],["Owed /h",function(r){return m4(r[3])},1]],
-    [["Income tax (employees)",M.regs.reduce(function(s,g){return s+g.emp},0),pct(M.regs,"si","emp"),M.inc],["Manager tax (owners)",M.regs.reduce(function(s,g){return s+g.mgr},0),pct(M.regs,"sm","mgr"),M.man]]),
-    note("Total "+M.hour.toFixed(4)+" /h × 24 = "+(M.hour*24).toFixed(2)+" /day. Region totals are the game’s own hourly figures for every company in the region; the "+sn+" share is staff-based for income tax and company-count-based for manager tax. "+M.ncomp+" "+sn+" companies, "+M.staff+" staff, across "+M.regs.length+" regions of "+hn+".")]);
+  var c1=card("What "+hn+" collects on "+sn+" companies, per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
+    [["Employees ("+M.staff+" workers)",m4(M.wages),String(M.rate==null?"–":M.rate+"%"),m4(M.empTax)],
+     ["Managers ("+M.ncomp+" companies)",M.mpay==null?"not exposed":m4(M.mpay),String(M.mrate==null?"–":M.mrate+"%"),m4(M.manTax)],
+     ["Total","","",m4(M.hour)]]),
+    note(M.hour.toFixed(4)+" /h × 24 = "+(M.hour*24).toFixed(2)+" /day. "+M.ncomp+" active "+sn+" companies across "+M.regs.length+" region(s) of "+hn+". Employee tax = the wages those companies pay each hour × "+hn+"’s income tax rate. The game does not expose what managers are paid, so manager tax is the game’s own region figure for managers, scaled by the share of the region’s companies that are "+sn+"’s (implied pay = that tax ÷ the manager rate).")]);
   v.appendChild(c1);
   /* 2: cross check */
-  var est2=M.rate==null?null:M.wages*M.rate/100,c2=card("Cross-check from our own staff scan",[]);
-  if(!M.staff&&!M.wages)c2.appendChild(note("Staff and wages have not been collected yet; they appear after the next daily company scan."));
-  else{c2.appendChild(tbl([["Measure",function(r){return r[0]}],["Value",function(r){return r[1]},1]],[
-    ["Companies scanned",m0(M.ncomp)],["Employees",m0(M.staff)],["Wages /h (before tax)",m4(M.wages)],["Income tax rate",String(M.rate==null?"–":M.rate+"%")],["Estimated income tax /h (wages × rate)",m4(est2)],["Game’s figure, income tax /h",m4(M.inc)],["Game’s figure as % of estimate",est2?m2(M.inc/est2*100):"–"]]));
-    c2.appendChild(note("We bill the game’s figure above, not this estimate. A large gap means the staff scan misses companies or the region share is off. Manager pay is not collected, so manager tax has no cross-check."))}
+  var c2=card("Cross-check against the game’s own region figures",[]);
+  if(!M.staff&&!M.wages)c2.appendChild(note("Staff and wages have not been collected yet; they appear after the next refresh."));
+  else{var ratio=M.gInc?M.empTax/M.gInc*100:null;
+    c2.appendChild(tbl([["Measure",function(r){return r[0]}],["Value",function(r){return r[1]},1]],[
+    ["Employees tax /h, from wages × rate (billed)",m4(M.empTax)],["Employee tax /h, game’s region figure × worker share",m4(M.gInc)],["Billed as % of the game’s figure",ratio==null?"–":m2(ratio)]]));
+    c2.appendChild(note("The game’s figure is each region’s total employee income tax, scaled by "+sn+"’s share of the region’s workers. A large gap means wages or worker counts differ from what the game taxed."))}
   v.appendChild(c2);
-  /* 3: day by day */
-  var c3=card("Day by day, "+monthName(mk),[]);
-  if(!dm.length)c3.appendChild(note("No tracked time in this month yet."));
-  else{var cum=0,rows=dm.map(function(x){cum+=x.owed;return{day:x.day,h:x.h,w:x.wages,o:x.owed,c:cum}});
-    c3.appendChild(tbl([["Day (UTC)",function(r){return r.day}],["Hours tracked",function(r){return m2(r.h)},1],[sn+" wages paid (est.)",function(r){return m2(r.w)},1],["Owed",function(r){return m2(r.o)},1],["Cumulative",function(r){return m2(r.c)},1]],rows));
-    c3.appendChild(note("Each refresh records every region’s hourly tax; the rate at one check is held until the next (at most 6 h), days are UTC. Past days use today’s "+sn+" shares, so older figures are approximate. Wages paid = today’s wages/h × hours tracked."))}
+  /* 3: hour by hour */
+  var last=M.ivs.slice(-24).reverse(),c3=card("Hour by hour, latest checks",[]);
+  if(!last.length)c3.appendChild(note("Hourly tracking starts with the next refresh."));
+  else c3.appendChild(tbl([["Check (UTC)",function(x){return fmtD(new Date(x.t).toISOString())}],["Hours held",function(x){return m2(x.h)},1],["Companies",function(x){return m0(x.n)},1],["Employees",function(x){return m0(x.w)},1],["Wages /h",function(x){return m4(x.wages)},1],["Rate %",function(x){return x.rate==null?"–":x.rate},1],["Employee tax",function(x){return m4(x.tax*x.h)},1],["Manager tax",function(x){return m4(x.mt*x.h)},1],["Owed",function(x){return m4((x.tax+x.mt)*x.h)},1]],last));
   v.appendChild(c3);
-  /* 4: month bill */
-  var c4=card("This month’s bill: "+monthName(mk),[tbl([["Item",function(r){return r[0]}],["Amount",function(r){return r[1]},1]],[
-    ["Tax owed so far (tracked)",m2(owedM)],["Hours tracked / in month",num(hM,1)+" / "+m0(hAll)],["Estimated for the full month",m2(est)],["Payment due",nextMonthFirst(mk)]]),
-    note("The full-month estimate scales the tracked average to every hour of the month; with no tracking yet it uses the current hourly figure. Payments already made aren’t subtracted.")]);
+  /* 4: day by day */
+  var c4=card("Day by day, "+monthName(mk),[]);
+  if(!dm.length)c4.appendChild(note("No tracked time in this month yet."));
+  else{var cum=0,rows=dm.map(function(x){cum+=x.o;return{d:x,c:cum}});
+    c4.appendChild(tbl([["Day (UTC)",function(r){return r.d.day}],["Hours tracked",function(r){return m2(r.d.h)},1],["Avg companies",function(r){return m1(r.d.n)},1],["Avg employees",function(r){return m1(r.d.w)},1],["Employee wages paid",function(r){return m2(r.d.paid)},1],["Employee tax",function(r){return m2(r.d.tax)},1],["Manager tax",function(r){return m2(r.d.mt)},1],["Owed",function(r){return m2(r.d.o)},1],["Cumulative",function(r){return m2(r.c)},1]],rows));
+    c4.appendChild(note("Each refresh records the active companies, their workers and wages, and the host’s tax rate; the values at one check are held until the next (at most 6 h). Days are UTC. Company and worker counts change quickly, so each check uses what was found at that time."))}
   v.appendChild(c4);
-  /* 5: regions + companies */
-  v.appendChild(card("By region",[tbl([["Region",function(g){return g.name}],["Companies",function(g){return g.n+" / "+g.nco},1],["Staff",function(g){return g.w+" / "+g.nem},1],["Wages /h",function(g){return m4(g.wages)},1],["Owed /h",function(g){return m4(g.inc+g.man)},1],["Owed /day",function(g){return m2((g.inc+g.man)*24)},1]],M.regs)]));
+  /* 5: month bill */
+  v.appendChild(card("This month’s bill: "+monthName(mk),[tbl([["Item",function(r){return r[0]}],["Amount",function(r){return r[1]},1]],[
+    ["Employee tax so far",m2(dm.reduce(function(s,x){return s+x.tax},0))],["Manager tax so far",m2(dm.reduce(function(s,x){return s+x.mt},0))],["Total owed so far (tracked)",m2(owedM)],["Hours tracked / in month",num(hM,1)+" / "+m0(hAll)],["Estimated for the full month",m2(est)],["Payment due",nextMonthFirst(mk)]]),
+    note("The full-month estimate scales the tracked average to every hour of the month; with no tracking yet it uses the current hourly figure. Payments already made aren’t subtracted.")]));
+  /* 6: regions + companies */
+  v.appendChild(card("By region (now)",[tbl([["Region",function(g){return g.name}],["Companies",function(g){return g.n+" / "+g.nco},1],["Workers",function(g){return g.w+" / "+g.nem},1],["Wages /h",function(g){return m4(g.wages)},1],["Owed /h",function(g){return m4(g.o)},1],["Owed /day",function(g){return m2(g.o*24)},1]],M.regs)]));
   var lim=st.limit||100,cs=M.comps.slice().sort(function(a,b){return(b[7]||0)-(a[7]||0)});
-  var c5=card(sn+" companies in "+hn,[tbl([["Company",function(c){return c[0]||""}],["Owner",function(c){return nm(c[1])}],["Makes",function(c){return c[2]||""}],["Region",function(c){return D.regionsNow[c[4]][0]}],["Staff",function(c){return m0(c[6]||0)},1],["Wages /h",function(c){return m4(c[7]||0)},1]],cs.slice(0,lim))]);
+  var c5=card("Active "+sn+" companies in "+hn,[tbl([["Company",function(c){return c[0]||""}],["Owner",function(c){return nm(c[1])}],["Makes",function(c){return c[2]||""}],["Region",function(c){return D.regionsNow[c[4]][0]}],["Employees",function(c){return m0(c[6]||0)},1],["Wages /h",function(c){return m4(c[7]||0)},1]],cs.slice(0,lim))]);
   if(cs.length>lim){var b=el("button",{class:"chip",text:"Show more ("+(cs.length-lim)+" left)"});b.onclick=function(){st.limit=lim+200;render()};c5.appendChild(b)}
   v.appendChild(c5)}
-function pct(regs,k,t){var tot=regs.reduce(function(s,g){return s+g[t]},0),got=regs.reduce(function(s,g){return s+g[t]*g[k]},0);return tot?Math.round(got/tot*1000)/10+"%":"–"}
 
 /* ---------- controls ---------- */
 function fillSelects(){

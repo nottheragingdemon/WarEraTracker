@@ -258,14 +258,40 @@ def collect_regions(c, db):
                     float(inc.get("managerIncomeTax") or 0), float(inc.get("strategicResourcesBonus") or 0),
                     r.get("companyCount") or 0, r.get("employeeCount") or 0))
     try:
+        lastr = {r["country"]: (r["income"], r["manager"]) for r in db.execute(
+            "SELECT country,income,manager FROM rate_hist WHERE (country,t) IN (SELECT country,MAX(t) FROM rate_hist GROUP BY country)")}
         for ct in c.call("country.getAllCountries"):
             tx = ct.get("taxes") or {}
+            cur = (tx.get("income"), tx.get("manager"))
+            if lastr.get(ct["_id"]) != cur:
+                db.execute("INSERT OR REPLACE INTO rate_hist VALUES(?,?,?,?)", (ct["_id"], now, cur[0], cur[1]))
             db.execute("INSERT OR REPLACE INTO country_tax VALUES(?,?,?,?,?)",
                        (ct["_id"], ct.get("name"), tx.get("income"), tx.get("manager"), tx.get("market")))
     except Exception as e:
         log(f"country taxes: skipped ({e})")
     db.commit()
     log(f"regions: {len(d)} stored, tax rates changed in {changed}")
+
+
+def snapshot_wages(db, rows):
+    """Per (region, owner country): active companies, workers and wages/h at this check; a row is written only when it changed."""
+    import time
+    now = int(time.time() * 1000)
+    agg = {}
+    for r in rows:  # (id,name,owner,item,value,region,owner_country,seen,workers,wages)
+        if not r[5] or not r[6]:
+            continue
+        a = agg.setdefault((r[5], r[6]), [0, 0, 0.0]); a[0] += 1; a[1] += r[8]; a[2] += r[9]
+    last = {(x["region"], x["owner_country"]): (x["companies"], x["workers"], x["wages"]) for x in db.execute(
+        "SELECT region,owner_country,companies,workers,wages FROM wage_snap WHERE (region,owner_country,t) IN "
+        "(SELECT region,owner_country,MAX(t) FROM wage_snap GROUP BY region,owner_country)")}
+    for k in set(agg) | set(last):
+        cur = agg.get(k) or (0, 0, 0.0)
+        prev = last.get(k)
+        if prev is None and cur == (0, 0, 0.0):
+            continue
+        if prev is None or prev[0] != cur[0] or prev[1] != cur[1] or abs(prev[2] - cur[2]) > 1e-9:
+            db.execute("INSERT OR REPLACE INTO wage_snap VALUES(?,?,?,?,?,?)", (k[0], k[1], now, cur[0], cur[1], round(cur[2], 4)))
 
 
 def collect_companies(c, db, scope):
@@ -305,11 +331,14 @@ def collect_companies(c, db, scope):
         chunk = ids[i:i + 40]
         for cid, d in zip(chunk, c.batch([("company.getById", {"companyId": x}) for x in chunk])):
             if d:
+                if d.get("disabledAt"):
+                    continue  # inactive companies pay no wages
                 ws = d.get("workers") or []
                 rows.append((cid, d.get("name"), d.get("user") or owned[cid], d.get("itemCode"), d.get("estimatedValue") or 0,
                              d.get("region"), citizens.get(owned[cid]), ts, len(ws), round(sum(float(w.get("wage") or 0) for w in ws), 4)))
     if rows or not ids:
         db.execute("DELETE FROM companies")
         db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages) VALUES(?,?,?,?,?,?,?,?,?,?)", rows)
+    snapshot_wages(db, rows)
     db.commit()
     log(f"companies: {len(rows)} stored")

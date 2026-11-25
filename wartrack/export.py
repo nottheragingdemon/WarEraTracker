@@ -106,6 +106,12 @@ def export(db, out, since, scope=None):
     regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"]]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
+    wage_hist = [[r["region"], E("country", r["owner_country"]), r["t"], r["companies"], r["workers"], r["wages"]]
+                 for r in db.execute("SELECT * FROM wage_snap ORDER BY t")]
+    rate_hist = {}
+    for r in db.execute("SELECT * FROM rate_hist ORDER BY t"):
+        rate_hist.setdefault(str(E("country", r["country"])), []).append([r["t"], r["income"], r["manager"]])
+    runs = [r["t"] for r in db.execute("SELECT t FROM run_log ORDER BY t DESC LIMIT 1500")][::-1]
     for e in ents:
         r = db.execute("SELECT name FROM names WHERE etype=? AND eid=?", (e[0], e[1])).fetchone()
         e[2] = r["name"] if r else None
@@ -119,7 +125,8 @@ def export(db, out, since, scope=None):
     data = {"v": 2, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
             "ents": ents, "battles": battles, "stats": stats, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
-            "regionsNow": regions_now, "countryTax": country_tax}
+            "regionsNow": regions_now, "countryTax": country_tax,
+            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs}
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))
     return {k: len(v) for k, v in data.items() if isinstance(v, (list, dict))}
