@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS region_rate(region TEXT, t INTEGER, emp REAL, mgr REAL, PRIMARY KEY(region,t));
+CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT);
 CREATE TABLE IF NOT EXISTS alliances(id TEXT PRIMARY KEY, name TEXT, leader TEXT);
 CREATE TABLE IF NOT EXISTS alliance_members(alliance TEXT, country TEXT, PRIMARY KEY(alliance,country));
 CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, country TEXT, mu TEXT, name TEXT);

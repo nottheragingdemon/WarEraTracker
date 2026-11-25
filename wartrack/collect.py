@@ -252,3 +252,49 @@ def collect_regions(c, db):
             db.execute("INSERT OR REPLACE INTO region_rate VALUES(?,?,?,?)", (r["_id"], now, cur[0], cur[1])); changed += 1
     db.commit()
     log(f"regions: {len(d)} stored, tax rates changed in {changed}")
+
+
+def collect_companies(c, db, scope):
+    """Citizens of the scope's member countries and the companies they own (small: ~1k citizens), with the region each stands in."""
+    if not scope or not scope.members:
+        log("companies: no alliance scope, skipped"); return
+    ts = now_iso()
+    citizens = {}
+    for country in scope.members:
+        for u in c.pages("user.getUsersByCountry", countryId=country, limit=100):
+            citizens[u["_id"]] = country
+    log(f"companies: {len(citizens)} citizens in {len(scope.members)} countries")
+    known = {r["id"] for r in db.execute("SELECT id FROM users WHERE name IS NOT NULL")}
+    need = [u for u in citizens if u not in known]
+    for i in range(0, len(need), 40):
+        chunk = need[i:i + 40]
+        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
+            if d:
+                db.execute("INSERT INTO users(id,country,mu,name) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET country=excluded.country, name=excluded.name",
+                           (u, d.get("country") or citizens[u], d.get("mu"), d.get("username")))
+                db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
+    db.commit()
+    owned, pending = {}, [(u, None) for u in citizens]
+    while pending:
+        chunk, pending = pending[:40], pending[40:]
+        res = c.batch([("company.getCompanies", {"userId": u, "perPage": 100, "cursor": cur}) for u, cur in chunk])
+        for (u, _), d in zip(chunk, res):
+            if not d:
+                continue
+            for cid in d["items"]:
+                owned[cid] = u
+            if d.get("nextCursor") and d["items"]:
+                pending.append((u, d["nextCursor"]))
+    ids = list(owned)
+    rows = []
+    for i in range(0, len(ids), 40):
+        chunk = ids[i:i + 40]
+        for cid, d in zip(chunk, c.batch([("company.getById", {"companyId": x}) for x in chunk])):
+            if d:
+                rows.append((cid, d.get("name"), d.get("user") or owned[cid], d.get("itemCode"), d.get("estimatedValue") or 0,
+                             d.get("region"), citizens.get(owned[cid]), ts))
+    if rows or not ids:
+        db.execute("DELETE FROM companies")
+        db.executemany("INSERT OR REPLACE INTO companies VALUES(?,?,?,?,?,?,?,?)", rows)
+    db.commit()
+    log(f"companies: {len(rows)} stored")

@@ -68,6 +68,29 @@ class Client:
                 time.sleep(3 * (attempt + 1))
         raise ApiError(f"{proc}: gave up after retries")
 
+    def batch(self, calls):
+        """One HTTP request for several procedures: [(proc, params), ...] -> [data or None]. Failed entries give None."""
+        if not calls:
+            return []
+        names = ",".join(c[0] for c in calls)
+        inp = {str(i): ({k: v for k, v in c[1].items() if v is not None} if c[1] else {}) for i, c in enumerate(calls)}
+        url = BASE + names + "?batch=1&input=" + urllib.parse.quote(json.dumps(inp, separators=(",", ":")))
+        for attempt in range(5):
+            self._throttle()
+            self.n += 1
+            try:
+                with urllib.request.urlopen(urllib.request.Request(url, headers=self._headers()), timeout=self.timeout) as r:
+                    j = json.loads(r.read())
+                j = j if isinstance(j, list) else [j]
+                return [None if "error" in x else x["result"]["data"] for x in j]
+            except urllib.error.HTTPError as e:
+                if e.code == 429 or e.code >= 500:
+                    time.sleep(5 * (attempt + 1)); continue
+                raise ApiError(f"batch {names[:60]}: HTTP {e.code}")
+            except (urllib.error.URLError, TimeoutError):
+                time.sleep(3 * (attempt + 1))
+        raise ApiError("batch: gave up after retries")
+
     def pages(self, proc, max_pages=1000, **params):
         """Yield items across cursor pages."""
         cursor = None

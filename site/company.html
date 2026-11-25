@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Company tax tracker</title>
+<style>
+:root{--bg:#fcfcfb;--panel:#ffffff;--ink:#0b0b0b;--ink2:#52514e;--line:#e4e3df;--s1:#2a78d6;--s2:#eb6834;--good:#0e7a4f;--bad:#c23b3a}
+@media (prefers-color-scheme:dark){:root{--bg:#1a1a19;--panel:#222221;--ink:#f0efec;--ink2:#c3c2b7;--line:#383835;--s1:#3987e5;--s2:#d95926;--good:#3ec28b;--bad:#e66767}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:1200px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 2px}
+.sub{color:var(--ink2);font-size:12px;margin-bottom:12px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px}
+.filters label{display:flex;flex-direction:column;font-size:11px;color:var(--ink2);gap:3px;min-width:0}
+.filters select,.filters input{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:7px 8px;min-width:0;width:100%}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;align-items:center;font-size:11px;color:var(--ink2)}
+.hint{font-size:11px;color:var(--bad);min-height:14px;margin-bottom:4px}
+button.chip{font:inherit;font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:3px 10px;border-radius:14px;cursor:pointer}
+button.chip[aria-pressed=true]{background:var(--s1);border-color:var(--s1);color:#fff}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;overflow-x:auto}
+.tabs button{font:inherit;background:none;border:0;color:var(--ink2);padding:8px 12px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--s1);font-weight:600}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+.kpi span{font-size:11px;color:var(--ink2)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px}
+.card h2{font-size:13px;margin:0 0 8px;color:var(--ink2);font-weight:600}
+.chart{display:flex;align-items:flex-end;gap:3px;height:120px}
+.chart .col{flex:1;min-width:2px;background:var(--s1);border-radius:3px 3px 0 0}
+.chart .col:hover{opacity:.8}
+.axis{display:flex;justify-content:space-between;font-size:10px;color:var(--ink2);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+th{font-size:11px;color:var(--ink2);font-weight:600}
+td.n,th.n{text-align:right}
+th.sel,td.sel{background:color-mix(in srgb,var(--s1) 8%,transparent)}
+.tw{overflow-x:auto}
+.bar{height:6px;background:var(--s1);border-radius:3px;min-width:1px;margin-top:3px}
+.seg{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.pos{color:var(--good)}
+.note{font-size:12px;color:var(--ink2);margin:6px 0}
+.apps{display:flex;gap:6px;margin:0 0 10px;flex-wrap:wrap}.apps a{font-size:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:4px 12px;border-radius:14px;text-decoration:none}.apps a[aria-current=page]{background:var(--s1);border-color:var(--s1);color:#fff}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);padding:4px 8px;border-radius:5px;font-size:12px;display:none;z-index:9;max-width:220px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Company tax tracker</h1>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html" aria-current="page">Company tax tracker</a><a href="ask.html">Ask Claude</a></nav>
+  <div class="sub" id="meta">Loading…</div>
+  <div class="filters">
+    <label>Tax history from<input type="date" id="f-from"></label>
+    <label>Tax history to<input type="date" id="f-to"></label>
+  </div>
+  <div id="view"></div>
+</div>
+<script>
+(function(){
+"use strict";
+var D=null,st={tab:"companies",from:"",to:"",country:-1};
+var $=function(i){return document.getElementById(i)};
+function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
+var fmt=function(n){if(n==null)return"–";var a=Math.abs(n);if(a>=1e9)return(n/1e9).toFixed(2)+"B";if(a>=1e6)return(n/1e6).toFixed(2)+"M";if(a>=1e4)return(n/1e3).toFixed(1)+"k";return Number(n).toLocaleString(undefined,{maximumFractionDigits:2})};
+var fmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};
+var TYPE={user:"Player",mu:"MU",country:"Country",alliance:"Alliance"};
+function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||(e[0]==="country"?e[1].slice(-6):TYPE[e[0]]+" …"+e[1].slice(-6))}
+/* ---------- Company locations (merged from nottheragingdemon/warera-tax-repo) ---------- */
+var CO={cid:"",busy:false,msg:"Pick a country and press “Load companies”.",world:null,wmsg:"",citizens:[],names:{},located:[],owner:"",limit:100,loadedCid:""},CO_API="https://api2.warera.io/trpc/",coRem=100,coReset=0;
+function coSleep(ms){return new Promise(function(r){setTimeout(r,ms)})}
+function coStatus(m){CO.msg=m;var n=$("co-status");if(n)n.textContent=m}
+async function coRaw(url){
+  for(var a=0;a<6;a++){
+    if(coRem<=2&&Date.now()<coReset){coStatus("Rate limit reached, waiting "+Math.ceil((coReset-Date.now())/1000)+"s…");await coSleep(coReset-Date.now()+250)}
+    var res;try{res=await fetch(url)}catch(e){await coSleep(800*(a+1));continue}
+    var rem=res.headers.get("ratelimit-remaining"),rst=res.headers.get("ratelimit-reset");
+    if(rem!==null)coRem=+rem;if(rst!==null)coReset=Date.now()+(+rst)*1000;
+    if(res.status===429){coRem=0;if(!rst)coReset=Date.now()+15000;continue}
+    return res}
+  throw new Error("Request failed after retries")}
+async function coCall(name,input){
+  var q=input===undefined?"":"?input="+encodeURIComponent(JSON.stringify(input));
+  var j=await (await coRaw(CO_API+name+q)).json();
+  if(j.error)throw new Error(j.error.message||"API error");return j.result.data}
+async function coBatch(calls){
+  if(!calls.length)return[];var input={};calls.forEach(function(c,i){input[i]=c[1]===undefined?{}:c[1]});
+  var j=await (await coRaw(CO_API+calls.map(function(c){return c[0]}).join(",")+"?batch=1&input="+encodeURIComponent(JSON.stringify(input)))).json();
+  return(Array.isArray(j)?j:[j]).map(function(x){return x.error?{error:x.error}:{data:x.result.data}})}
+async function coChunks(list,size,fn,prog){for(var i=0;i<list.length;i+=size){await fn(list.slice(i,i+size));if(prog)prog(Math.min(i+size,list.length),list.length)}}
+async function coLoadWorld(){
+  if(CO.world||CO.wmsg==="loading")return;CO.wmsg="loading";
+  try{var r=await Promise.all([coCall("country.getAllCountries"),coCall("region.getRegionsObject")]);var by={};r[0].forEach(function(c){by[c._id]=c});CO.world={countries:r[0],by:by,regions:r[1]};CO.wmsg=""}
+  catch(e){CO.wmsg="Could not load world data from api2.warera.io: "+e.message+" (the browser may be blocking requests from this page)."}
+  render()}
+async function coLoad(){
+  var id=CO.cid;if(!id||CO.busy)return;CO.busy=true;render();
+  try{
+    var ids=[],cursor;
+    for(;;){var d=await coCall("user.getUsersByCountry",Object.assign({countryId:id,limit:100},cursor?{cursor:cursor}:{}));d.items.forEach(function(u){ids.push(u._id)});coStatus("Listing citizens… "+ids.length);if(!d.nextCursor||!d.items.length)break;cursor=d.nextCursor}
+    CO.citizens=ids;CO.names={};
+    await coChunks(ids,40,async function(ch){var r=await coBatch(ch.map(function(u){return["user.getUserLite",{userId:u}]}));r.forEach(function(x,i){if(x.data)CO.names[ch[i]]=x.data.username})},function(d,t){coStatus("Loading citizen names "+d+"/"+t)});
+    var owned=[],pending=ids.map(function(u){return{userId:u}}),done=0;
+    while(pending.length){var ch=pending.splice(0,40);
+      var res=await coBatch(ch.map(function(p){return["company.getCompanies",Object.assign({userId:p.userId,perPage:100},p.cursor?{cursor:p.cursor}:{})]}));
+      res.forEach(function(r,i){if(r.error||!r.data)return;r.data.items.forEach(function(c){owned.push([ch[i].userId,c])});if(r.data.nextCursor&&r.data.items.length)pending.push({userId:ch[i].userId,cursor:r.data.nextCursor})});
+      done+=ch.length;coStatus("Finding companies "+Math.min(done,ids.length)+"/"+ids.length)}
+    var ownerOf={};owned.forEach(function(x){ownerOf[x[1]]=x[0]});var cids=Object.keys(ownerOf),comps=[];
+    await coChunks(cids,40,async function(ch){var r=await coBatch(ch.map(function(c){return["company.getById",{companyId:c}]}));r.forEach(function(x){if(x.data)comps.push(x.data)})},function(d,t){coStatus("Loading company details "+d+"/"+t)});
+    var w=CO.world;
+    CO.located=comps.map(function(c){var reg=w.regions[c.region],host=reg?w.by[reg.country]:null;
+      return{id:c._id,name:c.name||"",item:c.itemCode||"",owner:c.user||ownerOf[c._id],value:c.estimatedValue||0,regionId:c.region,regionName:reg?reg.name:"Unknown",hostId:host?host._id:null,hostName:host?host.name:"Unknown",domestic:reg?reg.country===id:false}});
+    CO.loadedCid=id;CO.owner="";CO.limit=100;coStatus("Loaded "+CO.located.length+" companies from "+ids.length+" citizens.")
+  }catch(e){coStatus("Error: "+e.message)}
+  CO.busy=false;render()}
+function coName(id){return CO.names[id]||("…"+String(id).slice(-6))}
+function coTable(cols,rows,rc){
+  var t=el("table"),h=el("tr");cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
+  var b=el("tbody");rows.forEach(function(r){var tr=el("tr");if(rc&&rc(r))tr.style.opacity=".95";cols.forEach(function(c){tr.appendChild(el("td",{class:c[2]?"n":"",text:String(c[1](r))}))});b.appendChild(tr)});t.appendChild(b);
+  var w=el("div",{class:"tw"});w.appendChild(t);return w}
+function coFromCache(cid){
+  if(!D.companies||!D.companies.length)return false;
+  var rows=D.companies.filter(function(r){var e=r[5]>=0?D.ents[r[5]]:null;return e&&e[1]===cid});
+  if(!rows.length)return false;
+  var w=CO.world,names={},ids={};
+  CO.located=rows.map(function(r){var reg=w.regions[r[4]],host=reg?w.by[reg.country]:null,o=String(r[1]);names[o]=nm(r[1]);ids[o]=1;
+    return{id:o+"|"+r[0],name:r[0]||"",item:r[2]||"",owner:o,value:r[3]||0,regionId:r[4],regionName:reg?reg.name:"Unknown",hostId:host?host._id:null,hostName:host?host.name:"Unknown",domestic:reg?reg.country===cid:false}});
+  CO.names=names;CO.citizens=Object.keys(ids);CO.loadedCid=cid;CO.owner="";CO.limit=100;
+  CO.msg="Showing "+CO.located.length+" companies collected "+fmtD(D.companiesAt)+" UTC (citizens who own at least one). Press “Reload live” for the current state.";
+  return true}
+function vCompanies(v){
+  if(!CO.world){coLoadWorld();v.appendChild(el("div",{class:"note",text:CO.wmsg&&CO.wmsg!=="loading"?CO.wmsg:"Loading world data…"}));return}
+  var w=CO.world;
+  if(!CO.cid&&st.country>=0&&w.by[D.ents[st.country][1]])CO.cid=D.ents[st.country][1];
+  if(!CO.cid&&D.companies&&D.companies.length){var cnt0={};D.companies.forEach(function(r){cnt0[r[5]]=(cnt0[r[5]]||0)+1});var best=Object.keys(cnt0).sort(function(a,b){return cnt0[b]-cnt0[a]})[0];if(best!==undefined&&D.ents[best]&&w.by[D.ents[best][1]])CO.cid=D.ents[best][1]}
+  if(CO.cid&&CO.loadedCid!==CO.cid&&!CO.busy)coFromCache(CO.cid);
+  var c1=el("div",{class:"card"});c1.appendChild(el("h2",{text:"Where citizens’ companies are located"}));
+  var f=el("div",{class:"filters"}),sc=el("select",{id:"co-country"});
+  sc.appendChild(el("option",{value:"",text:"Select a country"}));
+  w.countries.slice().sort(function(a,b){return a.name.localeCompare(b.name)}).forEach(function(c){sc.appendChild(el("option",{value:c._id,text:c.name}))});sc.value=CO.cid;
+  sc.onchange=function(){CO.cid=sc.value;render()};
+  f.appendChild(el("label",{text:"Country (citizens of)"},[sc]));
+  var hasData=CO.loadedCid&&CO.loadedCid===CO.cid;
+  if(hasData){var so=el("select",{id:"co-owner"});so.appendChild(el("option",{value:"",text:"All citizens ("+CO.citizens.length+")"}));
+    var cnt={};CO.located.forEach(function(c){cnt[c.owner]=(cnt[c.owner]||0)+1});
+    CO.citizens.slice().sort(function(a,b){return(cnt[b]||0)-(cnt[a]||0)||coName(a).localeCompare(coName(b))}).slice(0,1500).forEach(function(id){so.appendChild(el("option",{value:id,text:coName(id)+" — "+(cnt[id]||0)}))});
+    so.value=CO.owner;so.onchange=function(){CO.owner=so.value;CO.limit=100;render()};f.appendChild(el("label",{text:"Citizen"},[so]))}
+  var btn=el("button",{class:"chip",text:CO.busy?"Loading…":hasData?"Reload live":"Load companies"});btn.disabled=CO.busy||!CO.cid;btn.onclick=coLoad;
+  var bw=el("label",{text:" "},[btn]);f.appendChild(bw);c1.appendChild(f);
+  c1.appendChild(el("div",{class:"note",id:"co-status",text:CO.msg}));v.appendChild(c1);
+  if(!hasData)return;
+  var list=CO.owner?CO.located.filter(function(c){return c.owner===CO.owner}):CO.located;
+  var abroad=list.filter(function(c){return!c.domestic}).length,value=list.reduce(function(s,c){return s+c.value},0),hosts={},regs={};
+  list.forEach(function(c){var h=hosts[c.hostId]=hosts[c.hostId]||{name:c.hostName,id:c.hostId,n:0,value:0,dom:c.domestic};h.n++;h.value+=c.value;
+    var r=regs[c.regionId]=regs[c.regionId]||{id:c.regionId,name:c.regionName,host:c.hostName,n:0,value:0};r.n++;r.value+=c.value});
+  var k=el("div",{class:"kpis"});[[CO.owner?coName(CO.owner):CO.citizens.length,CO.owner?"Citizen":"Citizens"],[list.length,"Companies"],[abroad+" ("+(list.length?Math.round(abroad/list.length*100):0)+"%)","Abroad"],[Object.keys(hosts).length,"Host countries"],[fmt(value),"Est. value"]].forEach(function(x){k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]))});v.appendChild(k);
+  var hs=Object.keys(hosts).map(function(i){return hosts[i]}).sort(function(a,b){return b.n-a.n}),c2=el("div",{class:"card"});c2.appendChild(el("h2",{text:"By host country"}));
+  c2.appendChild(coTable([["Host country",function(r){return r.name+(r.dom?"":" ⚑")}],["Companies",function(r){return r.n},1],["Est. value",function(r){return fmt(r.value)},1],["Income tax %",function(r){var t=(w.by[r.id]||{}).taxes;return t?t.income:"–"},1],["Market tax %",function(r){var t=(w.by[r.id]||{}).taxes;return t?t.market:"–"},1],["Manager tax %",function(r){var t=(w.by[r.id]||{}).taxes;return t?t.manager:"–"},1]],hs));v.appendChild(c2);
+  var rs=Object.keys(regs).map(function(i){var r=regs[i],g=w.regions[r.id]||{},inc=g.income||{},emp=inc.employeeIncomeTax||0,mgr=inc.managerIncomeTax||0,tot=g.companyCount||r.n,share=Math.min(1,r.n/Math.max(tot,1));return Object.assign({},r,{emp:emp,mgr:mgr,tot:tot,share:share,hour:(emp+mgr)*share})}).sort(function(a,b){return b.n-a.n});
+  var c3=el("div",{class:"card"});c3.appendChild(el("h2",{text:"By region, with tax owed"}));
+  c3.appendChild(coTable([["Region",function(r){return r.name}],["Host country",function(r){return r.host}],["Companies",function(r){return r.n+" / "+r.tot},1],["Est. value",function(r){return fmt(r.value)},1],["Region tax /h",function(r){return fmt(r.emp+r.mgr)},1],["Citizens’ share",function(r){return Math.round(r.share*100)+"%"},1],["Owed /h",function(r){return fmt(r.hour)},1],["Owed /day",function(r){return fmt(r.hour*24)},1]],rs));
+  c3.appendChild(el("div",{class:"note",text:"Region tax /h is the game’s own figure (employee + manager income tax) for all companies in the region; the citizens’ share is estimated by company count, so owed amounts are approximate. ⚑ marks companies abroad."}));v.appendChild(c3);
+  var TH=D.taxHist,c5=el("div",{class:"card"});c5.appendChild(el("h2",{text:"Tax owed, tracked history (selected date range)"}));
+  var days=TH&&TH.days?Object.keys(TH.days).sort().filter(function(d){return(!st.from||d>=st.from)&&(!st.to||d<=st.to)}):[];
+  if(!days.length){c5.appendChild(el("div",{class:"note",text:TH&&TH.firstT?"Tracking began "+fmtD(new Date(TH.firstT).toISOString())+" UTC; there is no tracked time inside the selected dates yet. Widen the date range or wait for more scheduled runs.":"No tax history yet. It starts with the next scheduled refresh and grows with each run."}))}
+  else{
+    var share={};rs.forEach(function(r){share[r.id]=r.share});var tot=0,hrs=0,per={};
+    var drows=days.map(function(d){var x=TH.days[d],o=0;for(var rid in x.r){var a=(share[rid]||0)*x.r[rid];o+=a;per[rid]=(per[rid]||0)+a}tot+=o;hrs+=x.h;return{day:d,h:x.h,o:o}});
+    var kk=el("div",{class:"kpis"});[[fmt(tot),"Owed in range (tracked)"],[fmt(hrs),"Hours tracked"],[days.length,"Days with data"]].forEach(function(x){kk.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})]))});c5.appendChild(kk);
+    c5.appendChild(coTable([["Day (UTC)",function(r){return r.day}],["Hours tracked",function(r){return r.h.toFixed(1)},1],["Owed",function(r){return fmt(r.o)},1]],drows));
+    var prow=rs.map(function(r){return{name:r.name,host:r.host,o:per[r.id]||0}}).filter(function(r){return r.o>0}).sort(function(a,b){return b.o-a.o});
+    c5.appendChild(el("h2",{text:"By region"}));c5.appendChild(coTable([["Region",function(r){return r.name}],["Host country",function(r){return r.host}],["Owed in range",function(r){return fmt(r.o)},1]],prow));
+    c5.appendChild(el("div",{class:"note",text:"Each refresh records every region’s hourly tax; the rate at one check is held until the next (max 6h). Checks every ~"+(TH.everyMinutes||"?")+" min, tracking began "+fmtD(new Date(TH.firstT).toISOString())+" UTC; earlier days are empty. The citizens’ share is estimated by company count, so amounts are approximate."}))}
+  v.appendChild(c5);
+  var c4=el("div",{class:"card"});c4.appendChild(el("h2",{text:"Companies"}));var sorted=list.slice().sort(function(a,b){return b.value-a.value});
+  c4.appendChild(coTable([["Company",function(r){return r.name}],["Owner",function(r){return coName(r.owner)}],["Item",function(r){return r.item}],["Region",function(r){return r.regionName}],["Host country",function(r){return r.hostName+(r.domestic?"":" ⚑")}],["Est. value",function(r){return fmt(r.value)},1]],sorted.slice(0,CO.limit)));
+  if(sorted.length>CO.limit){var m=el("button",{class:"chip",text:"Show more ("+(sorted.length-CO.limit)+" left)"});m.onclick=function(){CO.limit+=200;render()};c4.appendChild(m)}
+  v.appendChild(c4)}
+
+
+function render(){var v=$("view");v.textContent="";vCompanies(v)}
+fetch("data.json").then(function(r){return r.json()}).then(function(d){
+  D=d;var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
+  ["f-from","f-to"].forEach(function(i){if(days.length){$(i).min=days[0];$(i).max=days[days.length-1]}$(i).addEventListener("change",function(){st.from=$("f-from").value;st.to=$("f-to").value;render()})});
+  if(days.length){$("f-from").value=st.from=days[0];$("f-to").value=st.to=days[days.length-1]}
+  $("meta").textContent="Updated "+fmtD(D.generated)+" UTC"+(D.companiesAt?" · companies collected "+fmtD(D.companiesAt)+" UTC":"")+" · data from api2.warera.io";
+  render();
+}).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
+})();
+</script>
+</body>
+</html>

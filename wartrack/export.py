@@ -98,6 +98,10 @@ def export(db, out, since, scope=None):
                 mu = (u["mu"] if u and u["mu"] else None) or user_mu.get(eid)
                 country = (u["country"] if u and u["country"] else None) or mu_country.get(mu)
                 rel_user[str(i)] = [E("country", country), E("mu", mu)]
+    companies, companies_at = [], None
+    for r in db.execute("SELECT * FROM companies ORDER BY value DESC"):
+        companies.append([r["name"], E("user", r["owner"]), r["item"], round(r["value"] or 0), r["region"], E("country", r["owner_country"])])
+        companies_at = r["seen"]
     for e in ents:
         r = db.execute("SELECT name FROM names WHERE etype=? AND eid=?", (e[0], e[1])).fetchone()
         e[2] = r["name"] if r else None
@@ -110,7 +114,7 @@ def export(db, out, since, scope=None):
             e[2] = r["name"] if r else None
     data = {"v": 2, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
             "ents": ents, "battles": battles, "stats": stats, "orders": orders, "bounty": bounty, "contracts": contracts,
-            "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db)}
+            "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at}
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))
     return {k: len(v) for k, v in data.items() if isinstance(v, (list, dict))}
