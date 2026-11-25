@@ -41,7 +41,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any"};
+var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any",metric:0,loc:-1,bsel:null};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
 var fmt=function(n){var o=new String(fmt0(n));o.raw=n==null?"":Math.round(n*100)/100;return o};
@@ -151,6 +151,43 @@ function battleTable(bs,kind,title,extraHead,extraFn,numExtra){
   if(!rows.length)card.appendChild(el("div",{class:"note",text:"No battles match this selection."}));
   return card}
 
+
+/* ordered horizontal bars: damage or coin per country of an alliance, over the battles chosen by date range, battle and battle location */
+function locOf(i){var b=D.battles[i];if(b[10]<0)return-1;var r=(D.regionsNow||{})[D.ents[b[10]][1]];return r?r[1]:-1}
+function allianceChart(){
+  var aid=st.alliance;
+  if(aid<0){var ea=Object.keys(D.alliances||{}).filter(function(a){return nm(+a)==="The Emerald Accord"})[0];aid=ea!==undefined?+ea:-1}
+  var card=el("div",{class:"card"},[el("h2",{text:(st.metric?"Coin":"Damage")+" per country: "+(aid>=0?nm(aid):"alliance")})]);
+  if(aid<0||!D.alliances[aid]){card.appendChild(el("div",{class:"note",text:"Select an alliance to chart its countries."}));return card}
+  var kind=st.metric,members=D.alliances[aid];
+  var inRange=[];D.battles.forEach(function(b,i){var d=b[2].slice(0,10);if((!st.from||d>=st.from)&&(!st.to||d<=st.to))inRange.push(i)});
+  var locs={};inRange.forEach(function(i){var l=locOf(i);if(l>=0)locs[l]=1});
+  if(st.loc>=0&&!locs[st.loc])st.loc=-1;
+  var pool=inRange.filter(function(i){return st.loc<0||locOf(i)===st.loc});
+  var sel=pool.filter(function(i){return !st.bsel||st.bsel.has(i)});
+  card.appendChild(chips([[0,"Damage"],[1,"Coin"]],"metric"));
+  var row=el("div",{class:"filters"}),lsel=el("select");lsel.appendChild(el("option",{value:"",text:"All"}));
+  Object.keys(locs).map(Number).sort(function(a,b){return nm(a).localeCompare(nm(b))}).forEach(function(l){lsel.appendChild(el("option",{value:String(l),text:nm(l)}))});
+  lsel.value=st.loc<0?"":String(st.loc);lsel.onchange=function(){st.loc=lsel.value===""?-1:+lsel.value;st.bsel=null;render()};
+  row.appendChild(el("label",{},[document.createTextNode("Battle location (country)"),lsel]));card.appendChild(row);
+  var det=el("details",{class:"bpick"});if(st.bopen)det.open=true;det.ontoggle=function(){st.bopen=det.open};
+  det.appendChild(el("summary",{text:"Battles: "+sel.length+" of "+pool.length+" selected"}));
+  var tools=el("div");[["All",function(){st.bsel=null}],["None",function(){st.bsel=new Set()}]].forEach(function(t){var b=el("button",{class:"chip",text:t[0]});b.onclick=function(){t[1]();render()};tools.appendChild(b)});det.appendChild(tools);
+  var list=el("div",{class:"blist"});
+  pool.slice().sort(function(a,b){return D.battles[a][2]<D.battles[b][2]?1:-1}).forEach(function(i){var b=D.battles[i],lb=el("label",{class:"bl"}),cb=el("input",{type:"checkbox"});cb.checked=!st.bsel||st.bsel.has(i);
+    cb.onchange=function(){if(!st.bsel)st.bsel=new Set(pool);cb.checked?st.bsel.add(i):st.bsel.delete(i);render()};
+    lb.appendChild(cb);lb.appendChild(document.createTextNode(" "+b[2].slice(0,10)+" "+region(b)+": "+nm(b[4])+" v "+nm(b[5])));list.appendChild(lb)});
+  det.appendChild(list);card.appendChild(det);
+  var rows=members.map(function(c){var t=0,n=0;sel.forEach(function(i){var v=val(kind,i,c);if(v){t+=v.t;n++}});return{c:c,t:t,n:n}}).filter(function(r){return r.t>0}).sort(function(a,b){return b.t-a.t});
+  if(!rows.length){card.appendChild(el("div",{class:"note",text:"No "+(kind?"coin":"damage")+" recorded for these battles."}));return card}
+  var mx=rows[0].t,tot=rows.reduce(function(a,r){return a+r.t},0),box=el("div",{class:"hbars"});
+  rows.forEach(function(r,k){var line=el("div",{class:"hrow"}),bar=el("div",{class:"hbar"});bar.style.width=Math.max(1,100*r.t/mx)+"%";
+    line.appendChild(el("span",{class:"hname",text:(k+1)+". "+nm(r.c)}));line.appendChild(el("div",{class:"htrack"},[bar]));line.appendChild(el("span",{class:"hval",text:fmt0(r.t)}));
+    line.addEventListener("mousemove",function(e){tip(e,nm(r.c)+": "+fmt0(r.t)+" ("+(100*r.t/tot).toFixed(1)+"%, "+r.n+" battles)")});line.addEventListener("mouseleave",untip);box.appendChild(line)});
+  card.appendChild(box);
+  card.appendChild(el("div",{class:"note",text:"Total "+fmt0(tot)+" over "+sel.length+" battles ("+(st.from||"start")+" to "+(st.to||"now")+"). Own and opposing side both count."}));
+  return card}
+
 /* ---------- views ---------- */
 function vDamage(v){
   var bs=battleSet(),spec=null;["user","mu","country","alliance"].forEach(function(k){if(!spec&&st[k]>=0)spec=[k,st[k]]});
@@ -158,6 +195,7 @@ function vDamage(v){
   bs.forEach(function(i){var val0=spec?(val(0,i,spec[1])||{t:0}).t:sideTot(0,i)[2];tot+=val0;series.push([D.battles[i][2],val0])});
   if(st.country>=0)v.appendChild(countryKpis(bs));
   v.appendChild(kpis([["Battles",String(bs.length)],[spec?"Selected damage":"Total damage",fmt(tot)],["Avg per battle",fmt(bs.length?tot/bs.length:0)]]));
+  v.appendChild(allianceChart());
   v.appendChild(dayChart(series,(spec?"Damage by "+tname(spec[0])+" "+nm(spec[1]):"Total damage (both sides)")+" over time"));
   v.appendChild(battleTable(bs,0,"Battles"));
   var card=el("div",{class:"card"},[el("h2",{text:"Damage by entity (top 25)"}),chips([["auto","Auto"],["user","Player"],["mu","MU"],["country","Country"],["alliance","Alliance"]],"by")]);
