@@ -140,7 +140,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+# /site (Scrapy/Sphinx default; this repo tracks site/)
 
 # mypy
 .mypy_cache/
