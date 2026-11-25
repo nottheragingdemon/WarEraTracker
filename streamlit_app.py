@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 
 HERE = Path(__file__).parent
 st.set_page_config(page_title="WarEra", page_icon="⚔️", layout="wide")
-st.markdown("<style>.block-container{padding:0.5rem 0.5rem 0}</style>", unsafe_allow_html=True)
+st.markdown("<style>[data-testid=\"stMainBlockContainer\"],.block-container{padding:4.5rem 0.5rem 0 !important}</style>", unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=300)
