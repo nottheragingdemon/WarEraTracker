@@ -63,4 +63,8 @@ nav = st.navigation(
     ],
     position="top",
 )
+st.markdown(
+    '<div style="text-align:right;font-size:14px"><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer">we.hawtre.net ↗</a></div>',
+    unsafe_allow_html=True,
+)
 nav.run()
