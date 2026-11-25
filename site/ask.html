@@ -117,7 +117,7 @@ async function callApi(a){
 /* ---------- rendering ---------- */
 function csv(name,cols,rows){var esc=function(v){return'"'+String(v==null?"":v).replace(/"/g,'""')+'"'};
   var s=[cols.map(esc).join(",")].concat(rows.map(function(r){return r.map(esc).join(",")})).join("\n");
-  var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([s],{type:"text/csv"}));a.download=name;a.click()}
+  window.weSave(name,"\ufeff"+s)}
 var fmtN=function(v){return typeof v==="number"?(Math.abs(v)>=1e4?Math.round(v).toLocaleString():String(Math.round(v*100)/100)):v==null?"–":String(v)};
 function renderTable(title,cols,rows,note){
   var card=el("div",{class:"card"}),h=el("h2",{});h.appendChild(el("span",{text:title||"Result"}));

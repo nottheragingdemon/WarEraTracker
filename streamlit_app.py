@@ -43,7 +43,7 @@ def company_tax():
     show("company.html")
 
 
-ASK_URL = "https://claude.ai/artifact/JaT33Me1TK4kUoGEXjJKZg"
+ASK_URL = "https://claude.ai/artifact/QyeXBuXu5Sksfsdeco8Dhx"
 
 
 def ask_warera():
