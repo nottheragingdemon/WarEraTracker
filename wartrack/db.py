@@ -27,10 +27,10 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS region_rate(region TEXT, t INTEGER, emp REAL, mgr REAL, PRIMARY KEY(region,t));
-CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT);
+CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT, workers INT, wages REAL, mgr REAL);
 CREATE TABLE IF NOT EXISTS region_now(region TEXT PRIMARY KEY, name TEXT, country TEXT, emp REAL, mgr REAL, res REAL, companies INT, employees INT);
 CREATE TABLE IF NOT EXISTS country_tax(country TEXT PRIMARY KEY, name TEXT, income REAL, manager REAL, market REAL);
-CREATE TABLE IF NOT EXISTS wage_snap(region TEXT, owner_country TEXT, t INTEGER, companies INT, workers INT, wages REAL, PRIMARY KEY(region,owner_country,t));
+CREATE TABLE IF NOT EXISTS wage_snap(region TEXT, owner_country TEXT, t INTEGER, companies INT, workers INT, wages REAL, mgr REAL, PRIMARY KEY(region,owner_country,t));
 CREATE TABLE IF NOT EXISTS rate_hist(country TEXT, t INTEGER, income REAL, manager REAL, PRIMARY KEY(country,t));
 CREATE TABLE IF NOT EXISTS alliances(id TEXT PRIMARY KEY, name TEXT, leader TEXT);
 CREATE TABLE IF NOT EXISTS alliance_members(alliance TEXT, country TEXT, PRIMARY KEY(alliance,country));
@@ -49,8 +49,11 @@ def connect(path):
     if cols and "name" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN name TEXT")
     ccols = [r[1] for r in db.execute("PRAGMA table_info(companies)")]
-    for col, typ in (("workers", "INT"), ("wages", "REAL")):
+    for col, typ in (("workers", "INT"), ("wages", "REAL"), ("mgr", "REAL")):
         if ccols and col not in ccols:
             db.execute(f"ALTER TABLE companies ADD COLUMN {col} {typ}")
+    wcols = [r[1] for r in db.execute("PRAGMA table_info(wage_snap)")]
+    if wcols and "mgr" not in wcols:
+        db.execute("ALTER TABLE wage_snap ADD COLUMN mgr REAL")
     db.executescript(SCHEMA)
     return db

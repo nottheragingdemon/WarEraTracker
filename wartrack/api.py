@@ -93,7 +93,7 @@ class Client:
                 time.sleep(3 * (attempt + 1))
         raise ApiError(f"{proc}: gave up after retries")
 
-    def batch(self, calls):
+    def batch(self, calls, official=False):
         """One HTTP request for several procedures: [(proc, params), ...] -> [data or None]. Failed entries give None."""
         if not calls:
             return []
@@ -103,8 +103,8 @@ class Client:
         for attempt in range(5):
             self._throttle()
             self.n += 1
-            gw = self.use_gateway
-            url = self._base() + tail
+            gw = self.use_gateway and not official
+            url = (GATEWAY if gw else BASE) + tail
             try:
                 with urllib.request.urlopen(urllib.request.Request(url, headers=self._headers()), timeout=self.timeout) as r:
                     j = json.loads(r.read())

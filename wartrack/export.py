@@ -101,12 +101,12 @@ def export(db, out, since, scope=None):
     companies, companies_at = [], None
     for r in db.execute("SELECT * FROM companies ORDER BY value DESC"):
         companies.append([r["name"], E("user", r["owner"]), r["item"], round(r["value"] or 0), r["region"], E("country", r["owner_country"]),
-                          r["workers"] or 0, round(r["wages"] or 0, 4)])
+                          r["workers"] or 0, round(r["wages"] or 0, 6), round(r["mgr"] or 0, 6)])
         companies_at = r["seen"]
     regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"]]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
-    wage_hist = [[r["region"], E("country", r["owner_country"]), r["t"], r["companies"], r["workers"], r["wages"]]
+    wage_hist = [[r["region"], E("country", r["owner_country"]), r["t"], r["companies"], r["workers"], r["wages"], r["mgr"] or 0]
                  for r in db.execute("SELECT * FROM wage_snap ORDER BY t")]
     rate_hist = {}
     for r in db.execute("SELECT * FROM rate_hist ORDER BY t"):
