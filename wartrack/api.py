@@ -81,6 +81,15 @@ class Client:
             return
         print(f"  [gateway] {', '.join(what)[:50]}: HTTP {code} {str(body)[:160]!r}; this goes to the official API", flush=True)
 
+    def _gw_error(self, names, body):
+        """The gateway answered 200 with an error inside. A backend failure (HTTP 5xx inside) is temporary: count it and retry on the
+        official API. Anything else means it doesn't serve this procedure: skip it for the rest of the run."""
+        e = (body or {}).get("error") or {}
+        status = ((e.get("data") or {}).get("httpStatus")) or 0
+        if status >= 500 or e.get("code") == -32603:
+            self._gw_bad("gateway backend error"); return "official", 0
+        self._gw_reject(names, 200, body); return "again", 0
+
     def _gw_bad(self, why):
         self.gw_fail += 1
         if self.use_gateway and self.gw_fail >= 3:
@@ -105,8 +114,8 @@ class Client:
         good = isinstance(body, (dict, list))
         if status == 200 and good:
             if not batch:
-                if gw and "result" not in body:   # the gateway answered, but with an error for this procedure: ask the official API about it from now on
-                    self._gw_reject(names, 200, body); return "again", 0
+                if gw and "result" not in body:
+                    return self._gw_error(names, body)
                 if gw:
                     self.gw_served += 1
                 return "ok", body["result"]["data"]
@@ -114,7 +123,7 @@ class Client:
             if gw and len(body) != len(names):
                 self._gw_bad("gateway batch failed"); return "again", 0
             if gw and all("error" in x for x in body):
-                self._gw_reject(names, 200, body[0]); return "again", 0
+                return self._gw_error(names, body[0])
             if gw:
                 self.gw_served += 1
             return "ok", [None if "error" in x else x["result"]["data"] for x in body]
@@ -137,20 +146,22 @@ class Client:
             msg = f"HTTP {status}"
         raise ApiError(f"{','.join(names)[:60]}: HTTP {status} {msg}")
 
-    def _call_url(self, proc, params):
-        gw = self.use_gateway and proc not in self.gw_skip
+    def _call_url(self, proc, params, official=False):
+        gw = self.use_gateway and not official and proc not in self.gw_skip
         tail = proc + ("?" + urllib.parse.urlencode({"input": json.dumps(params, separators=(",", ":"))}) if params else "")
         return gw, (GATEWAY if gw else BASE) + tail
 
     def call(self, proc, **params):
         params = {k: v for k, v in params.items() if v is not None}
+        force = False
         for attempt in range(5):
             self._throttle()
-            gw, url = self._call_url(proc, params)
+            gw, url = self._call_url(proc, params, force)
             status, body = self._fetch_many([url])[0]
             kind, val = self._judge([proc], gw, status, body, False)
             if kind == "ok":
                 return val
+            force = kind == "official"
             if val:
                 time.sleep(val * (attempt + 1))
         raise ApiError(f"{proc}: gave up after retries")
@@ -166,13 +177,15 @@ class Client:
         if not calls:
             return []
         names = [c[0] for c in calls]
+        force = False
         for attempt in range(5):
             self._throttle()
-            gw, url = self._batch_url(calls, official)
+            gw, url = self._batch_url(calls, official or force)
             status, body = self._fetch_many([url])[0]
             kind, val = self._judge(names, gw, status, body, True)
             if kind == "ok":
                 return val
+            force = kind == "official"
             if val:
                 time.sleep(val * (attempt + 1))
         raise ApiError("batch: gave up after retries")
@@ -183,6 +196,7 @@ class Client:
         never holds up the others."""
         call_lists = list(call_lists)
         out = [None] * len(call_lists)
+        force = set()
         for g in range(0, len(call_lists), group):
             todo = list(range(g, min(g + group, len(call_lists))))
             for attempt in range(5):
@@ -191,7 +205,7 @@ class Client:
                 urls = []
                 for i in todo:
                     self._throttle()
-                    urls.append(self._batch_url(call_lists[i], official))
+                    urls.append(self._batch_url(call_lists[i], official or i in force))
                 replies = self._fetch_many([u for _, u in urls])
                 again, wait = [], 0
                 for i, (gw, _), (status, body) in zip(todo, urls, replies):
@@ -200,6 +214,8 @@ class Client:
                         out[i] = val
                     else:
                         again.append(i); wait = max(wait, val)
+                        if kind == "official":
+                            force.add(i)
                 todo = again
                 if todo and wait:
                     time.sleep(wait * (attempt + 1))

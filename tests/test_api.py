@@ -22,6 +22,10 @@ class Fake(BaseHTTPRequestHandler):
             return self.reply(404, {"error": {"message": "not on gateway"}})
         if "flaky" in rest and sum(1 for h in HITS if "flaky" in h[1] and h[0] == side) < 2:
             return self.reply(500, {"error": {"message": "boom"}})
+        if side == "gw" and rest == "gw.backend.down":
+            return self.reply(200, {"error": {"code": -32603, "data": {"httpStatus": 500}, "message": "db down"}})
+        if side == "gw" and rest == "gw.unknown":
+            return self.reply(200, {"error": {"code": -32004, "data": {"httpStatus": 404}, "message": "no such"}})
         if rest == "client.error":
             return self.reply(400, {"error": {"message": "bad input"}})
 
@@ -103,6 +107,14 @@ class ClientTests(unittest.TestCase):
         c.call("only.official")
         self.assertEqual([h[0] for h in HITS], ["api"])      # remembered: no second gateway attempt
         self.assertEqual(c.call("x.y")["side"], "gw")        # other procedures still use the gateway
+
+    def test_gateway_backend_error_is_temporary_but_unknown_is_skipped(self):
+        c = api.Client(key="k")
+        self.assertEqual(c.call("gw.backend.down")["side"], "api")
+        self.assertNotIn("gw.backend.down", c.gw_skip)
+        self.assertEqual(c.gw_fail, 1)
+        self.assertEqual(c.call("gw.unknown")["side"], "api")
+        self.assertIn("gw.unknown", c.gw_skip)
 
     def test_batch_many_matches_batch(self):
         lists = [[("x.a", {}), ("x.b", {})] for _ in range(20)]
