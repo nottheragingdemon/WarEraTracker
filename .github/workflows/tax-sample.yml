@@ -10,6 +10,10 @@ on:
         description: "Send a test message to the alert webhook"
         type: boolean
         default: false
+      test_failure:
+        description: "Make this run fail on purpose, to check that the failure alert is sent"
+        type: boolean
+        default: false
 
 concurrency:
   group: refresh
@@ -29,6 +33,11 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install aiohttp
+      - name: Simulated failure (test)
+        if: ${{ inputs.test_failure }}
+        run: |
+          echo "Failing on purpose to test the failure alert"
+          exit 1
       - name: Test alert
         if: ${{ inputs.test_alert }}
         env:
