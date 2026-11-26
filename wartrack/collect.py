@@ -222,6 +222,26 @@ def collect_wealth(c, db, top=200, scope=None):
     log(f"wealth: {len(rows)} players ranked, {len(need)} names looked up")
 
 
+def collect_transfers(c, db, scope=None, days=90):
+    """Country money transfers between the alliance's member countries (transactionType countryMoneyTransfer).
+    Newest first per country; stops at the first transaction already stored or older than `days`."""
+    members = set(scope.members) if scope and scope.members else set()
+    if not members:
+        log("transfers: no alliance members in scope, skipped"); return
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    known = {r["id"] for r in db.execute("SELECT id FROM transfers")}
+    new = 0
+    for m in sorted(members):
+        for t in c.pages("transaction.getPaginatedTransactions", max_pages=60, countryId=m, transactionType="countryMoneyTransfer", limit=100):
+            if t["_id"] in known or t["createdAt"] < cutoff:
+                break
+            if t.get("sellerCountryId") in members and t.get("buyerCountryId") in members:
+                db.execute("INSERT OR IGNORE INTO transfers VALUES(?,?,?,?,?)", (t["_id"], t["createdAt"], t["sellerCountryId"], t["buyerCountryId"], t.get("money") or 0))
+                new += 1
+    db.commit()
+    log(f"transfers: {new} new between member countries")
+
+
 STATUSES = ["active", "won", "expiredNoBids", "expiredBattle", "expiredRound", "cancelled"]
 
 

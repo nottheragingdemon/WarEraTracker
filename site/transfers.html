@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EA Money Transfers</title>
+<link rel="stylesheet" href="theme.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<header>
+  <div class="header-top">
+    <a class="brand" href="index.html"><h1>💸 EA Money Transfers</h1><div class="tag">Country money transfers between Emerald Accord nations</div></a>
+    <div class="header-actions">
+      <div id="view-switch" class="theme-switch view-switch" role="group" aria-label="Table layout"><button type="button" data-view="cards" aria-pressed="true">Cards</button><button type="button" data-view="table" aria-pressed="false">Table</button></div>
+      <div id="theme-switch" class="theme-switch" role="group" aria-label="Colour theme">
+        <button type="button" data-theme-pref="auto" aria-pressed="true" title="Follow your device's light or dark setting">Auto</button>
+        <button type="button" data-theme-pref="light" aria-pressed="false" aria-label="Light" title="Light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+        <button type="button" data-theme-pref="dark" aria-pressed="false" aria-label="Dark" title="Dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+      </div>
+    </div>
+  </div>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html" aria-current="page">EA Money Transfers</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+</header>
+<div class="wrap">
+  <div class="sub" id="meta">Loading…</div>
+  <div class="filters">
+    <label>From<input type="date" id="f-from"></label>
+    <label>To<input type="date" id="f-to"></label>
+    <label>Sort by<select id="f-sort"><option value="amount">Amount</option><option value="nation">Nation</option><option value="battles">Battles</option><option value="count">Transfers</option></select></label>
+    <label>Order<select id="f-dir"><option value="desc">High to low / Z to A</option><option value="asc">Low to high / A to Z</option></select></label>
+  </div>
+  <div class="chiprow" id="quick"></div>
+  <div id="view"></div>
+<div id="tip"></div>
+</div>
+<script>
+(function(){
+"use strict";
+var D=null,st={from:"",to:"",sort:"amount",dir:"desc",sel:-1};
+var $=function(i){return document.getElementById(i)};
+function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
+function num(n,d){var o=new String(n==null||isNaN(n)?"–":Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}));o.raw=n==null||isNaN(n)?"":Math.round(n*1e4)/1e4;return o}
+var m0=function(n){return num(n,0)};
+var fmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};
+function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||(e[1].slice(-6))}
+function tbl(cols,rows){
+  var t=el("table",{class:"stack"}),h=el("tr");cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
+  var b=el("tbody");rows.forEach(function(r){var tr=el("tr");cols.forEach(function(c){var v=c[1](r),td=el("td",{class:c[2]?"n":"","data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});t.appendChild(b);
+  return weCsvWrap(el("div",{class:"tw"},[t]))}
+function kpis(list){var k=el("div",{class:"kpis"});list.forEach(function(x){k.appendChild(el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]}),x[2]?el("small",{text:x[2],style:"display:block;color:var(--muted);margin-top:2px"}):null]))});return k}
+function card(title,kids){return el("div",{class:"card"},[el("h2",{text:title})].concat(kids||[]))}
+
+function inRange(ts){var d=ts.slice(0,10);return(!st.from||d>=st.from)&&(!st.to||d<=st.to)}
+function render(){
+  var tr=D.transfers.filter(function(t){return inRange(t[0])});
+  var bt=D.battles.filter(function(b){return inRange(b[2])});
+  var by={};
+  tr.forEach(function(t){var r=by[t[2]]||(by[t[2]]={c:t[2],amount:0,count:0,battles:0,from:{}});r.amount+=t[3];r.count++;r.from[t[1]]=(r.from[t[1]]||0)+t[3]});
+  Object.keys(by).forEach(function(k){by[k].battles=bt.filter(function(b){return b[4]==by[k].c||b[5]==by[k].c}).length});
+  var rows=Object.keys(by).map(function(k){return by[k]}),m=st.dir==="asc"?1:-1;
+  rows.sort(function(a,b){var x,y;if(st.sort==="nation"){return m*nm(a.c).localeCompare(nm(b.c))}x=a[st.sort];y=b[st.sort];return m*(x-y)||nm(a.c).localeCompare(nm(b.c))});
+  var total=tr.reduce(function(a,t){return a+t[3]},0),v=$("view");v.textContent="";
+  v.appendChild(kpis([[m0(total),"Total transferred"],[tr.length,"Transfers"],[rows.length,"Receiving nations"],[bt.length,"Battles in period"]]));
+  if(!tr.length){v.appendChild(card("No transfers",[el("div",{class:"note",text:"No money transfers between Emerald Accord nations in this period."})]));return}
+  var sum=rows.map(function(r){return[r]}),cols=[["Receiving nation",function(r){return nm(r[0].c)}],["Received",function(r){return m0(r[0].amount)},1],["Transfers",function(r){return r[0].count},1],["Battles involving nation",function(r){return r[0].battles},1]];
+  var tb=tbl(cols,sum);
+  Array.prototype.forEach.call(tb.querySelectorAll("tbody tr"),function(tr_,i){tr_.style.cursor="pointer";if(rows[i].c===st.sel)tr_.className="sel";tr_.onclick=function(){st.sel=st.sel===rows[i].c?-1:rows[i].c;render()}});
+  v.appendChild(card("By receiving nation",[tb,el("div",{class:"note",text:"Total "+m0(total)+" in "+tr.length+" transfers. Tap a nation to list its individual transfers."})]));
+  var list=tr.filter(function(t){return st.sel<0||t[2]===st.sel});
+  list=list.slice().sort(function(a,b){
+    if(st.sort==="amount")return m*(a[3]-b[3]);
+    if(st.sort==="nation")return m*nm(a[2]).localeCompare(nm(b[2]))||(a[0]<b[0]?1:-1);
+    return a[0]<b[0]?1:-1});
+  var sub=list.reduce(function(a,t){return a+t[3]},0);
+  var title="Individual transfers"+(st.sel>=0?" to "+nm(st.sel):"");
+  var c2=[el("div",{class:"note",text:list.length+" transfers, "+m0(sub)+" in total"+(st.sel>=0?" ":"")}),
+    tbl([["Date (UTC)",function(t){return fmtD(t[0])}],["From",function(t){return nm(t[1])}],["To",function(t){return nm(t[2])}],["Amount",function(t){return m0(t[3])},1]],list)];
+  if(st.sel>=0){var clr=el("button",{class:"chip",text:"Show all nations"});clr.onclick=function(){st.sel=-1;render()};c2.unshift(clr)}
+  v.appendChild(card(title,c2))}
+function setRange(days){var to=new Date(),from=new Date(Date.now()-days*864e5);st.to=days?to.toISOString().slice(0,10):"";st.from=days?from.toISOString().slice(0,10):"";$("f-from").value=st.from;$("f-to").value=st.to;render()}
+function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
+fetch("data.json").then(function(r){return r.json()}).then(function(d){
+  D=d;D.transfers=D.transfers||[];D.battles=D.battles||[];stale();
+  [["7 days",7],["30 days",30],["90 days",90],["All",0]].forEach(function(q){var b=el("button",{class:"chip",text:q[0]});b.onclick=function(){setRange(q[1])};$("quick").appendChild(b)});
+  $("f-from").onchange=function(){st.from=this.value;render()};$("f-to").onchange=function(){st.to=this.value;render()};
+  $("f-sort").onchange=function(){st.sort=this.value;render()};$("f-dir").onchange=function(){st.dir=this.value;render()};
+  $("meta").textContent="Updated "+fmtD(D.generated)+" UTC · transfers between Emerald Accord nations only · data from api2.warera.io";
+  setRange(30);
+}).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
+})();
+</script>
+<footer class="site-foot">Supported by <a href="https://warerastats.io" target="_blank" rel="noopener noreferrer">warerastats.io</a></footer>
+</body>
+</html>

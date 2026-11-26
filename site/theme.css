@@ -140,3 +140,5 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 .hbar{height:100%;background:var(--accent);border-radius:0 4px 4px 0;min-width:2px}.hval{font-variant-numeric:tabular-nums;color:var(--muted);min-width:56px;text-align:right}
 .bpick{margin:10px 0}.bpick summary{cursor:pointer}.blist{max-height:220px;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:6px;margin-top:6px}
 .blist .bl{display:block;padding:4px 2px;font-size:13px}
+
+.chiprow{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}tr.sel td{background:var(--panel-2)}

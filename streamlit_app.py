@@ -43,6 +43,10 @@ def company_tax():
     show("company.html")
 
 
+def transfers():
+    show("transfers.html")
+
+
 ASK_URL = "https://claude.ai/artifact/QyeXBuXu5Sksfsdeco8Dhx"
 
 
@@ -78,6 +82,7 @@ def _unlocked():
 _pages = {
     "tracker": st.Page(tracker, title="WarEra Tracker", icon="⚔️", url_path="tracker", default=True),
     "company-tax": st.Page(company_tax, title="Company tax tracker", icon="🏭", url_path="company-tax"),
+    "transfers": st.Page(transfers, title="EA Money Transfers", icon="💸", url_path="transfers"),
     "ask": st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
 }
 _dev = _unlocked()
