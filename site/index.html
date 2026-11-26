@@ -41,7 +41,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any",metric:0,loc:-1,bsel:null,cmp:["","",""]};
+var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any",metric:0,loc:-1,bsel:null,cmp:["","",""],pbat:false,psort:"date"};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
 var fmt=function(n){var o=new String(fmt0(n));o.raw=n==null?"":Math.round(n*100)/100;return o};
@@ -103,6 +103,18 @@ function playerKpis(bs){var u=st.user,d=0,m=0,n=0;
   var box=el("div",{class:"card"},[el("h2",{text:"Bounty per 1M damage: "+nm(u)}),kpis([
     ["Bounty per 1M damage",d>0?fmt(m/(d/1e6)):"–"],["Bounty (battle money)",fmt(m)],["Damage",fmt(d)],["Battles fought",n+" of "+bs.length]]),
     el("div",{class:"note",text:"Selected period: "+lbl+". Bounty is the player's battle money divided by their damage in millions, over the battles in range and the other filters."})]);
+  var tg=el("button",{class:"chip",text:st.pbat?"Hide battles":"Show battles ("+n+")","aria-pressed":String(!!st.pbat)});tg.onclick=function(){st.pbat=!st.pbat;render()};box.appendChild(tg);
+  if(st.pbat){
+    var rows=[];bs.forEach(function(i){var dv=val(0,i,u),mv=val(1,i,u);if(!dv&&!mv)return;
+      var dd=dv?dv.t:0,mm=mv?mv.t:0,side=dv&&dv.a&&dv.d?"both":dv&&dv.a?"attacker":dv&&dv.d?"defender":mv&&mv.a&&mv.d?"both":mv&&mv.a?"attacker":mv&&mv.d?"defender":"–";
+      rows.push({i:i,b:D.battles[i],d:dd,m:mm,side:side,p:dd>0?mm/(dd/1e6):null})});
+    var so=st.psort||"date";
+    box.appendChild(chips([["date","Newest"],["d","Most damage"],["m","Most money"],["p","Best per 1M"]],"psort"));
+    rows.sort(function(x,y){return so==="date"?(x.b[2]<y.b[2]?1:-1):((y[so]==null?-1:y[so])-(x[so]==null?-1:x[so]))});
+    var mxp=Math.max.apply(null,rows.map(function(r){return r.p||0}).concat([1]));
+    box.appendChild(mk(["Created","Region","Attacker","Defender","Side fought","Damage","Money earned","Money per 1M damage","Battle"],
+      rows.map(function(r){return[fmtD(r.b[2]),region(r.b),nm(r.b[4]),nm(r.b[5]),r.side,fmt(r.d),fmt(r.m),barCell(r.p==null?"–":fmt(r.p),r.p||0,mxp),{node:idCell(r.b[0])}]}),[5,6,7]));
+    if(!rows.length)box.appendChild(el("div",{class:"note",text:"This player has no recorded damage or money in these battles."}))}
   return box}
 
 /* ---------- widgets ---------- */
