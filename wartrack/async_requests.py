@@ -191,10 +191,10 @@ class AsyncHTTPClient:
                 "id":_id,
                 "method":method,
                 "url":url,
-                "status_code": response['status_code'],
-                "success": response['success'],
-                "body": response['body'],
-                "headers":response['headers'],
+                "status_code": None,
+                "success": False,
+                "body": None,
+                "headers": None,
                 "error": {
                     "type":type(E).__name__,
                     "message":str(E)
@@ -243,6 +243,7 @@ class AsyncHTTPClient:
                                     "id":_id,
                                     "method":method,
                                     "url":None,
+                                    "status_code": None,
                                     "success": False,
                                     "body": None,
                                     "headers":None,
@@ -278,8 +279,9 @@ class AsyncHTTPClient:
                         {
                             
                             "id":f"request_{i}",
-                            "method":NotImplementedError,
+                            "method":None,
                             "url":None,
+                            "status_code": None,
                             "success": False,
                             "body": None,
                             "headers":None,
