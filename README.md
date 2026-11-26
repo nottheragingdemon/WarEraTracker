@@ -36,3 +36,6 @@ Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook
 - The *Weekly digest* workflow (Mondays 08:23 UTC, or run it by hand) posts the week's battles, top countries by damage, top bounty per 1M damage (countries and players), money transfers and citizen donations to `ALERT_WEBHOOK_URL`. `python -m wartrack alerts --print-digest` shows the text without sending it.
 - `python3 scripts/sync_artifacts.py OUT_DIR` builds the two Claude-artifact copies (Tracker, Ask WarEra) from `site/`; the hourly republish tasks run it, so the copies cannot drift from the repo.
 - `site/data.json` is the core data; `site/ask-data.json` (bounty history and contracts) is loaded by Ask WarEra only.
+- Battle alerts also report when an alliance battle ends (won / lost, damage per side). The weekly digest opens with this week against last week.
+- Data older than 90 days is pruned after each full run (`WARTRACK_KEEP_DAYS`); bounty snapshots older than a week keep one per day.
+- `python3 scripts/smoke_pages.py` opens every page in headless Chrome and fails on a JavaScript error or a page that doesn't load its data (also run by the *Tests* workflow).

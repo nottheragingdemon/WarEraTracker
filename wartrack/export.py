@@ -134,8 +134,13 @@ def export(db, out, since, scope=None):
         if e[2] is None:
             r = db.execute("SELECT name FROM names WHERE etype=? AND eid=?", (e[0], e[1])).fetchone()
             e[2] = r["name"] if r else None
-    data = {"v": 2, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
-            "ents": ents, "battles": battles, "stats": stats, "orders": orders, "bounty": bounty, "contracts": contracts,
+    # packed per-battle stats (about half the size): [[kind, battle, [entity*3+side, value, ...]], ...]; theme.js weStats() unpacks
+    packed = {}
+    for k, b, e, sd, v in stats:
+        packed.setdefault((k, b), []).extend([e * 3 + sd, int(v) if v == int(v) else v])
+    stats_p = [[k, b, f] for (k, b), f in packed.items()]
+    data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
+            "ents": ents, "battles": battles, "statsP": stats_p, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs}

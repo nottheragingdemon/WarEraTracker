@@ -69,3 +69,6 @@ window.weStale=function(generated){
   var d=document.createElement("div");d.className="stale-banner";d.setAttribute("role","status");
   d.textContent="⚠ Data is "+(h<48?Math.round(h)+" h":Math.round(h/24)+" days")+" old (updated "+String(generated).slice(0,16).replace("T"," ")+" UTC). The hourly refresh may have failed or been skipped, so recent battles and money may be missing.";
   m.insertAdjacentElement("afterend",d)};
+
+/* per-battle stats arrive packed as [[kind, battle, [entity*3+side, value, ...]], ...]: unpack to rows [kind, battle, entity, side, value] */
+window.weStats=function(D){if(D.stats)return D.stats;var out=[];(D.statsP||[]).forEach(function(g){var k=g[0],b=g[1],f=g[2];for(var i=0;i<f.length;i+=2){var x=f[i];out.push([k,b,(x-x%3)/3,x%3,f[i+1]])}});return out};

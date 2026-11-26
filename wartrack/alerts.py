@@ -58,6 +58,22 @@ def skipped(db, stages):
         _set(db, "skipped_at", now.isoformat(timespec="seconds")); db.commit()
 
 
+def _ended_line(db, b, members):
+    att, dfn = _name(db, "country", b["att_country"]), _name(db, "country", b["def_country"])
+    won = b["won_by"]
+    winner = att if won == "attacker" else dfn if won == "defender" else None
+    ours = "attacker" if b["att_country"] in members else "defender" if b["def_country"] in members else None
+    both = b["att_country"] in members and b["def_country"] in members
+    if winner and ours and not both:
+        head = "✅ Battle won" if won == ours else "❌ Battle lost"
+    else:
+        head = "🏁 Battle ended"
+    res = f"{winner} won" if winner else "no winner recorded"
+    dmg = f"damage {_fmt(b['att_damage'])} vs {_fmt(b['def_damage'])}" if b["att_damage"] or b["def_damage"] else ""
+    tail = " · ".join(x for x in (res, dmg) if x)
+    return f"{head}: {_battle_line(db, b)}: {tail}\n{BATTLE_URL}{b['id']}"
+
+
 def test():
     url = os.environ.get("ALERT_WEBHOOK_URL")
     if not url:
@@ -76,6 +92,7 @@ def run(db, scope):
     battles = {b["id"]: b for b in db.execute(f"SELECT * FROM battles b WHERE {cond}", args)}
     marks = {
         "battle_created": max((b["created_at"] for b in battles.values()), default=""),
+        "battle_ended": max((b["ended_at"] for b in battles.values() if b["ended_at"]), default=""),
     }
     last = {k: _state(db, k) for k in marks}
     lines = []
@@ -85,6 +102,12 @@ def run(db, scope):
         for b in sorted(battles.values(), key=lambda x: x["created_at"]):
             if b["created_at"] > last["battle_created"]:
                 lines.append(f"⚔️ New battle: {_battle_line(db, b)} ({b['created_at'][:16].replace('T', ' ')} UTC)\n{BATTLE_URL}{b['id']}")
+
+    # 2) battles that ended, with the result for the alliance
+    if last["battle_ended"] is not None:
+        for b in sorted((x for x in battles.values() if x["ended_at"]), key=lambda x: x["ended_at"]):
+            if b["ended_at"] > last["battle_ended"]:
+                lines.append(_ended_line(db, b, members))
 
     if lines:
         extra = len(lines) - MAX_LINES
@@ -123,6 +146,29 @@ def _ranked(rows):
     return [f"{MEDALS[i]} {label} — **{val}**" for i, (label, val) in enumerate(rows)]
 
 
+def _totals(db, scope, start, end):
+    """battles, alliance damage, transfers and citizen donations between two ISO times"""
+    members = list(scope.members) if scope and scope.members else []
+    cond, args = scope.battle_sql("b") if scope else ("1=1", [])
+    mem = ",".join("?" * len(members)) or "''"
+    w = f"{cond} AND b.created_at>=? AND b.created_at<?"
+    t = {"battles": db.execute(f"SELECT COUNT(*) FROM battles b WHERE {w}", (*args, start, end)).fetchone()[0]}
+    t["damage"] = db.execute(f"""SELECT COALESCE(SUM(s.value),0) FROM battle_stat s JOIN battles b ON b.id=s.battle_id
+        WHERE s.etype='country' AND s.kind='damage' AND s.eid IN ({mem}) AND {w}""", (*members, *args, start, end)).fetchone()[0]
+    t["transfers"] = db.execute(f"SELECT COALESCE(SUM(money),0) FROM transfers WHERE ts>=? AND ts<? AND sender IN ({mem}) AND receiver IN ({mem})",
+                                (start, end, *members, *members)).fetchone()[0]
+    t["donations"] = db.execute(f"SELECT COALESCE(SUM(money),0) FROM donations WHERE ts>=? AND ts<? AND country IN ({mem}) AND donor_country=country",
+                                (start, end, *members)).fetchone()[0]
+    return t
+
+
+def _change(cur, prev):
+    if not prev:
+        return "(new)" if cur else ""
+    pct = (cur - prev) / prev * 100
+    return f"({'↑' if pct > 0.5 else '↓' if pct < -0.5 else '→'} {abs(pct):.0f}%)"
+
+
 def digest_text(db, scope, days=7, now=None):
     """The weekly summary as Discord-flavoured markdown: battles, damage and bounty by country and player, transfers, donations."""
     import datetime as dt
@@ -137,7 +183,15 @@ def digest_text(db, scope, days=7, now=None):
     n = db.execute(f"SELECT COUNT(*) FROM battles b WHERE {win}", wargs).fetchone()[0]
     day = lambda d: f"{d.day} {d.strftime('%b')}"
     out = ["📊 **Weekly digest · The Emerald Accord**",
-           f"📅 {day(start)} – {day(now)} {now.year} (UTC)  ·  ⚔️ **{n}** battles involving the alliance"]
+           f"📅 {day(start)} – {day(now)} {now.year} (UTC)"]
+    z = lambda d: d.isoformat(timespec="seconds").replace("+00:00", "Z")
+    cur = _totals(db, scope, z(start), z(now))
+    prev = _totals(db, scope, z(start - dt.timedelta(days=days)), z(start))
+    have_prev = db.execute("SELECT COUNT(*) FROM battles WHERE created_at<?", (z(start),)).fetchone()[0] > 0
+    out += ["", "**📈 This week" + (" vs last week**" if have_prev else "**")]
+    for icon, label, key, f in (("⚔️", "Battles", "battles", str), ("💥", "Alliance damage", "damage", _fmt),
+                                ("🔁", "Transfers between nations", "transfers", _fmt), ("🎁", "Citizen donations", "donations", _fmt)):
+        out.append(f"{icon} {label}: **{f(cur[key])}** {_change(cur[key], prev[key]) if have_prev else ''}".rstrip())
 
     def per_entity(etype, extra_join="", extra_cond="", extra_args=()):
         rows = db.execute(f"""SELECT s.eid, s.kind, SUM(s.value) v FROM battle_stat s JOIN battles b ON b.id=s.battle_id {extra_join}
@@ -169,11 +223,11 @@ def digest_text(db, scope, days=7, now=None):
         q = f"FROM transfers WHERE ts>=? AND sender IN ({mem}) AND receiver IN ({mem})"
         tr = db.execute(f"SELECT COUNT(*) n, COALESCE(SUM(money),0) m {q}", (since, *members, *members)).fetchone()
         big = db.execute(f"SELECT sender, receiver, money {q} ORDER BY money DESC LIMIT 1", (since, *members, *members)).fetchone()
-        out += ["", "**🔁 Money transfers between alliance nations**", f"**{tr['n']}** transfers · **{_fmt(tr['m'])}** in total"]
+        out += ["", "**🔁 Transfers & 🎁 donations**", f"**{tr['n']}** transfers between alliance nations"]
         if big:
-            out.append(f"Largest: {cname(big['sender'])} → {cname(big['receiver'])} **{_fmt(big['money'])}**")
-        dn = db.execute(f"SELECT COUNT(DISTINCT donor) n, COALESCE(SUM(money),0) m FROM donations WHERE ts>=? AND country IN ({mem}) AND donor_country=country", (since, *members)).fetchone()
-        out += ["", "**🎁 Citizen donations to their own nation**", f"**{_fmt(dn['m'])}** from **{dn['n']}** citizens"]
+            out[-1] += f" · largest {cname(big['sender'])} → {cname(big['receiver'])} **{_fmt(big['money'])}**"
+        dn = db.execute(f"SELECT COUNT(DISTINCT donor) n FROM donations WHERE ts>=? AND country IN ({mem}) AND donor_country=country", (since, *members)).fetchone()
+        out.append(f"**{dn['n']}** citizens donated to their own nation")
     return "\n".join(out)
 
 
