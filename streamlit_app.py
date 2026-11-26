@@ -45,6 +45,10 @@ def show(name: str):
         st.error("site/data.json not found yet. Run the “Refresh data” workflow once.")
 
 
+def efficiency():
+    show("efficiency.html")
+
+
 def tracker():
     show("index.html")
 
@@ -93,6 +97,7 @@ _pages = {
     "tracker": st.Page(tracker, title="WarEra Tracker", icon="⚔️", url_path="tracker", default=True),
     "company-tax": st.Page(company_tax, title="Company tax tracker", icon="🏭", url_path="company-tax"),
     "transfers": st.Page(transfers, title="EA Money Transfers", icon="💸", url_path="transfers"),
+    "efficiency": st.Page(efficiency, title="Player efficiency", icon="⚖️", url_path="efficiency"),
     "ask": st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
 }
 _dev = _unlocked()

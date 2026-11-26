@@ -20,7 +20,7 @@
       </div>
     </div>
   </div>
-  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html" aria-current="page">EA Money Transfers</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html" aria-current="page">EA Money Transfers</a><a href="efficiency.html">Player efficiency</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
@@ -69,13 +69,19 @@ function render(){
   Array.prototype.forEach.call(tb.querySelectorAll("tbody tr"),function(tr_,i){tr_.style.cursor="pointer";if(rows[i].c===st.sel)tr_.className="sel";tr_.onclick=function(){st.sel=st.sel===rows[i].c?-1:rows[i].c;render()}});
   v.appendChild(card("By receiving nation",[tb,el("div",{class:"note",text:"Total "+m0(total)+" in "+tr.length+" transfers. Citizen donations are gifts from that nation\u2019s own citizens to its treasury in the same period. Tap a nation to list its individual transfers."})]));
   var list=tr.filter(function(t){return st.sel<0||t[2]===st.sel});
+  var ts=st.tsort||"new",byDate=function(a,b){return a[0]<b[0]?1:a[0]>b[0]?-1:0};
   list=list.slice().sort(function(a,b){
-    if(st.sort==="amount")return m*(a[3]-b[3]);
-    if(st.sort==="nation")return m*nm(a[2]).localeCompare(nm(b[2]))||(a[0]<b[0]?1:-1);
-    return a[0]<b[0]?1:-1});
+    if(ts==="old")return -byDate(a,b);
+    if(ts==="big")return(b[3]-a[3])||byDate(a,b);
+    if(ts==="small")return(a[3]-b[3])||byDate(a,b);
+    if(ts==="from")return nm(a[1]).localeCompare(nm(b[1]))||byDate(a,b);
+    if(ts==="to")return nm(a[2]).localeCompare(nm(b[2]))||byDate(a,b);
+    return byDate(a,b)});
+  var tsort=el("div",{class:"seg"});[["new","Newest"],["old","Oldest"],["big","Largest"],["small","Smallest"],["from","From A–Z"],["to","To A–Z"]].forEach(function(o){
+    var b=el("button",{class:"chip",text:o[1],"aria-pressed":String(ts===o[0])});b.onclick=function(){st.tsort=o[0];render()};tsort.appendChild(b)});
   var sub=list.reduce(function(a,t){return a+t[3]},0);
   var title="Individual transfers"+(st.sel>=0?" to "+nm(st.sel):"");
-  var c2=[el("div",{class:"note",text:list.length+" transfers, "+m0(sub)+" in total"+(st.sel>=0?" ":"")}),
+  var c2=[tsort,el("div",{class:"note",text:list.length+" transfers, "+m0(sub)+" in total"+(st.sel>=0?" ":"")}),
     tbl([["Date (UTC)",function(t){return fmtD(t[0])}],["From",function(t){return nm(t[1])}],["To",function(t){return nm(t[2])}],["Amount",function(t){return m0(t[3])},1]],list)];
   if(st.sel>=0){var clr=el("button",{class:"chip",text:"Show all nations"});clr.onclick=function(){st.sel=-1;render()};c2.unshift(clr)}
   v.appendChild(card(title,c2));

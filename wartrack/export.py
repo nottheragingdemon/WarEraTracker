@@ -39,6 +39,10 @@ def tax_history(db):
     return {"firstT": runs[0], "lastT": runs[-1], "everyMinutes": round(gaps[len(gaps) // 2] / 60000) if gaps else None, "days": days}
 
 
+SKILLS = ["companies", "energy", "management", "production", "attack", "precision", "criticalChance", "criticalDamages", "armor", "dodge",
+          "health", "hunger", "stamina", "lootChance"]   # the first four are the economy skills
+
+
 def export(db, out, since, scope=None):
     ents, eidx = [], {}
 
@@ -105,6 +109,20 @@ def export(db, out, since, scope=None):
         companies_at = r["seen"]
     country_now = {str(E("country", r["country"])): [r["money"], r["wealth"], r["wealth_rank"], r["population"], r["development"]]
                    for r in db.execute("SELECT * FROM country_now")}
+    # player efficiency: latest values, the snapshot from about a week ago (the oldest of the last 7 days), skill allocation
+    today = dt.datetime.now(dt.timezone.utc).date()
+    lo = (today - dt.timedelta(days=7)).isoformat()
+    then = {}
+    for r in db.execute("SELECT eid, day, wealth, dmg_total FROM player_snap WHERE day>=? AND day<? ORDER BY day DESC", (lo, today.isoformat())):
+        then[r["eid"]] = (r["day"], r["wealth"], r["dmg_total"])   # descending, so the oldest day wins
+    skills = {r["eid"]: r for r in db.execute("SELECT * FROM player_skill")}
+    players = []
+    for r in db.execute("SELECT * FROM player_now"):
+        sk, th = skills.get(r["eid"]), then.get(r["eid"])
+        players.append([E("user", r["eid"]), E("country", r["country"]), E("mu", r["mu"]), round(r["wealth"] or 0, 2), round(r["dmg_total"] or 0),
+                        round(r["dmg_week"] or 0), th[0] if th else None, round(th[1] or 0, 2) if th else None, round(th[2] or 0) if th else None,
+                        sk["spent"] if sk else None, sk["eco"] if sk else None,
+                        [json.loads(sk["levels"]).get(k, 0) for k in SKILLS] if sk else None])
     wealth = [[E("user", r["eid"]), E("country", r["country"]), E("mu", r["mu"]), r["value"], r["rank"]]
               for r in db.execute("SELECT * FROM wealth_now ORDER BY value DESC")]
     transfers = [[r["ts"], E("country", r["sender"]), E("country", r["receiver"]), r["money"]]
@@ -143,7 +161,7 @@ def export(db, out, since, scope=None):
             "ents": ents, "battles": battles, "statsP": stats_p, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
-            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs}
+            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     with open(out, "w") as f:

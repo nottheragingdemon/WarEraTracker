@@ -18,7 +18,7 @@ def main():
     c = sub.add_parser("collect", help="pull data from the API into the local database")
     c.add_argument("--since", default=cfg.get("since", "3d"), help="e.g. 3d, 12h, 2026-11-20 (battles/contracts created after); default from scope.json")
     c.add_argument("--alliance", default=cfg.get("alliance"), help="only battles involving this alliance's countries (default from scope.json); use 'all' for no limit")
-    c.add_argument("--what", default="alliances,regions,battles,damage,people,bounty,wealth,transfers,donations,contracts,companies")
+    c.add_argument("--what", default="alliances,regions,battles,damage,people,bounty,wealth,transfers,donations,contracts,companies,efficiency")
     c.add_argument("--damage-limit", type=int, help="max battles per level to fetch damage/money rankings for (newest first)")
     c.add_argument("--no-users", action="store_true", help="skip per-player damage (much faster)")
     c.add_argument("--user-pages", type=int, default=2, help="pages of 100 players per side per battle")
@@ -84,6 +84,7 @@ def main():
         if "donations" in what: stage("donations", C.collect_donations, cl, db, scope)
         if "contracts" in what: stage("contracts", C.collect_contracts, cl, db, since, scope)
         if "companies" in what: stage("companies", C.collect_companies, cl, db, scope)
+        if "efficiency" in what: stage("efficiency", C.collect_efficiency, cl, db, scope)
         if failed:
             C.log("stages skipped this run: " + ", ".join(failed))
             from . import alerts as AL

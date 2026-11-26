@@ -3,7 +3,7 @@
 
     python3 scripts/sync_artifacts.py OUT_DIR
 
-Writes OUT_DIR/tracker/ (Tracker, Company tax tracker, EA Money Transfers) and OUT_DIR/ask/ (Ask WarEra as its own artifact).
+Writes OUT_DIR/tracker/ (Tracker, Company tax tracker, EA Money Transfers, Player efficiency) and OUT_DIR/ask/ (Ask WarEra as its own artifact).
 Only two things differ from site/: the Ask link in the Tracker's navigation points at the Ask artifact (shown in testing mode only),
 and the Ask artifact's navigation has just itself. Prints the artifact file lists as JSON for the publishing step.
 """
@@ -32,7 +32,7 @@ def build(out):
     for d in (tracker, ask):
         shutil.rmtree(d, ignore_errors=True)
     link = '<a href="ask.html">Ask WarEra</a>'
-    for name in ("index.html", "company.html", "transfers.html"):
+    for name in ("index.html", "company.html", "transfers.html", "efficiency.html"):
         html = read(name)
         if link not in html:
             raise SystemExit(f"{name}: the Ask link in the navigation was not found")

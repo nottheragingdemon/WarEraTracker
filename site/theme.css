@@ -144,3 +144,6 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 .chiprow{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}tr.sel td{background:var(--panel-2)}
 
 .stale-banner{background:rgba(224,160,40,.16);border:1px solid #d9a21b;color:inherit;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px}
+.build{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid var(--border)}
+.b-war{background:rgba(214,69,69,.15);border-color:rgba(214,69,69,.5)}.b-eco{background:rgba(46,160,90,.15);border-color:rgba(46,160,90,.5)}.b-hybrid{background:rgba(70,120,220,.15);border-color:rgba(70,120,220,.5)}
+tr.detail td{background:var(--panel-2)}

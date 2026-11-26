@@ -11,9 +11,9 @@ class SyncTests(unittest.TestCase):
     def test_builds_both_artifacts(self):
         with tempfile.TemporaryDirectory() as out:
             info = sync.build(out)
-            self.assertEqual(info["tracker"], ["company.html", "data.json", "index.html", "theme.css", "theme.js", "transfers.html"])
+            self.assertEqual(info["tracker"], ["company.html", "data.json", "efficiency.html", "index.html", "theme.css", "theme.js", "transfers.html"])
             self.assertEqual(info["ask"], ["ask-data.json", "data.json", "index.html", "theme.css", "theme.js"])
-            for page in ("index.html", "company.html", "transfers.html"):
+            for page in ("index.html", "company.html", "transfers.html", "efficiency.html"):
                 html = open(os.path.join(out, "tracker", page), encoding="utf-8").read()
                 self.assertNotIn('href="ask.html"', html)
                 self.assertIn('class="ext" data-dev>Ask WarEra', html)
