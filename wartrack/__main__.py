@@ -27,6 +27,9 @@ def main():
 
     al = sub.add_parser("alerts", help="send webhook alerts (new battles); needs ALERT_WEBHOOK_URL")
     al.add_argument("--test", action="store_true", help="only send a test message to the webhook")
+    al.add_argument("--digest", action="store_true", help="send the weekly digest (once per 6 days)")
+    al.add_argument("--force", action="store_true", help="with --digest: send even if one was sent recently")
+    al.add_argument("--print-digest", action="store_true", help="print the digest text instead of sending it")
     al.add_argument("--failure", metavar="TEXT", help="send a failure notice to the webhook and exit")
 
     x = sub.add_parser("export", help="write data.json for the dashboard")
@@ -92,6 +95,11 @@ def main():
         from . import alerts as AL
         if a.failure:
             AL.failure(a.failure); return
+        if a.digest or a.print_digest:
+            sc = C.Scope(db, cfg.get("alliance"), C.parse_when(cfg.get("since", "7d")))
+            if a.print_digest:
+                print(AL.digest_text(db, sc)); return
+            AL.digest(db, sc, force=a.force); return
         if a.test:
             AL.test(); return
         AL.run(db, C.Scope(db, cfg.get("alliance"), C.parse_when(cfg.get("since", "7d")))); return

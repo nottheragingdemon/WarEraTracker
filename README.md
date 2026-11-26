@@ -31,3 +31,8 @@ Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook
 - `python -m unittest discover -s tests` runs offline tests of the API client against a local fake server (also run by the *Tests* workflow).
 - If `ALERT_WEBHOOK_URL` is set, a failed workflow run posts a warning with a link to the run, and collector stages skipped after API errors are reported at most once every 6 hours.
 - Every page shows an amber banner when its data is more than 2 hours old.
+
+## Weekly digest and artifact copies
+- The *Weekly digest* workflow (Mondays 08:23 UTC, or run it by hand) posts the week's battles, top countries by damage, best bounty per 1M damage (countries and players), money transfers and citizen donations to `ALERT_WEBHOOK_URL`. `python -m wartrack alerts --print-digest` shows the text without sending it.
+- `python3 scripts/sync_artifacts.py OUT_DIR` builds the two Claude-artifact copies (Tracker, Ask WarEra) from `site/`; the hourly republish tasks run it, so the copies cannot drift from the repo.
+- `site/data.json` is the core data; `site/ask-data.json` (bounty history and contracts) is loaded by Ask WarEra only.

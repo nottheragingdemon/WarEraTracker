@@ -145,7 +145,8 @@ function copyText(t,btn){
   if(ok){done(true);return}
   try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t).then(function(){done(true)},function(){done(false)});return}}catch(e){}
   done(false)}
-function idCell(id){var w=el("span",{class:"idc"});w.appendChild(el("code",{text:id,title:"Battle id"}));var b=el("button",{class:"chip",text:"Copy","aria-label":"Copy battle id"});b.onclick=function(e){e.stopPropagation();copyText(id,b)};w.appendChild(b);return w}
+var BATTLE_URL="https://app.warera.io/battle/";
+function idCell(id){var w=el("span",{class:"idc"});w.appendChild(el("code",{text:id,title:"Battle id"}));w.appendChild(el("a",{class:"chip",href:BATTLE_URL+id,target:"_blank",rel:"noopener noreferrer",text:"Open","aria-label":"Open battle in WarEra"}));var b=el("button",{class:"chip",text:"Copy","aria-label":"Copy battle id"});b.onclick=function(e){e.stopPropagation();copyText(id,b)};w.appendChild(b);return w}
 function battleRows(bs,kind){
   var rows=bs.map(function(i){var b=D.battles[i],t=sideTot(kind,i);return{i:i,b:b,t:t,sel:sels().map(function(p){var v=val(kind,i,p[1]);return v?v.t:0})}});
   if(st.sort==="total")rows.sort(function(x,y){return y.t[2]-x.t[2]});
@@ -234,6 +235,23 @@ function inScope(e,rowCountry,rowMu){ // does a bounty ranking row belong to the
   if(st.mu>=0)return(t==="mu"&&e===st.mu)||(t==="user"&&rowMu===st.mu);
   if(st.country>=0)return(t==="country"&&e===st.country)||(t==="user"&&rowCountry===st.country)||(t==="mu"&&(relMu[e]===st.country));
   return true}
+/* bounty per 1M damage day by day for the selected player / military unit / country over the battles in range */
+function perDayCard(s){
+  var spec=null;["user","mu","country"].forEach(function(k){if(!spec&&st[k]>=0)spec=[k,st[k]]});
+  if(!spec)return null;
+  var days={};s.forEach(function(i){var d=val(0,i,spec[1]),m=val(1,i,spec[1]);if(!d&&!m)return;var k=D.battles[i][2].slice(0,10),r=days[k]||(days[k]={d:0,m:0,n:0});if(d)r.d+=d.t;if(m)r.m+=m.t;r.n++});
+  var keys=Object.keys(days).sort().filter(function(k){return days[k].d>0});
+  var card=el("div",{class:"card"},[el("h2",{text:"Bounty per 1M damage by day: "+nm(spec[1])})]);
+  if(!keys.length){card.appendChild(el("div",{class:"note",text:"No damage recorded for "+nm(spec[1])+" in the selected battles."}));return card}
+  var vals=keys.map(function(k){return days[k].m/(days[k].d/1e6)}),mx=Math.max.apply(null,vals.concat([1]));
+  var box=el("div",{class:"hbars"});
+  keys.forEach(function(k,j){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*vals[j]/mx)+"%";
+    box.appendChild(el("div",{class:"hrow",title:days[k].n+" battles, damage "+fmt(days[k].d)+", money "+fmt(days[k].m)},[el("span",{class:"hname",text:k}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:fmt(vals[j])})]))});
+  card.appendChild(box);
+  var tot=keys.reduce(function(a,k){a.d+=days[k].d;a.m+=days[k].m;return a},{d:0,m:0});
+  card.appendChild(el("div",{class:"note",text:"Each bar is that day's money divided by that day's damage in millions (battles that started that day). Whole period: "+fmt(tot.m/(tot.d/1e6))+" per 1M. Days without damage are skipped."}));
+  return card}
+
 /* compare up to three players: damage, bounty (battle money) and bounty per 1M damage over the chosen period */
 function compareCard(){
   var s=[];D.battles.forEach(function(b,i){var d=b[2].slice(0,10);if((!st.from||d>=st.from)&&(!st.to||d<=st.to))s.push(i)});
@@ -301,6 +319,7 @@ function vBpm(v){
   card.appendChild(tw);
   if(isMu&&rows.length>shown.length){var more=el("button",{class:"chip",text:"Show more ("+(rows.length-shown.length)+" left)"});more.onclick=function(){st.limit+=50;render()};card.appendChild(more)}
   v.appendChild(card);
+  var pd=perDayCard(s);if(pd)v.appendChild(pd);
   v.appendChild(compareCard())}
 
 var TABS=[["damage","Damage",vDamage],["bpm","Bounty per 1M damage",vBpm]];
