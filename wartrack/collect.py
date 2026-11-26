@@ -273,6 +273,16 @@ def collect_donations(c, db, scope=None, days=60, budget=300.0):
                 db.execute("UPDATE donations SET donor_country=? WHERE donor=?", (d["country"], u)); looked += 1
     db.execute("DELETE FROM donations WHERE ts < ?", (cutoff,))
     db.commit()
+    nameless = [r["donor"] for r in db.execute("SELECT DISTINCT d.donor FROM donations d LEFT JOIN users u ON u.id=d.donor WHERE d.donor_country=d.country AND (u.name IS NULL)")]
+    for i in range(0, len(nameless), 40):
+        if _t.monotonic() - t0 > budget + 240:
+            break
+        chunk = nameless[i:i + 40]
+        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
+            if d and d.get("username"):
+                db.execute("INSERT INTO users(id,name,country) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name", (u, d["username"], d.get("country")))
+                db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d["username"]))
+    db.commit()
     log(f"donations: {new} new, {looked} donors looked up, {len(need) - looked} still unknown")
 
 
