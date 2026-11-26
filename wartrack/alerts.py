@@ -6,6 +6,7 @@ import json, os, urllib.request
 from . import collect as C
 
 MAX_LINES = 15
+BATTLE_URL = "https://app.warera.io/battle/"
 
 
 def _state(db, k, default=None):
@@ -58,7 +59,7 @@ def run(db, scope):
     if last["battle_created"] is not None:
         for b in sorted(battles.values(), key=lambda x: x["created_at"]):
             if b["created_at"] > last["battle_created"]:
-                lines.append(f"⚔️ New battle: {_battle_line(db, b)} ({b['created_at'][:16].replace('T', ' ')} UTC)")
+                lines.append(f"⚔️ New battle: {_battle_line(db, b)} ({b['created_at'][:16].replace('T', ' ')} UTC)\n{BATTLE_URL}{b['id']}")
 
     if lines:
         extra = len(lines) - MAX_LINES
