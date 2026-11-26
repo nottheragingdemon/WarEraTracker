@@ -24,7 +24,8 @@ def main():
     c.add_argument("--player-limit", type=int, default=800, help="max new players to look up per run")
     c.add_argument("--bounty-top", type=int, default=200)
 
-    sub.add_parser("alerts", help="send webhook alerts (new battles, bounty jumps); needs ALERT_WEBHOOK_URL")
+    al = sub.add_parser("alerts", help="send webhook alerts (new battles); needs ALERT_WEBHOOK_URL")
+    al.add_argument("--test", action="store_true", help="only send a test message to the webhook")
 
     x = sub.add_parser("export", help="write data.json for the dashboard")
     x.add_argument("--since", default=cfg.get("since", "7d")); x.add_argument("--alliance", default=cfg.get("alliance")); x.add_argument("--out", default="site/data.json")
@@ -65,6 +66,8 @@ def main():
         return
     if a.cmd == "alerts":
         from . import alerts as AL
+        if a.test:
+            AL.test(); return
         AL.run(db, C.Scope(db, cfg.get("alliance"), C.parse_when(cfg.get("since", "7d")))); return
     R.load_countries(cl, db)
     if a.cmd == "export":

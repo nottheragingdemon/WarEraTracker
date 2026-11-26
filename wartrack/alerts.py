@@ -32,6 +32,14 @@ def _battle_line(db, b):
     return f"{_name(db, 'country', b['att_country'])} vs {_name(db, 'country', b['def_country'])} in {_name(db, 'region', b['def_region'])}"
 
 
+def test():
+    url = os.environ.get("ALERT_WEBHOOK_URL")
+    if not url:
+        raise SystemExit("ALERT_WEBHOOK_URL is not set for this workflow")
+    post(url, "✅ Test alert from WarEra Tracker: the webhook works. New battles involving The Emerald Accord will appear here.")
+    C.log("alerts: test message sent")
+
+
 def run(db, scope):
     db.execute("CREATE TABLE IF NOT EXISTS alert_state(k TEXT PRIMARY KEY, v TEXT)")
     url = os.environ.get("ALERT_WEBHOOK_URL")
