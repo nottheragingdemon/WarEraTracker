@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       gateway:
-        description: "Use the warerastats gateway (off = official API only)"
+        description: "Use the warerastats gateway (off by default: it was slower and erroring in Nov 2026)"
         type: boolean
-        default: true
+        default: false
 
 concurrency:
   group: refresh
@@ -33,7 +33,7 @@ jobs:
       - name: Collect and export
         env:
           WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
-          WARERA_GATEWAY: ${{ (github.event_name == 'workflow_dispatch' && !inputs.gateway) && '0' || vars.WARERA_GATEWAY || '1' }}
+          WARERA_GATEWAY: ${{ (github.event_name == 'workflow_dispatch' && inputs.gateway) && '1' || vars.WARERA_GATEWAY || '0' }}
         run: sh refresh.sh
       - name: Alerts (only if ALERT_WEBHOOK_URL is set)
         env:

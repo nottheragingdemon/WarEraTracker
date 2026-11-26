@@ -88,6 +88,8 @@ def main():
             C.log("stages skipped this run: " + ", ".join(failed))
             from . import alerts as AL
             AL.skipped(db, failed)
+        if what & {"battles", "damage", "companies"}:   # full runs only, not the 15-minute sample
+            timed("prune", C.prune, db)
         C.log("timings: " + ", ".join(f"{n} {t:.0f}s/{k} calls" for n, t, k in timings))
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
         return

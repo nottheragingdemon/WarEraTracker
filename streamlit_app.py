@@ -36,7 +36,11 @@ def page(name: str) -> str:
 
 def show(name: str):
     try:
-        components.html(page(name), height=1600, scrolling=True)
+        html = page(name)   # our own pages and data, never user input
+        if hasattr(st, "iframe"):   # components.html is deprecated in newer Streamlit
+            st.iframe(html, height=1600)
+        else:
+            components.html(html, height=1600, scrolling=True)
     except FileNotFoundError:
         st.error("site/data.json not found yet. Run the “Refresh data” workflow once.")
 
@@ -68,7 +72,7 @@ def ask_warera():
 
 # Temporarily hidden while testing. Open the app with ?key=<DEV_KEY> (DEV_KEY is set in the app's Secrets, never in the repo)
 # to see them; the unlock lasts for that browser session. Set HIDDEN = () to bring the pages back for everyone.
-HIDDEN = ("company-tax", "ask")
+HIDDEN = ("ask",)
 
 
 def _unlocked():

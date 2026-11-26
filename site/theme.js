@@ -49,7 +49,7 @@ mark();w.onclick=function(e){var b=e.target.closest("button");if(!b)return;set(b
 
 /* Temporarily hidden apps (testing): empty HIDDEN_PAGES to bring them back for everyone.
    Testing mode: tap the words "Supported by" in the footer 5 times to show them on this device (tap 5 times again to hide). */
-var HIDDEN_PAGES=["company.html","ask.html"];
+var HIDDEN_PAGES=["ask.html"];
 (function(){
 var dev=false;try{dev=localStorage.getItem("we-dev")==="1"}catch(e){}
 var here=(location.pathname.split("/").pop()||"index.html");

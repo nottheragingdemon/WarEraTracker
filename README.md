@@ -1,7 +1,7 @@
 # WarEra Tracker
 
 Dashboard for WarEra battle damage, orders, bounty, contracts and citizens' company locations/taxes,
-filterable by alliance, country, MU and player. Data comes from `api2.warera.io`, fetched through the community cache at `gateway.warerastats.io` first (same API key, set `WARERA_GATEWAY=0` to disable) with the official API as the fallback.
+filterable by alliance, country, MU and player. Data comes from `api2.warera.io`. The community cache at `gateway.warerastats.io` can be used first (same API key) by setting the repository variable `WARERA_GATEWAY=1`, or for one manual run with the *gateway* switch; it is off by default because in November 2026 it was slower than the official API and returned backend errors in every run.
 
 - `streamlit_app.py` serves `site/index.html` with `site/data.json` inlined (deploy on Streamlit Community Cloud).
 - `.github/workflows/refresh.yml` runs hourly: restores the history database from the `state` branch, collects new data,

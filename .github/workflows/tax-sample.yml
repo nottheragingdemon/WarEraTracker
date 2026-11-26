@@ -48,6 +48,7 @@ jobs:
       - name: Record tax rates and new battles
         env:
           WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
+          WARERA_GATEWAY: ${{ vars.WARERA_GATEWAY || '0' }}
         run: WARTRACK_DB=wartrack.sqlite python3 -m wartrack collect --what regions,alliances,battles
       - name: Battle alerts
         env:
