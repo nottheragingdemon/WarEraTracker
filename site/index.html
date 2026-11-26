@@ -96,6 +96,15 @@ function countryKpis(bs){var t=countryTotals(bs);return kpis([
   ["Country damage (all)",fmt(t.dmg)],["On own side",fmt(t.own)],["For the other side",fmt(t.other)],
   ["Damage as attacker / defender side",fmt(t.aD)+" / "+fmt(t.dD)],["Share of battle damage",t.all?(100*t.dmg/t.all).toFixed(1)+"%":"–"],["Money earned",fmt(t.money)]])}
 
+/* the selected player's damage, bounty (battle money) and bounty per 1M damage over a set of battles */
+function playerKpis(bs){var u=st.user,d=0,m=0,n=0;
+  bs.forEach(function(i){var dv=val(0,i,u),mv=val(1,i,u);if(dv||mv)n++;if(dv)d+=dv.t;if(mv)m+=mv.t});
+  var lbl=(st.from||st.to)?(st.from||"start")+" to "+(st.to||"now"):"all battles";
+  var box=el("div",{class:"card"},[el("h2",{text:"Bounty per 1M damage: "+nm(u)}),kpis([
+    ["Bounty per 1M damage",d>0?fmt(m/(d/1e6)):"–"],["Bounty (battle money)",fmt(m)],["Damage",fmt(d)],["Battles fought",n+" of "+bs.length]]),
+    el("div",{class:"note",text:"Selected period: "+lbl+". Bounty is the player's battle money divided by their damage in millions, over the battles in range and the other filters."})]);
+  return box}
+
 /* ---------- widgets ---------- */
 function kpis(items){return el("div",{class:"kpis"},items.map(function(x){return el("div",{class:"kpi"},[el("b",{text:x[1]}),el("span",{text:x[0]})])}))}
 function mk(head,rows,numCols,selCols){
@@ -195,6 +204,7 @@ function vDamage(v){
   var by=st.by==="auto"?(spec?spec[0]:"battle"):st.by,tot=0,series=[];
   bs.forEach(function(i){var val0=spec?(val(0,i,spec[1])||{t:0}).t:sideTot(0,i)[2];tot+=val0;series.push([D.battles[i][2],val0])});
   if(st.country>=0)v.appendChild(countryKpis(bs));
+  if(st.user>=0)v.appendChild(playerKpis(bs));
   v.appendChild(kpis([["Battles",String(bs.length)],[spec?"Selected damage":"Total damage",fmt(tot)],["Avg per battle",fmt(bs.length?tot/bs.length:0)]]));
   v.appendChild(allianceChart());
   v.appendChild(dayChart(series,(spec?"Damage by "+tname(spec[0])+" "+nm(spec[1]):"Total damage (both sides)")+" over time"));
@@ -228,6 +238,7 @@ function vBpm(v){
   if(isMu)rows=rows.filter(function(r){return r.n>0});
   var per=function(m,d){return d>0?m/(d/1e6):null},pf=function(x){return x==null?"–":fmt(x)};
   var T=rows.reduce(function(a,r){a.n=Math.max(a.n,r.n);["dA","dD","mA","mD","d","m"].forEach(function(k){a[k]+=r[k]});return a},{n:0,dA:0,dD:0,mA:0,mD:0,d:0,m:0});
+  if(st.user>=0)v.appendChild(playerKpis(s));
   v.appendChild(kpis([[isMu?"Military units":"Countries",String(rows.length)],["Battles in range",String(s.length)],["Damage (millions)",fmt(T.d/1e6)],["Money earned",fmt(T.m)],["Money per 1M damage",pf(per(T.m,T.d))]]));
   var COLS=[[isMu?"Military unit":"Country",function(r){return nm(r.c).toLowerCase()}]];
   if(isMu)COLS.push(["Country",function(r){return nm(relMu[r.c]).toLowerCase()}]);
