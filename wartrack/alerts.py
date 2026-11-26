@@ -159,7 +159,7 @@ def digest_text(db, scope, days=7, now=None):
     best_c = sorted(((k, v["money"] / (v["damage"] / 1e6)) for k, v in cs.items() if v["damage"] >= 1e6), key=lambda kv: -kv[1])[:3]
     best_p = sorted(((k, v["money"] / (v["damage"] / 1e6)) for k, v in ps.items() if v["damage"] >= 1e6), key=lambda kv: -kv[1])[:5]
     if best_c or best_p:
-        out += ["", "**💰 Best bounty per 1M damage**"]
+        out += ["", "**💰 Top bounty per 1M damage**"]
         if best_c:
             out.append("Countries: " + "  ·  ".join(f"{cname(k)} **{_f1(p)}**" for k, p in best_c))
         if best_p:

@@ -33,6 +33,6 @@ Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook
 - Every page shows an amber banner when its data is more than 2 hours old.
 
 ## Weekly digest and artifact copies
-- The *Weekly digest* workflow (Mondays 08:23 UTC, or run it by hand) posts the week's battles, top countries by damage, best bounty per 1M damage (countries and players), money transfers and citizen donations to `ALERT_WEBHOOK_URL`. `python -m wartrack alerts --print-digest` shows the text without sending it.
+- The *Weekly digest* workflow (Mondays 08:23 UTC, or run it by hand) posts the week's battles, top countries by damage, top bounty per 1M damage (countries and players), money transfers and citizen donations to `ALERT_WEBHOOK_URL`. `python -m wartrack alerts --print-digest` shows the text without sending it.
 - `python3 scripts/sync_artifacts.py OUT_DIR` builds the two Claude-artifact copies (Tracker, Ask WarEra) from `site/`; the hourly republish tasks run it, so the copies cannot drift from the repo.
 - `site/data.json` is the core data; `site/ask-data.json` (bounty history and contracts) is loaded by Ask WarEra only.
