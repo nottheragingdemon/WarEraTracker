@@ -242,6 +242,40 @@ def collect_transfers(c, db, scope=None, days=90):
     log(f"transfers: {new} new between member countries")
 
 
+def collect_donations(c, db, scope=None, days=60, budget=300.0):
+    """Player donations to each member country's treasury (transactionType donation), newest first; stops at the first
+    one already stored or older than `days`. The donor's own country is looked up so citizens' donations can be separated."""
+    import time as _t
+    members = set(scope.members) if scope and scope.members else set()
+    if not members:
+        log("donations: no alliance members in scope, skipped"); return
+    t0 = _t.monotonic()
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    known = {r["id"] for r in db.execute("SELECT id FROM donations")}
+    new = 0
+    for m in sorted(members):
+        for t in c.pages("transaction.getPaginatedTransactions", max_pages=80, countryId=m, transactionType="donation", limit=100):
+            if t["_id"] in known or t["createdAt"] < cutoff or _t.monotonic() - t0 > budget:
+                break
+            if t.get("sellerCountryId") == m and t.get("buyerId"):
+                row = db.execute("SELECT country FROM users WHERE id=?", (t["buyerId"],)).fetchone()
+                db.execute("INSERT OR IGNORE INTO donations VALUES(?,?,?,?,?,?)", (t["_id"], t["createdAt"], m, t["buyerId"], t.get("money") or 0, row["country"] if row else None))
+                new += 1
+    db.commit()
+    need = [r["donor"] for r in db.execute("SELECT DISTINCT donor FROM donations WHERE donor_country IS NULL")]
+    looked = 0
+    for i in range(0, len(need), 40):
+        if _t.monotonic() - t0 > budget + 120:
+            break
+        chunk = need[i:i + 40]
+        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
+            if d and d.get("country"):
+                db.execute("UPDATE donations SET donor_country=? WHERE donor=?", (d["country"], u)); looked += 1
+    db.execute("DELETE FROM donations WHERE ts < ?", (cutoff,))
+    db.commit()
+    log(f"donations: {new} new, {looked} donors looked up, {len(need) - looked} still unknown")
+
+
 STATUSES = ["active", "won", "expiredNoBids", "expiredBattle", "expiredRound", "cancelled"]
 
 

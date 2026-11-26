@@ -27,7 +27,7 @@
   <div class="filters">
     <label>From<input type="date" id="f-from"></label>
     <label>To<input type="date" id="f-to"></label>
-    <label>Sort by<select id="f-sort"><option value="amount">Amount</option><option value="nation">Nation</option><option value="battles">Battles</option><option value="count">Transfers</option></select></label>
+    <label>Sort by<select id="f-sort"><option value="amount">Amount</option><option value="nation">Nation</option><option value="battles">Battles</option><option value="count">Transfers</option><option value="don">Citizen donations</option></select></label>
     <label>Order<select id="f-dir"><option value="desc">High to low / Z to A</option><option value="asc">Low to high / A to Z</option></select></label>
   </div>
   <div class="chiprow" id="quick"></div>
@@ -57,16 +57,17 @@ function render(){
   var bt=D.battles.filter(function(b){return inRange(b[2])});
   var by={};
   tr.forEach(function(t){var r=by[t[2]]||(by[t[2]]={c:t[2],amount:0,count:0,battles:0,from:{}});r.amount+=t[3];r.count++;r.from[t[1]]=(r.from[t[1]]||0)+t[3]});
-  Object.keys(by).forEach(function(k){by[k].battles=bt.filter(function(b){return b[4]==by[k].c||b[5]==by[k].c}).length});
+  var dn={};(D.donations||[]).forEach(function(d){if(inRange(d[0]))dn[d[1]]=(dn[d[1]]||0)+d[2]});
+  Object.keys(by).forEach(function(k){by[k].don=dn[by[k].c]||0;by[k].battles=bt.filter(function(b){return b[4]==by[k].c||b[5]==by[k].c}).length});
   var rows=Object.keys(by).map(function(k){return by[k]}),m=st.dir==="asc"?1:-1;
   rows.sort(function(a,b){var x,y;if(st.sort==="nation"){return m*nm(a.c).localeCompare(nm(b.c))}x=a[st.sort];y=b[st.sort];return m*(x-y)||nm(a.c).localeCompare(nm(b.c))});
   var total=tr.reduce(function(a,t){return a+t[3]},0),v=$("view");v.textContent="";
   v.appendChild(kpis([[m0(total),"Total transferred"],[tr.length,"Transfers"],[rows.length,"Receiving nations"],[bt.length,"Battles in period"]]));
   if(!tr.length){v.appendChild(card("No transfers",[el("div",{class:"note",text:"No money transfers between Emerald Accord nations in this period."})]));return}
-  var sum=rows.map(function(r){return[r]}),cols=[["Receiving nation",function(r){return nm(r[0].c)}],["Received",function(r){return m0(r[0].amount)},1],["Transfers",function(r){return r[0].count},1],["Battles involving nation",function(r){return r[0].battles},1]];
+  var sum=rows.map(function(r){return[r]}),cols=[["Receiving nation",function(r){return nm(r[0].c)}],["Received",function(r){return m0(r[0].amount)},1],["Citizen donations",function(r){return m0(r[0].don)},1],["Transfers",function(r){return r[0].count},1],["Battles involving nation",function(r){return r[0].battles},1]];
   var tb=tbl(cols,sum);
   Array.prototype.forEach.call(tb.querySelectorAll("tbody tr"),function(tr_,i){tr_.style.cursor="pointer";if(rows[i].c===st.sel)tr_.className="sel";tr_.onclick=function(){st.sel=st.sel===rows[i].c?-1:rows[i].c;render()}});
-  v.appendChild(card("By receiving nation",[tb,el("div",{class:"note",text:"Total "+m0(total)+" in "+tr.length+" transfers. Tap a nation to list its individual transfers."})]));
+  v.appendChild(card("By receiving nation",[tb,el("div",{class:"note",text:"Total "+m0(total)+" in "+tr.length+" transfers. Citizen donations are gifts from that nation\u2019s own citizens to its treasury in the same period. Tap a nation to list its individual transfers."})]));
   var list=tr.filter(function(t){return st.sel<0||t[2]===st.sel});
   list=list.slice().sort(function(a,b){
     if(st.sort==="amount")return m*(a[3]-b[3]);

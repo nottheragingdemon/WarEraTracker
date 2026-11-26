@@ -109,6 +109,9 @@ def export(db, out, since, scope=None):
               for r in db.execute("SELECT * FROM wealth_now ORDER BY value DESC")]
     transfers = [[r["ts"], E("country", r["sender"]), E("country", r["receiver"]), r["money"]]
                  for r in db.execute("SELECT * FROM transfers ORDER BY ts DESC")]
+    donations = [[r["day"], E("country", r["country"]), r["own"], r["own_n"], r["total"]]
+                 for r in db.execute("SELECT substr(ts,1,10) day, country, SUM(CASE WHEN donor_country=country THEN money ELSE 0 END) own, "
+                                     "SUM(CASE WHEN donor_country=country THEN 1 ELSE 0 END) own_n, SUM(money) total FROM donations GROUP BY day, country ORDER BY day DESC")]
     regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"]]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
@@ -131,7 +134,7 @@ def export(db, out, since, scope=None):
     data = {"v": 2, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
             "ents": ents, "battles": battles, "stats": stats, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
-            "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "wealthNow": wealth, "countryTax": country_tax,
+            "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs}
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))

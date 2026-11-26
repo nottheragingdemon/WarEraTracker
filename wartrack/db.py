@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS country_now(country TEXT PRIMARY KEY, name TEXT, mone
 CREATE TABLE IF NOT EXISTS wealth_now(eid TEXT PRIMARY KEY, country TEXT, mu TEXT, value REAL, rank INT, updated TEXT);
 CREATE TABLE IF NOT EXISTS transfers(id TEXT PRIMARY KEY, ts TEXT, sender TEXT, receiver TEXT, money REAL);
 CREATE INDEX IF NOT EXISTS transfers_ts ON transfers(ts);
+CREATE TABLE IF NOT EXISTS donations(id TEXT PRIMARY KEY, ts TEXT, country TEXT, donor TEXT, money REAL, donor_country TEXT);
+CREATE INDEX IF NOT EXISTS donations_ts ON donations(ts);
 CREATE TABLE IF NOT EXISTS company_skip(id TEXT PRIMARY KEY, checked TEXT);
 CREATE TABLE IF NOT EXISTS wage_snap(region TEXT, owner_country TEXT, t INTEGER, companies INT, workers INT, wages REAL, mgr REAL, PRIMARY KEY(region,owner_country,t));
 CREATE TABLE IF NOT EXISTS rate_hist(country TEXT, t INTEGER, income REAL, manager REAL, PRIMARY KEY(country,t));
