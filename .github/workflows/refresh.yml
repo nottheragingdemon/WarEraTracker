@@ -51,4 +51,7 @@ jobs:
         if: failure()
         env:
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
-        run: python3 -m wartrack alerts --failure "WarEra Tracker: the '${{ github.workflow }}' run failed. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+        run: |
+          python3 -m wartrack alerts --failure "WarEra Tracker: the $WORKFLOW run failed. $RUN_URL"
