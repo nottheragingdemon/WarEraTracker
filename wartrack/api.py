@@ -8,6 +8,14 @@ except ImportError:   # pragma: no cover
     AsyncHTTPClient = None
 
 
+BASE = "https://api2.warera.io/trpc/"
+GATEWAY = "https://gateway.warerastats.io/trpc/"  # community cache/proxy (warerastats.io); needs the same API key, falls back to BASE
+
+
+class ApiError(Exception):
+    pass
+
+
 def _body(raw):
     try:
         return json.loads(raw)
