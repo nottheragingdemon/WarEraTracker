@@ -116,6 +116,17 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(c.call("gw.unknown")["side"], "api")
         self.assertIn("gw.unknown", c.gw_skip)
 
+    def test_gateway_rests_after_failures_then_returns(self):
+        import time
+        c = api.Client(key="k")
+        c.gw_cooldown = 0.3
+        for _ in range(3):
+            c.call("gw.backend.down")
+        self.assertFalse(c.use_gateway)
+        time.sleep(0.4)
+        self.assertTrue(c.use_gateway)
+        self.assertEqual(c.call("x.y")["side"], "gw")
+
     def test_batch_many_matches_batch(self):
         lists = [[("x.a", {}), ("x.b", {})] for _ in range(20)]
         self.assertEqual(self.c.batch_many(lists), [self.c.batch(l) for l in lists])

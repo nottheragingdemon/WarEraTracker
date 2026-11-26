@@ -1,5 +1,5 @@
 """Export the database to a compact data.json for the dashboard page (no network access needed)."""
-import json, datetime as dt
+import json, os, datetime as dt
 
 SIDE = {"a": 0, "d": 1, "m": 2}
 KIND = {"damage": 0, "money": 1}
@@ -139,6 +139,10 @@ def export(db, out, since, scope=None):
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs}
+    # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
+    extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))
-    return {k: len(v) for k, v in data.items() if isinstance(v, (list, dict))}
+    with open(os.path.join(os.path.dirname(out) or ".", "ask-data.json"), "w") as f:
+        json.dump(dict(extra, generated=data["generated"]), f, separators=(",", ":"))
+    return {k: len(v) for k, v in dict(data, **extra).items() if isinstance(v, (list, dict))}

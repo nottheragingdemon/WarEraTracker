@@ -49,17 +49,26 @@ def main():
     if a.cmd == "collect":
         since = C.parse_when(a.since)
         what = set(a.what.split(","))
-        if "alliances" in what: C.collect_alliances(cl, db)
-        if "regions" in what: C.collect_regions(cl, db)
+        import time as _time
+        timings = []
+
+        def timed(name, fn, *args):
+            t0, n0 = _time.monotonic(), cl.n
+            try:
+                return fn(*args)
+            finally:
+                timings.append((name, _time.monotonic() - t0, cl.n - n0))
+        if "alliances" in what: timed("alliances", C.collect_alliances, cl, db)
+        if "regions" in what: timed("regions", C.collect_regions, cl, db)
         scope = C.Scope(db, None if a.alliance in (None, "all") else a.alliance, since)
         if scope.active: C.log(f"scope: battles involving {a.alliance} ({len(scope.members)} countries) since {since[:10]}")
-        if "battles" in what: C.collect_battles(cl, db, since, scope)
+        if "battles" in what: timed("battles", C.collect_battles, cl, db, since, scope)
         failed = []
 
         def stage(name, fn, *args):
             """a late stage that hits an API hiccup is logged and skipped, so the data collected so far is still saved and exported"""
             try:
-                fn(*args)
+                timed(name, fn, *args)
             except ApiError as e:
                 db.commit(); failed.append(name); C.log(f"{name}: SKIPPED after API errors ({e})")
         if "damage" in what:
@@ -76,6 +85,7 @@ def main():
             C.log("stages skipped this run: " + ", ".join(failed))
             from . import alerts as AL
             AL.skipped(db, failed)
+        C.log("timings: " + ", ".join(f"{n} {t:.0f}s/{k} calls" for n, t, k in timings))
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
         return
     if a.cmd == "alerts":

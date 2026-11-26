@@ -25,7 +25,13 @@ def page(name: str) -> str:
     js = (HERE / "site" / "theme.js").read_text(encoding="utf-8")
     html = html.replace('<link rel="stylesheet" href="theme.css">', "<style>" + css + "</style>")
     html = html.replace('<script src="theme.js"></script>', "<script>" + js + "</script>")
-    return html.replace(old, "Promise.resolve(" + data.replace("</", "<\\/") + ")", 1)
+    html = html.replace(old, "Promise.resolve(" + data.replace("</", "<\\/") + ")", 1)
+    extra_fetch = 'fetch("ask-data.json").then(function(r){return r.json()})'
+    if extra_fetch in html:   # the Ask page also needs bounty history and contracts
+        extra = (HERE / "site" / "ask-data.json").read_text(encoding="utf-8")
+        json.loads(extra)
+        html = html.replace(extra_fetch, "Promise.resolve(" + extra.replace("</", "<\\/") + ")", 1)
+    return html
 
 
 def show(name: str):

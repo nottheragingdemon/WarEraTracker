@@ -102,7 +102,7 @@ def collect_stats(c, db, levels=LEVELS, limit=None, pages=None, scope=None):
         if limit:
             todo = todo[:limit]
         log(f"{level}: {len(todo)} battles to fetch")
-        for i, r in enumerate(todo, 1):
+        def fetch(r):   # all rankings of one battle; several battles are fetched at once
             bid, rows = r["id"], []
             for kind in ("damage", "money"):
                 for side in ("attacker", "defender"):
@@ -115,16 +115,34 @@ def collect_stats(c, db, levels=LEVELS, limit=None, pages=None, scope=None):
                                  type="alliance", side="merged", limit=100):
                     if e.get("alliance") and e.get("value"):
                         rows.append((bid, "damage", "alliance", e["alliance"], "m", e["value"]))
-            db.execute("DELETE FROM battle_stat WHERE battle_id=? AND etype IN (?,?)", (bid, level, "alliance" if level == "country" else level))
-            db.executemany("INSERT OR REPLACE INTO battle_stat VALUES(?,?,?,?,?,?)", rows)
-            db.execute("INSERT OR REPLACE INTO battle_fetch VALUES(?,?,?)", (bid, level, now_iso()))
-            db.commit()
-            if i % 20 == 0 or i == len(todo):
-                log(f"  {level} {i}/{len(todo)} (api calls so far: {c.n})")
+            return bid, rows
+        done = 0
+        for g in range(0, len(todo), 12):
+            for bid, rows in c.map(fetch, todo[g:g + 12], workers=8):
+                db.execute("DELETE FROM battle_stat WHERE battle_id=? AND etype IN (?,?)", (bid, level, "alliance" if level == "country" else level))
+                db.executemany("INSERT OR REPLACE INTO battle_stat VALUES(?,?,?,?,?,?)", rows)
+                db.execute("INSERT OR REPLACE INTO battle_fetch VALUES(?,?,?)", (bid, level, now_iso()))
+                db.commit()
+                done += 1
+            log(f"  {level} {done}/{len(todo)} (api calls so far: {c.n})")
 
 
 def collect_people(c, db, user_limit=800, scope=None):
     """MU list (names, country, members) and per-player country/name so filters can cascade."""
+    n = 0
+    every = float(os.environ.get("WARTRACK_PEOPLE_EVERY_H", "6"))   # the MU list changes slowly: refresh it every few hours, not every run
+    last = db.execute("SELECT v FROM meta WHERE k='mu_list_at'").fetchone()
+    have = db.execute("SELECT COUNT(*) FROM mu_members").fetchone()[0]
+    fresh = last and have and (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(last["v"])).total_seconds() < every * 3600
+    if fresh:
+        log(f"people: MU list is less than {every:g} h old, kept")
+    else:
+        _refresh_mus(c, db)
+    cond, cargs = scope.battle_sql("b") if scope else ("1=1", [])
+    return _resolve_players(c, db, cond, cargs, user_limit)
+
+
+def _refresh_mus(c, db):
     n = 0
     db.execute("DELETE FROM mu_members")
     for m in c.pages("mu.getManyPaginated", limit=100):
@@ -133,22 +151,19 @@ def collect_people(c, db, user_limit=800, scope=None):
         db.execute("INSERT OR REPLACE INTO names VALUES('mu',?,?,NULL)", (m["_id"], m["name"]))
         for u in m.get("members", []):
             db.execute("INSERT OR IGNORE INTO mu_members VALUES(?,?)", (m["_id"], u))
+    db.execute("INSERT OR REPLACE INTO meta VALUES('mu_list_at',?)", (now_iso(),))
     db.commit()
     log(f"people: {n} MUs, {db.execute('SELECT COUNT(*) FROM mu_members').fetchone()[0]} members")
-    cond, cargs = scope.battle_sql("b") if scope else ("1=1", [])
+
+
+def _resolve_players(c, db, cond, cargs, user_limit):
     todo = db.execute(f"""SELECT s.eid, SUM(s.value) v FROM battle_stat s JOIN battles b ON b.id=s.battle_id
         LEFT JOIN users u ON u.id=s.eid
         WHERE s.etype='user' AND s.kind='damage' AND (u.id IS NULL OR u.name IS NULL OR u.country IS NULL) AND {cond}
         GROUP BY s.eid ORDER BY v DESC LIMIT ?""", (*cargs, user_limit)).fetchall()
-    for i, r in enumerate(todo, 1):
-        try:
-            u = c.call("user.getUserLite", userId=r["eid"])
-        except Exception:
-            continue
-        db.execute("INSERT OR REPLACE INTO users VALUES(?,?,?,?)", (r["eid"], u.get("country"), u.get("mu"), u.get("username")))
-        db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (r["eid"], u.get("username")))
-        if i % 200 == 0:
-            db.commit(); log(f"  players {i}/{len(todo)}")
+    for eid, u in c.lookup_users([r["eid"] for r in todo]).items():
+        db.execute("INSERT OR REPLACE INTO users VALUES(?,?,?,?)", (eid, u.get("country"), u.get("mu"), u.get("username")))
+        db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (eid, u.get("username")))
     db.commit()
     log(f"people: {len(todo)} players resolved")
 

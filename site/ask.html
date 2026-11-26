@@ -181,6 +181,7 @@ EX.forEach(function(t){var b=el("button",{class:"chip",text:t});b.onclick=functi
 $("go").onclick=ask;$("q").addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))ask()});
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
+  try{var x=await fetch("ask-data.json").then(function(r){return r.json()});d.bounty=x.bounty||[];d.contracts=x.contracts||[]}catch(e){d.bounty=d.bounty||[];d.contracts=d.contracts||[]}
   D=d;build();stale();
   $("meta").textContent="Data updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+T.battles.rows.length+" battles · ask in plain English, Claude returns a table";
   sample=await window.claude.use("sample");

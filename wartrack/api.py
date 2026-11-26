@@ -45,7 +45,9 @@ class Client:
         self._lock = threading.Lock()
         self.n = 0
         # gateway first (cached, de-duplicated), official API as the fallback; WARERA_GATEWAY=0 turns it off
-        self.use_gateway = bool(self.key) and os.environ.get("WARERA_GATEWAY", "1") != "0"
+        self.gw_allowed = bool(self.key) and os.environ.get("WARERA_GATEWAY", "1") != "0"
+        self.gw_cooldown = float(os.environ.get("WARERA_GATEWAY_COOLDOWN", "300"))   # seconds the gateway rests after repeated failures
+        self.gw_off_until = 0.0
         self.gw_fail = 0
         self.gw_skip = set(GW_UNSUPPORTED)   # procedures the gateway is known not to serve go straight to the official API
         self.gw_served = 0
@@ -90,11 +92,21 @@ class Client:
             self._gw_bad("gateway backend error"); return "official", 0
         self._gw_reject(names, 200, body); return "again", 0
 
+    @property
+    def use_gateway(self):
+        """The gateway is used unless it is switched off, or resting after repeated failures (it is tried again after the cooldown)."""
+        if not self.gw_allowed:
+            return False
+        if self.gw_off_until and time.monotonic() >= self.gw_off_until:
+            self.gw_off_until, self.gw_fail = 0.0, 0
+            print("  [gateway] cooldown over, trying the gateway again", flush=True)
+        return not self.gw_off_until
+
     def _gw_bad(self, why):
         self.gw_fail += 1
         if self.use_gateway and self.gw_fail >= 3:
-            self.use_gateway = False
-            print(f"  [gateway] {why}; using the official API for the rest of this run", flush=True)
+            self.gw_off_until = time.monotonic() + self.gw_cooldown
+            print(f"  [gateway] {why}; using the official API for the next {self.gw_cooldown:.0f}s", flush=True)
 
     def _throttle(self):
         with self._lock:      # threads queue here, so the per-minute budget is shared by all of them
