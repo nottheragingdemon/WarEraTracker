@@ -104,18 +104,40 @@ def _fmt(x):
     return f"{x:,.0f}"
 
 
+def _f1(x):
+    """one decimal for small figures (bounty per 1M), compact form for big ones"""
+    x = float(x or 0)
+    return f"{x:,.1f}" if abs(x) < 1000 else _fmt(x)
+
+
+def _esc(text):
+    """Discord markdown would turn _name_ or *name* into italics: escape the characters that matter"""
+    return "".join("\\" + ch if ch in "_*~`|>\\" else ch for ch in str(text))
+
+
+MEDALS = ["🥇", "🥈", "🥉", "4.", "5."]
+
+
+def _ranked(rows):
+    """[(label, value text)] -> numbered lines with medals"""
+    return [f"{MEDALS[i]} {label} — **{val}**" for i, (label, val) in enumerate(rows)]
+
+
 def digest_text(db, scope, days=7, now=None):
-    """The weekly summary: battles, damage and bounty by country and player, money transfers, citizen donations."""
+    """The weekly summary as Discord-flavoured markdown: battles, damage and bounty by country and player, transfers, donations."""
     import datetime as dt
     now = now or dt.datetime.now(dt.timezone.utc)
-    since = (now - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    start = now - dt.timedelta(days=days)
+    since = start.isoformat(timespec="seconds").replace("+00:00", "Z")
     members = list(scope.members) if scope and scope.members else []
     cond, args = scope.battle_sql("b") if scope else ("1=1", [])
     win = f"{cond} AND b.created_at>=?"
     wargs = [*args, since]
     mem = ",".join("?" * len(members)) or "''"
     n = db.execute(f"SELECT COUNT(*) FROM battles b WHERE {win}", wargs).fetchone()[0]
-    out = [f"📊 Weekly digest: The Emerald Accord, {since[:10]} to {now.date().isoformat()} (UTC)", f"Battles involving the alliance: {n}"]
+    day = lambda d: f"{d.day} {d.strftime('%b')}"
+    out = ["📊 **Weekly digest · The Emerald Accord**",
+           f"📅 {day(start)} – {day(now)} {now.year} (UTC)  ·  ⚔️ **{n}** battles involving the alliance"]
 
     def per_entity(etype, extra_join="", extra_cond="", extra_args=()):
         rows = db.execute(f"""SELECT s.eid, s.kind, SUM(s.value) v FROM battle_stat s JOIN battles b ON b.id=s.battle_id {extra_join}
@@ -124,32 +146,34 @@ def digest_text(db, scope, days=7, now=None):
         for r in rows:
             d.setdefault(r["eid"], {"damage": 0.0, "money": 0.0})[r["kind"]] = r["v"]
         return d
-    # countries of the alliance
+    cname = lambda k: _esc(_name(db, "country", k))
+    pname = lambda k: _esc(_name(db, "user", k))
     cs = {k: v for k, v in per_entity("country").items() if k in members}
     if cs:
         top = sorted(cs.items(), key=lambda kv: -kv[1]["damage"])[:5]
-        out.append("Top countries by damage: " + "; ".join(f"{_name(db, 'country', k)} {_fmt(v['damage'])}" for k, v in top))
-        best = sorted(((k, v["money"] / (v["damage"] / 1e6)) for k, v in cs.items() if v["damage"] >= 1e6), key=lambda kv: -kv[1])[:3]
-        if best:
-            out.append("Best bounty per 1M damage (countries): " + "; ".join(f"{_name(db, 'country', k)} {_fmt(p)}" for k, p in best))
-    # players of the alliance's countries (at least 1M damage in the week)
+        out += ["", "**🏆 Top countries by damage**"] + _ranked([(cname(k), _fmt(v["damage"])) for k, v in top])
     ps = per_entity("user", "JOIN users u ON u.id=s.eid", f"AND u.country IN ({mem})", members)
-    ranked = sorted(((k, v["money"] / (v["damage"] / 1e6), v["damage"]) for k, v in ps.items() if v["damage"] >= 1e6), key=lambda x: -x[1])[:5]
-    if ranked:
-        out.append("Best bounty per 1M damage (players, 1M+ damage): " + "; ".join(f"{_name(db, 'user', k)} {_fmt(p)}" for k, p, _ in ranked))
-    topd = sorted(ps.items(), key=lambda kv: -kv[1]["damage"])[:3]
+    topd = sorted(ps.items(), key=lambda kv: -kv[1]["damage"])[:5]
     if topd:
-        out.append("Most damage (players): " + "; ".join(f"{_name(db, 'user', k)} {_fmt(v['damage'])}" for k, v in topd))
-    # money transfers between member countries
+        out += ["", "**🎯 Most damage · players**"] + _ranked([(pname(k), _fmt(v["damage"])) for k, v in topd])
+    best_c = sorted(((k, v["money"] / (v["damage"] / 1e6)) for k, v in cs.items() if v["damage"] >= 1e6), key=lambda kv: -kv[1])[:3]
+    best_p = sorted(((k, v["money"] / (v["damage"] / 1e6)) for k, v in ps.items() if v["damage"] >= 1e6), key=lambda kv: -kv[1])[:5]
+    if best_c or best_p:
+        out += ["", "**💰 Best bounty per 1M damage**"]
+        if best_c:
+            out.append("Countries: " + "  ·  ".join(f"{cname(k)} **{_f1(p)}**" for k, p in best_c))
+        if best_p:
+            out.append("Players (1M+ damage):")
+            out += _ranked([(pname(k), _f1(p)) for k, p in best_p])
     if members:
-        tr = db.execute(f"SELECT COUNT(*) n, COALESCE(SUM(money),0) m FROM transfers WHERE ts>=? AND sender IN ({mem}) AND receiver IN ({mem})", (since, *members, *members)).fetchone()
-        line = f"Money transfers between alliance nations: {tr['n']} totalling {_fmt(tr['m'])}"
-        big = db.execute(f"SELECT sender, receiver, money FROM transfers WHERE ts>=? AND sender IN ({mem}) AND receiver IN ({mem}) ORDER BY money DESC LIMIT 1", (since, *members, *members)).fetchone()
+        q = f"FROM transfers WHERE ts>=? AND sender IN ({mem}) AND receiver IN ({mem})"
+        tr = db.execute(f"SELECT COUNT(*) n, COALESCE(SUM(money),0) m {q}", (since, *members, *members)).fetchone()
+        big = db.execute(f"SELECT sender, receiver, money {q} ORDER BY money DESC LIMIT 1", (since, *members, *members)).fetchone()
+        out += ["", "**🔁 Money transfers between alliance nations**", f"**{tr['n']}** transfers · **{_fmt(tr['m'])}** in total"]
         if big:
-            line += f" (largest: {_name(db, 'country', big['sender'])} → {_name(db, 'country', big['receiver'])} {_fmt(big['money'])})"
-        out.append(line)
+            out.append(f"Largest: {cname(big['sender'])} → {cname(big['receiver'])} **{_fmt(big['money'])}**")
         dn = db.execute(f"SELECT COUNT(DISTINCT donor) n, COALESCE(SUM(money),0) m FROM donations WHERE ts>=? AND country IN ({mem}) AND donor_country=country", (since, *members)).fetchone()
-        out.append(f"Citizen donations to their own nation: {_fmt(dn['m'])} from {dn['n']} citizens")
+        out += ["", "**🎁 Citizen donations to their own nation**", f"**{_fmt(dn['m'])}** from **{dn['n']}** citizens"]
     return "\n".join(out)
 
 

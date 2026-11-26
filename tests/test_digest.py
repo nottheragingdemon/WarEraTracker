@@ -27,11 +27,12 @@ class DigestTests(unittest.TestCase):
         db.execute("INSERT INTO transfers VALUES('t1','2026-11-25T12:00:00Z','c1','c2',1500)")
         db.execute("INSERT INTO donations VALUES('d1','2026-11-25T12:00:00Z','c1','u1',250,'c1')")
         text = alerts.digest_text(db, FakeScope(), now=now)
-        self.assertIn("Battles involving the alliance: 1", text)     # the old battle is outside the week
-        self.assertIn("Alpha 5.00M", text)                             # country damage, old battle excluded
-        self.assertIn("Ann 100", text)                                 # 500 money / 5M damage = 100 per 1M
-        self.assertIn("1 totalling 1.50k", text)
-        self.assertIn("250 from 1 citizens", text)
+        self.assertIn("**1** battles involving the alliance", text)     # the old battle is outside the week
+        self.assertIn("🥇 Alpha — **5.00M**", text)                             # country damage, old battle excluded
+        self.assertIn("🥇 Ann — **100.0**", text)                                 # 500 money / 5M damage = 100 per 1M
+        self.assertIn("**1** transfers · **1.50k** in total", text)
+        self.assertIn("**250** from **1** citizens", text)
+        self.assertLess(len(text), 1900)
 
 
 if __name__ == "__main__":
