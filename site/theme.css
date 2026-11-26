@@ -142,3 +142,5 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 .blist .bl{display:block;padding:4px 2px;font-size:13px}
 
 .chiprow{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 10px}tr.sel td{background:var(--panel-2)}
+
+.stale-banner{background:rgba(224,160,40,.16);border:1px solid #d9a21b;color:inherit;border-radius:8px;padding:8px 10px;margin:8px 0;font-size:13px}

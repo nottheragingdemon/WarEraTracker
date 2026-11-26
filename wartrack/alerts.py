@@ -33,6 +33,31 @@ def _battle_line(db, b):
     return f"{_name(db, 'country', b['att_country'])} vs {_name(db, 'country', b['def_country'])} in {_name(db, 'region', b['def_region'])}"
 
 
+def failure(text):
+    """Post a failure notice (no database needed). Never raises: a broken webhook must not hide the original failure."""
+    url = os.environ.get("ALERT_WEBHOOK_URL")
+    if not url:
+        C.log("alerts: ALERT_WEBHOOK_URL not set, failure notice not sent"); return
+    try:
+        post(url, "⚠️ " + text)
+        C.log("alerts: failure notice sent")
+    except Exception as e:
+        C.log(f"alerts: could not send failure notice ({e})")
+
+
+def skipped(db, stages):
+    """Some collector stages gave up after API errors: tell the webhook, at most once every 6 hours."""
+    db.execute("CREATE TABLE IF NOT EXISTS alert_state(k TEXT PRIMARY KEY, v TEXT)")
+    import datetime as dt
+    now = dt.datetime.now(dt.timezone.utc)
+    last = _state(db, "skipped_at")
+    if last and now - dt.datetime.fromisoformat(last) < dt.timedelta(hours=6):
+        return
+    if os.environ.get("ALERT_WEBHOOK_URL"):
+        failure("WarEra Tracker: these stages were skipped after API errors, so their data is not fresh: " + ", ".join(stages))
+        _set(db, "skipped_at", now.isoformat(timespec="seconds")); db.commit()
+
+
 def test():
     url = os.environ.get("ALERT_WEBHOOK_URL")
     if not url:

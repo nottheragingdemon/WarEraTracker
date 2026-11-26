@@ -8,6 +8,7 @@ except ImportError:   # pragma: no cover
     AsyncHTTPClient = None
 
 
+GW_UNSUPPORTED = {"ranking.getRankingPage", "alliance.getManyPaginated", "employee.getCompanyEstimate"}   # seen refused by the gateway (HTTP 400 unknown method)
 BASE = "https://api2.warera.io/trpc/"
 GATEWAY = "https://gateway.warerastats.io/trpc/"  # community cache/proxy (warerastats.io); needs the same API key, falls back to BASE
 
@@ -46,7 +47,7 @@ class Client:
         # gateway first (cached, de-duplicated), official API as the fallback; WARERA_GATEWAY=0 turns it off
         self.use_gateway = bool(self.key) and os.environ.get("WARERA_GATEWAY", "1") != "0"
         self.gw_fail = 0
-        self.gw_skip = set()
+        self.gw_skip = set(GW_UNSUPPORTED)   # procedures the gateway is known not to serve go straight to the official API
         self.gw_served = 0
 
     def _headers(self):
@@ -74,7 +75,10 @@ class Client:
         return out
 
     def _gw_reject(self, what, code, body):
+        new = [w for w in what if w not in self.gw_skip]
         self.gw_skip.update(what)
+        if not new:       # another thread already reported it
+            return
         print(f"  [gateway] {', '.join(what)[:50]}: HTTP {code} {str(body)[:160]!r}; this goes to the official API", flush=True)
 
     def _gw_bad(self, why):
@@ -101,14 +105,16 @@ class Client:
         good = isinstance(body, (dict, list))
         if status == 200 and good:
             if not batch:
-                if gw and "result" not in body:
-                    self._gw_bad("gateway returned an error"); return "again", 0
+                if gw and "result" not in body:   # the gateway answered, but with an error for this procedure: ask the official API about it from now on
+                    self._gw_reject(names, 200, body); return "again", 0
                 if gw:
                     self.gw_served += 1
                 return "ok", body["result"]["data"]
             body = body if isinstance(body, list) else [body]
-            if gw and (len(body) != len(names) or all("error" in x for x in body)):
+            if gw and len(body) != len(names):
                 self._gw_bad("gateway batch failed"); return "again", 0
+            if gw and all("error" in x for x in body):
+                self._gw_reject(names, 200, body[0]); return "again", 0
             if gw:
                 self.gw_served += 1
             return "ok", [None if "error" in x else x["result"]["data"] for x in body]
@@ -173,23 +179,32 @@ class Client:
 
     def batch_many(self, call_lists, official=False, group=8):
         """Several batch requests in flight at once through the async client: [[(proc, params), ...], ...] -> [[data or None], ...].
-        A request that doesn't come back clean is retried on its own with the full retry logic."""
-        call_lists = [cl for cl in call_lists]
+        Requests that don't come back clean are retried together, in further parallel rounds, so one slow or failing request
+        never holds up the others."""
+        call_lists = list(call_lists)
         out = [None] * len(call_lists)
         for g in range(0, len(call_lists), group):
-            idx = list(range(g, min(g + group, len(call_lists))))
-            urls = []
-            for i in idx:
-                self._throttle()
-                urls.append(self._batch_url(call_lists[i], official))
-            replies = self._fetch_many([u for _, u in urls]) if urls else []
-            for i, (gw, _), (status, body) in zip(idx, urls, replies):
-                names = [c[0] for c in call_lists[i]]
-                try:
-                    kind, val = self._judge(names, gw, status, body, True)
-                except ApiError:
-                    kind = "again"
-                out[i] = val if kind == "ok" else self.batch(call_lists[i], official=official)
+            todo = list(range(g, min(g + group, len(call_lists))))
+            for attempt in range(5):
+                if not todo:
+                    break
+                urls = []
+                for i in todo:
+                    self._throttle()
+                    urls.append(self._batch_url(call_lists[i], official))
+                replies = self._fetch_many([u for _, u in urls])
+                again, wait = [], 0
+                for i, (gw, _), (status, body) in zip(todo, urls, replies):
+                    kind, val = self._judge([c[0] for c in call_lists[i]], gw, status, body, True)
+                    if kind == "ok":
+                        out[i] = val
+                    else:
+                        again.append(i); wait = max(wait, val)
+                todo = again
+                if todo and wait:
+                    time.sleep(wait * (attempt + 1))
+            if todo:
+                raise ApiError("batch: gave up after retries")
         return out
 
     def map(self, fn, items, workers=None):

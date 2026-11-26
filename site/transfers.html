@@ -84,11 +84,28 @@ function render(){
   dr.sort(function(a,b){if(st.sort==="nation")return m*nm(a.c).localeCompare(nm(b.c))||(b.t-a.t);if(st.sort==="count")return m*(a.n-b.n)||(b.t-a.t);return m*(a.t-b.t)||nm(a.u).localeCompare(nm(b.u))});
   var dtot=dr.reduce(function(a,r){return a+r.t},0),lim=st.dlimit||100,shown=dr.slice(0,lim);
   var kids=[el("div",{class:"note",text:dr.length+" citizens donated "+m0(dtot)+" to their own nation"+(st.sel>=0?" ("+nm(st.sel)+")":"")+" in this period."})];
-  if(dr.length)kids.push(tbl([["Citizen",function(r){return nm(r.u)}],["Nation",function(r){return nm(r.c)}],["Donated",function(r){return m0(r.t)},1],["Donations",function(r){return r.n},1]],shown));
+  if(dr.length){var dtb=tbl([["Citizen",function(r){return nm(r.u)}],["Nation",function(r){return nm(r.c)}],["Donated",function(r){return m0(r.t)},1],["Donations",function(r){return r.n},1]],shown);
+    Array.prototype.forEach.call(dtb.querySelectorAll("tbody tr"),function(tr_,i){tr_.style.cursor="pointer";if(shown[i].u===st.cit)tr_.className="sel";tr_.onclick=function(){st.cit=st.cit===shown[i].u?-1:shown[i].u;render()}});
+    kids.push(dtb);kids.push(el("div",{class:"note",text:"Tap a citizen to see their donations day by day."}))}
   if(dr.length>lim){var more=el("button",{class:"chip",text:"Show "+Math.min(200,dr.length-lim)+" more"});more.onclick=function(){st.dlimit=lim+200;render()};kids.push(more)}
-  v.appendChild(card("Citizens\u2019 donations to their own nation",kids))}
+  v.appendChild(card("Citizens\u2019 donations to their own nation",kids));
+  v.appendChild(dailyCard())}
+/* citizens' donations day by day: all citizens of the selected nation (or of every nation), or one citizen picked in the table above */
+function dailyCard(){
+  var one=st.cit!==undefined&&st.cit>=0,days={};
+  (D.donors||[]).forEach(function(d){if(!inRange(d[0])||(st.sel>=0&&d[1]!==st.sel)||(one&&d[2]!==st.cit))return;var r=days[d[0]]||(days[d[0]]={t:0,n:0});r.t+=d[3];r.n+=d[4]});
+  var keys=Object.keys(days).sort(),mx=Math.max.apply(null,keys.map(function(k){return days[k].t}).concat([1]));
+  var title="Donations per day: "+(one?nm(st.cit):"all citizens")+(st.sel>=0?" of "+nm(st.sel):"");
+  var kids=[];
+  if(one){var clr=el("button",{class:"chip",text:"Show all citizens"});clr.onclick=function(){st.cit=-1;render()};kids.push(clr)}
+  if(!keys.length){kids.push(el("div",{class:"note",text:"No citizen donations in this period."}));return card(title,kids)}
+  var box=el("div",{class:"hbars"});
+  keys.forEach(function(k){var w=el("div",{class:"hbar"});w.style.width=Math.max(1,100*days[k].t/mx)+"%";
+    box.appendChild(el("div",{class:"hrow"},[el("span",{text:k}),el("div",{style:"height:14px"},[w]),el("span",{class:"hval",text:String(m0(days[k].t))})]))});
+  kids.push(box);
+  return card(title,kids)}
 function setRange(days){var to=new Date(),from=new Date(Date.now()-days*864e5);st.to=days?to.toISOString().slice(0,10):"";st.from=days?from.toISOString().slice(0,10):"";$("f-from").value=st.from;$("f-to").value=st.to;render()}
-function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
+function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(function(d){
   D=d;D.transfers=D.transfers||[];D.battles=D.battles||[];stale();
   [["7 days",7],["30 days",30],["90 days",90],["All",0]].forEach(function(q){var b=el("button",{class:"chip",text:q[0]});b.onclick=function(){setRange(q[1])};$("quick").appendChild(b)});

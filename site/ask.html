@@ -55,8 +55,15 @@ function build(){
    rows:D.bounty.map(function(r){return[r[0],typ(r[1]),ent(r[1]),Math.round(r[2]),ent(r[3]),ent(r[4])]})};
   T.contracts={cols:["created","status","battle","for_country","side","min_damage","budget","payout","winner_mu","winner_user","created_by","bid_count"],
    rows:D.contracts.map(function(c){return[c[2],c[3],c[1],ent(c[4]),c[5],c[6],c[7],c[8],ent(c[9]),ent(c[10]),ent(c[11]),c[14]]})};
-  T.companies={cols:["company","owner","item","est_value","region","owner_country"],
-   rows:(D.companies||[]).map(function(c){return[c[0],ent(c[1]),c[2],c[3],regionName[c[4]]||c[4],ent(c[5])]})};
+  T.companies={cols:["company","owner","item","est_value","region","owner_country","workers","hourly_wages","hourly_manager_cost"],
+   rows:(D.companies||[]).map(function(c){return[c[0],ent(c[1]),c[2],c[3],regionName[c[4]]||c[4],ent(c[5]),c[6],c[7],c[8]]})};
+  var RN=D.regionsNow||{};
+  T.regions_now={cols:["region","host_country","employee_tax_pct","manager_tax_pct","tracked_companies","tracked_employees"],
+   rows:Object.keys(RN).map(function(k){var r=RN[k];return[r[0],ent(r[1]),r[2],r[3],r[4],r[5]]})};
+  T.wage_history={cols:["time","region","owner_country","companies","workers","hourly_wages","hourly_manager_cost"],
+   rows:(D.wageHist||[]).map(function(r){return[new Date(r[2]).toISOString().slice(0,16)+"Z",(RN[r[0]]||[])[0]||r[0],ent(r[1]),r[3],r[4],r[5],r[6]]})};
+  var ct=[];Object.keys(D.rateHist||{}).forEach(function(k){D.rateHist[k].forEach(function(x){ct.push([new Date(x[0]).toISOString().slice(0,16)+"Z",ent(+k),x[1],x[2]])})});
+  T.country_tax_history={cols:["time","country","employee_tax_pct","manager_tax_pct"],rows:ct};
   T.country_now={cols:["country","treasury","country_wealth","wealth_rank","population","development"],
    rows:Object.keys(D.countryNow||{}).map(function(k){var r=D.countryNow[k];return[ent(+k),Math.round(r[0]*100)/100,Math.round(r[1]),r[2],r[3],r[4]]})};
   T.player_wealth={cols:["rank","player","country","mu","wealth"],
@@ -72,7 +79,10 @@ var DOC={
  orders:"order (who each side asked to fight for) snapshots per battle: side, entity, first_seen/last_seen",
  bounty:"bounty snapshots over time per player/MU/country (amount at snapshot_time); only top ~200 tracked",
  contracts:"mercenary contracts tied to tracked battles: budget, payout (current payout), winners, bid_count",
- companies:"companies owned by citizens of the tracked alliance's countries and the region they stand in (collected daily)",
+ companies:"companies owned by citizens of the tracked alliance's countries that stand in the host country (Ireland): value, region, number of workers, and the current hourly money cost of wages and of the manager",
+ regions_now:"every region now: host country, employee and manager income tax rates (%), tracked companies and employees in it",
+ wage_history:"hourly snapshots of wage cost per region and owner country: companies, workers, hourly_wages, hourly_manager_cost",
+ country_tax_history:"employee and manager income tax rate (%) per country each time the rate was sampled or changed",
  region_tax_days:"integrated region tax (employee+manager income tax) per region and UTC day since tracking began; hours_tracked = hours covered that day",
  alliance_members:"alliance to member country",
  country_now:"current state of every country: treasury (money), country_wealth (game wealth ranking value and rank), population, development",
@@ -117,7 +127,9 @@ var API="https://api2.warera.io/trpc/",ALLOW=["battle.getBattles","battle.getBat
 async function callApi(a){
   if(ALLOW.indexOf(a.procedure)<0)throw new Error("procedure not allowed. Allowed: "+ALLOW.join(", "));
   var url=API+a.procedure+(a.input?"?input="+encodeURIComponent(JSON.stringify(a.input)):"");
-  var res=await fetch(url),j=await res.json();if(j.error)throw new Error(j.error.message||"API error");
+  var res,j;
+  try{res=await fetch(url);j=await res.json()}catch(e){throw new Error("The live WarEra API cannot be reached from this viewer (outbound network calls are blocked here), so only the data tables are available. Answer from the tables and say plainly what is missing; do not retry.")}
+  if(j.error)throw new Error(j.error.message||"API error");
   var s=JSON.stringify(j.result.data);return s.length>14000?s.slice(0,14000)+" …(truncated, "+s.length+" chars; use smaller limits or another query)":s}
 
 /* ---------- rendering ---------- */
@@ -167,7 +179,7 @@ async function ask(){
 var EX=["Top 10 players by damage in the last 3 days, with country and MU","Bounty on each Emerald Accord country over time, latest 20 snapshots","Contracts won this week: total payout per MU","Which countries have the most citizen-owned companies abroad?","Region tax collected per day for the 10 highest regions"];
 EX.forEach(function(t){var b=el("button",{class:"chip",text:t});b.onclick=function(){$("q").value=t};$("ex").appendChild(b)});
 $("go").onclick=ask;$("q").addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))ask()});
-function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
+function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   D=d;build();stale();
   $("meta").textContent="Data updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+T.battles.rows.length+" battles · ask in plain English, Claude returns a table";

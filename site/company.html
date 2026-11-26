@@ -156,7 +156,7 @@ function fillSelects(){
   fill("f-host",hostN,st.host);fill("f-src",srcN,st.src);
   $("f-host").onchange=function(){st.host=+this.value;st.limit=0;render()};
   $("f-src").onchange=function(){st.src=+this.value;st.limit=0;render()}}
-function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
+function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(function(d){
   D=d;stale();D.companies=D.companies||[];
   var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];

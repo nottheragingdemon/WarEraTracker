@@ -27,6 +27,7 @@ def main():
 
     al = sub.add_parser("alerts", help="send webhook alerts (new battles); needs ALERT_WEBHOOK_URL")
     al.add_argument("--test", action="store_true", help="only send a test message to the webhook")
+    al.add_argument("--failure", metavar="TEXT", help="send a failure notice to the webhook and exit")
 
     x = sub.add_parser("export", help="write data.json for the dashboard")
     x.add_argument("--since", default=cfg.get("since", "7d")); x.add_argument("--alliance", default=cfg.get("alliance")); x.add_argument("--out", default="site/data.json")
@@ -71,11 +72,16 @@ def main():
         if "donations" in what: stage("donations", C.collect_donations, cl, db, scope)
         if "contracts" in what: stage("contracts", C.collect_contracts, cl, db, since, scope)
         if "companies" in what: stage("companies", C.collect_companies, cl, db, scope)
-        if failed: C.log("stages skipped this run: " + ", ".join(failed))
+        if failed:
+            C.log("stages skipped this run: " + ", ".join(failed))
+            from . import alerts as AL
+            AL.skipped(db, failed)
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
         return
     if a.cmd == "alerts":
         from . import alerts as AL
+        if a.failure:
+            AL.failure(a.failure); return
         if a.test:
             AL.test(); return
         AL.run(db, C.Scope(db, cfg.get("alliance"), C.parse_when(cfg.get("since", "7d")))); return

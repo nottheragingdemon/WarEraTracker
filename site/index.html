@@ -41,7 +41,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any",metric:0,loc:-1,bsel:null};
+var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any",metric:0,loc:-1,bsel:null,cmp:["","",""]};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
 var fmt=function(n){var o=new String(fmt0(n));o.raw=n==null?"":Math.round(n*100)/100;return o};
@@ -222,6 +222,26 @@ function inScope(e,rowCountry,rowMu){ // does a bounty ranking row belong to the
   if(st.mu>=0)return(t==="mu"&&e===st.mu)||(t==="user"&&rowMu===st.mu);
   if(st.country>=0)return(t==="country"&&e===st.country)||(t==="user"&&rowCountry===st.country)||(t==="mu"&&(relMu[e]===st.country));
   return true}
+/* compare up to three players: damage, bounty (battle money) and bounty per 1M damage over the chosen period */
+function compareCard(){
+  var s=[];D.battles.forEach(function(b,i){var d=b[2].slice(0,10);if((!st.from||d>=st.from)&&(!st.to||d<=st.to))s.push(i)});
+  if(st.alliance>=0){var set=AB[st.alliance]||new Set();s=s.filter(function(i){return set.has(i)})}
+  var card=el("div",{class:"card"},[el("h2",{text:"Compare players"}),
+    el("div",{class:"note",text:"Type up to three player names to compare their bounty per 1M damage over the selected period ("+(st.from||"start")+" to "+(st.to||"now")+")."})]);
+  var names=st.cmp.slice();if(!names[0]&&st.user>=0)names[0]=nm(st.user);
+  var row=el("div",{class:"filters"});
+  names.forEach(function(v,k){var inp=el("input",{list:"dl-user",placeholder:"Player "+(k+1),autocomplete:"off"});inp.value=v;
+    inp.onchange=function(){st.cmp[k]=inp.value;render()};row.appendChild(el("label",{},[document.createTextNode("Player "+(k+1)),inp]))});
+  card.appendChild(row);
+  var rows=[],miss=[];
+  names.forEach(function(v){if(!(v||"").trim())return;var u=entByName("user",v);if(u<0){miss.push(v);return}
+    var d=0,m=0,n=0;s.forEach(function(i){var dv=val(0,i,u),mv=val(1,i,u);if(dv||mv)n++;if(dv)d+=dv.t;if(mv)m+=mv.t});
+    rows.push({u:u,n:n,d:d,m:m,p:d>0?m/(d/1e6):null})});
+  if(miss.length)card.appendChild(el("div",{class:"hint",text:"No player named "+miss.map(function(x){return"“"+x+"”"}).join(", ")+" in the data."}));
+  if(rows.length){var mx=Math.max.apply(null,rows.map(function(r){return r.p||0}).concat([1]));
+    card.appendChild(mk(["Player","Battles","Damage","Bounty","Bounty per 1M damage"],rows.map(function(r){return[nm(r.u),String(r.n),fmt(r.d),fmt(r.m),barCell(r.p==null?"–":fmt(r.p),r.p||0,mx)]}),[1,2,3,4]))}
+  return card}
+
 /* bounty (battle money) per million damage, one row per country of the selected alliance */
 function vBpm(v){
   var aid=st.alliance,note="";
@@ -268,7 +288,8 @@ function vBpm(v){
     th.onclick=function(){if(st.bcol===i)st.bdir=-st.bdir;else{st.bcol=i;st.bdir=i<=(isMu?1:0)?1:-1}render()}});
   card.appendChild(tw);
   if(isMu&&rows.length>shown.length){var more=el("button",{class:"chip",text:"Show more ("+(rows.length-shown.length)+" left)"});more.onclick=function(){st.limit+=50;render()};card.appendChild(more)}
-  v.appendChild(card)}
+  v.appendChild(card);
+  v.appendChild(compareCard())}
 
 var TABS=[["damage","Damage",vDamage],["bpm","Bounty per 1M damage",vBpm]];
 function render(){
@@ -322,7 +343,7 @@ function fillFilters(){
   $("f-mu").addEventListener("change",function(){readFilters("mu")});$("f-user").addEventListener("change",function(){readFilters("user")});
   presets();setRange(0);refreshLists()}
 
-function stale(){var a=(Date.now()-Date.parse(D.generated))/36e5;if(a>3)$("meta").insertAdjacentElement("afterend",el("div",{class:"hint",text:"Data is "+Math.round(a)+" h old: the hourly refresh may have failed or been skipped."}))}
+function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(function(d){
   D=d;build();fillFilters();stale();
   var h=(location.hash||"").slice(1);if(TABS.some(function(t){return t[0]===h}))st.tab=h;

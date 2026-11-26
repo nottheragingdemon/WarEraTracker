@@ -26,3 +26,8 @@ Add a repository secret `ALERT_WEBHOOK_URL` (a Discord or Slack incoming webhook
 
 ## Tax sampling
 `.github/workflows/tax-sample.yml` records region tax rates every 15 minutes (one public API call), so tax history is finer than the hourly refresh. The page shows a warning when `data.json` is more than 3 hours old.
+
+## Tests and failure alerts
+- `python -m unittest discover -s tests` runs offline tests of the API client against a local fake server (also run by the *Tests* workflow).
+- If `ALERT_WEBHOOK_URL` is set, a failed workflow run posts a warning with a link to the run, and collector stages skipped after API errors are reported at most once every 6 hours.
+- Every page shows an amber banner when its data is more than 2 hours old.

@@ -48,3 +48,8 @@ jobs:
         run: |
           git config user.name "warera-tracker"; git config user.email "warera-tracker@users.noreply.github.com"
           sh state.sh save
+      - name: Failure alert
+        if: failure()
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: python3 -m wartrack alerts --failure "WarEra Tracker: the '${{ github.workflow }}' run failed. ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

@@ -60,3 +60,12 @@ document.addEventListener("DOMContentLoaded",function(){
   var f=document.querySelector(".site-foot"),n=0,t=0;if(!f)return;
   f.addEventListener("click",function(e){if(e.target.closest("a"))return;var now=Date.now();n=now-t>4000?1:n+1;t=now;
     if(n>=5){n=0;try{localStorage.setItem("we-dev",dev?"0":"1")}catch(x){}f.firstChild.textContent=dev?"Testing mode off. ":"Testing mode on. ";setTimeout(function(){location.reload()},700)}})})})();
+
+
+/* amber banner when the data on the page is more than 2 hours old (the hourly refresh failed or was skipped, or the page is a stale copy) */
+window.weStale=function(generated){
+  var h=(Date.now()-Date.parse(generated))/36e5;if(!(h>2))return;
+  var m=document.getElementById("meta");if(!m)return;
+  var d=document.createElement("div");d.className="stale-banner";d.setAttribute("role","status");
+  d.textContent="⚠ Data is "+(h<48?Math.round(h)+" h":Math.round(h/24)+" days")+" old (updated "+String(generated).slice(0,16).replace("T"," ")+" UTC). The hourly refresh may have failed or been skipped, so recent battles and money may be missing.";
+  m.insertAdjacentElement("afterend",d)};
