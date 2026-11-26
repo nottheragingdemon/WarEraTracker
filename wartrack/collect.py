@@ -177,7 +177,7 @@ def collect_bounty(c, db, top=200, scope=None):
             streams = [c.pages("ranking.getRankingPage", rankingType=rtype, limit=50, max_pages=max(1, top // 50), countryId=m) for m in members]
         else:
             streams = [c.pages("ranking.getRankingPage", rankingType=rtype, limit=50, max_pages=max(1, top // 50))]
-        for st in streams:
+        for st in c.map(list, streams):   # one thread per country stream
             for e in st:
                 eid = e.get(key)
                 if not eid or not keep(rtype, e, key):
@@ -201,7 +201,7 @@ def collect_wealth(c, db, top=200, scope=None):
     else:
         streams = [c.pages("ranking.getRankingPage", rankingType="userWealth", limit=50, max_pages=max(1, top // 50))]
     rows = []
-    for st in streams:
+    for st in c.map(list, streams):
         for e in st:
             if e.get("user") and (not members or e.get("country") in members):
                 rows.append((e["user"], e.get("country"), e.get("mu"), e["value"], e.get("rank"), ts))
@@ -212,12 +212,9 @@ def collect_wealth(c, db, top=200, scope=None):
     for r in rows:
         db.execute("INSERT INTO users(id,country,mu) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET country=COALESCE(excluded.country,country), mu=COALESCE(excluded.mu,mu)", (r[0], r[1], r[2]))
     need = [r["id"] for r in db.execute("SELECT u.id FROM users u JOIN wealth_now w ON w.eid=u.id WHERE u.name IS NULL")]
-    for i in range(0, len(need), 40):
-        chunk = need[i:i + 40]
-        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
-            if d:
-                db.execute("UPDATE users SET name=? WHERE id=?", (d.get("username"), u))
-                db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
+    for u, d in c.lookup_users(need).items():
+        db.execute("UPDATE users SET name=? WHERE id=?", (d.get("username"), u))
+        db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
     db.commit()
     log(f"wealth: {len(rows)} players ranked, {len(need)} names looked up")
 
@@ -231,10 +228,15 @@ def collect_transfers(c, db, scope=None, days=90):
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
     known = {r["id"] for r in db.execute("SELECT id FROM transfers")}
     new = 0
-    for m in sorted(members):
+    def fresh(m):   # newest first until something already stored or too old
+        out = []
         for t in c.pages("transaction.getPaginatedTransactions", max_pages=60, countryId=m, transactionType="countryMoneyTransfer", limit=100):
             if t["_id"] in known or t["createdAt"] < cutoff:
                 break
+            out.append(t)
+        return out
+    for found in c.map(fresh, sorted(members)):   # the countries are read in parallel, written one after another
+        for t in found:
             if t.get("sellerCountryId") in members and t.get("buyerCountryId") in members:
                 db.execute("INSERT OR IGNORE INTO transfers VALUES(?,?,?,?,?)", (t["_id"], t["createdAt"], t["sellerCountryId"], t["buyerCountryId"], t.get("money") or 0))
                 new += 1
@@ -253,10 +255,15 @@ def collect_donations(c, db, scope=None, days=60, budget=300.0):
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
     known = {r["id"] for r in db.execute("SELECT id FROM donations")}
     new = 0
-    for m in sorted(members):
+    def fresh(m):
+        out = []
         for t in c.pages("transaction.getPaginatedTransactions", max_pages=80, countryId=m, transactionType="donation", limit=100):
             if t["_id"] in known or t["createdAt"] < cutoff or _t.monotonic() - t0 > budget:
                 break
+            out.append(t)
+        return out
+    for m, found in zip(sorted(members), c.map(fresh, sorted(members))):
+        for t in found:
             if t.get("sellerCountryId") == m and t.get("buyerId"):
                 row = db.execute("SELECT country FROM users WHERE id=?", (t["buyerId"],)).fetchone()
                 db.execute("INSERT OR IGNORE INTO donations VALUES(?,?,?,?,?,?)", (t["_id"], t["createdAt"], m, t["buyerId"], t.get("money") or 0, row["country"] if row else None))
@@ -264,24 +271,16 @@ def collect_donations(c, db, scope=None, days=60, budget=300.0):
     db.commit()
     need = [r["donor"] for r in db.execute("SELECT DISTINCT donor FROM donations WHERE donor_country IS NULL")]
     looked = 0
-    for i in range(0, len(need), 40):
-        if _t.monotonic() - t0 > budget + 120:
-            break
-        chunk = need[i:i + 40]
-        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
-            if d and d.get("country"):
-                db.execute("UPDATE donations SET donor_country=? WHERE donor=?", (d["country"], u)); looked += 1
+    for u, d in c.lookup_users(need).items():
+        if d.get("country"):
+            db.execute("UPDATE donations SET donor_country=? WHERE donor=?", (d["country"], u)); looked += 1
     db.execute("DELETE FROM donations WHERE ts < ?", (cutoff,))
     db.commit()
     nameless = [r["donor"] for r in db.execute("SELECT DISTINCT d.donor FROM donations d LEFT JOIN users u ON u.id=d.donor WHERE d.donor_country=d.country AND (u.name IS NULL)")]
-    for i in range(0, len(nameless), 40):
-        if _t.monotonic() - t0 > budget + 240:
-            break
-        chunk = nameless[i:i + 40]
-        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
-            if d and d.get("username"):
-                db.execute("INSERT INTO users(id,name,country) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name", (u, d["username"], d.get("country")))
-                db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d["username"]))
+    for u, d in c.lookup_users(nameless).items():
+        if d.get("username"):
+            db.execute("INSERT INTO users(id,name,country) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name", (u, d["username"], d.get("country")))
+            db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d["username"]))
     db.commit()
     log(f"donations: {new} new, {looked} donors looked up, {len(need) - looked} still unknown")
 
@@ -399,31 +398,31 @@ def collect_companies(c, db, scope):
         log("companies: no alliance scope, skipped"); return
     ts = now_iso()
     citizens = {}
-    for country in scope.members:
-        for u in c.pages("user.getUsersByCountry", countryId=country, limit=100):
+    members = list(scope.members)
+    for country, users in zip(members, c.map(lambda k: list(c.pages("user.getUsersByCountry", countryId=k, limit=100)), members)):
+        for u in users:
             citizens[u["_id"]] = country
     log(f"companies: {len(citizens)} citizens in {len(scope.members)} countries")
     known = {r["id"] for r in db.execute("SELECT id FROM users WHERE name IS NOT NULL")}
     need = [u for u in citizens if u not in known]
-    for i in range(0, len(need), 40):
-        chunk = need[i:i + 40]
-        for u, d in zip(chunk, c.batch([("user.getUserLite", {"userId": u}) for u in chunk])):
-            if d:
-                db.execute("INSERT INTO users(id,country,mu,name) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET country=excluded.country, name=excluded.name",
-                           (u, d.get("country") or citizens[u], d.get("mu"), d.get("username")))
-                db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
+    for u, d in c.lookup_users(need).items():
+        db.execute("INSERT INTO users(id,country,mu,name) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET country=excluded.country, name=excluded.name",
+                   (u, d.get("country") or citizens[u], d.get("mu"), d.get("username")))
+        db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
     db.commit()
     owned, pending = {}, [(u, None) for u in citizens]
     while pending:
-        chunk, pending = pending[:40], pending[40:]
-        res = c.batch([("company.getCompanies", {"userId": u, "perPage": 100, "cursor": cur}) for u, cur in chunk])
-        for (u, _), d in zip(chunk, res):
-            if not d:
-                continue
-            for cid in d["items"]:
-                owned[cid] = u
-            if d.get("nextCursor") and d["items"]:
-                pending.append((u, d["nextCursor"]))
+        chunks = [pending[i:i + 40] for i in range(0, min(len(pending), 320), 40)]   # up to 8 batch requests in flight
+        pending = pending[320:]
+        results = c.batch_many([[("company.getCompanies", {"userId": u, "perPage": 100, "cursor": cur}) for u, cur in ch] for ch in chunks])
+        for chunk, res in zip(chunks, results):
+            for (u, _), d in zip(chunk, res):
+                if not d:
+                    continue
+                for cid in d["items"]:
+                    owned[cid] = u
+                if d.get("nextCursor") and d["items"]:
+                    pending.append((u, d["nextCursor"]))
     # only companies hosted in this country are kept (the company tax tracker's host); "" or "all" keeps every host
     host = os.environ.get("WARTRACK_HOST", "Ireland").strip()
     host_regions = None
@@ -440,19 +439,24 @@ def collect_companies(c, db, scope):
     t0, est_ok = _t.monotonic(), True
     BUDGET = float(os.environ.get("WARTRACK_COMPANY_BUDGET", "480"))
     log(f"companies: {len(ids)} owned, fetching details")
-    for i in range(0, len(ids), 40):
-        chunk = ids[i:i + 40]
-        if (i // 40) % 5 == 0:
-            log(f"  companies {i}/{len(ids)} ({_t.monotonic() - t0:.0f}s, api calls so far: {c.n})")
+    GROUP = 320   # ids per round: 8 batch requests of 40 in flight at once
+    for i in range(0, len(ids), GROUP):
+        group = ids[i:i + GROUP]
+        log(f"  companies {i}/{len(ids)} ({_t.monotonic() - t0:.0f}s, api calls so far: {c.n})")
         if _t.monotonic() - t0 > BUDGET:   # keep each run short; the remaining companies keep their last values and go first next run
             log(f"  companies: time budget used after {i}/{len(ids)}; the rest are refreshed in the next runs")
             break
-        details = c.batch([("company.getById", {"companyId": x}) for x in chunk])
+        chunks = [group[k:k + 40] for k in range(0, len(group), 40)]
+        details = [d for res in c.batch_many([[("company.getById", {"companyId": x}) for x in ch] for ch in chunks]) for d in res]
         if host_regions:   # other hosts are remembered for a week so they are not fetched again every run
-            db.executemany("INSERT OR REPLACE INTO company_skip VALUES(?,?)", [(cid, ts) for cid, d in zip(chunk, details) if d and d.get("region") not in host_regions])
-        active = [(cid, d) for cid, d in zip(chunk, details) if d and not d.get("disabledAt") and (host_regions is None or d.get("region") in host_regions)]  # inactive companies pay no wages
+            db.executemany("INSERT OR REPLACE INTO company_skip VALUES(?,?)", [(cid, ts) for cid, d in zip(group, details) if d and d.get("region") not in host_regions])
+        active = [(cid, d) for cid, d in zip(group, details) if d and not d.get("disabledAt") and (host_regions is None or d.get("region") in host_regions)]  # inactive companies pay no wages
         # live hourly money cost of the real employees and the manager (not lagged, not cached)
-        est = c.batch([("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in active], official=True) if active and est_ok else [None] * len(active)
+        est = []
+        if active and est_ok:
+            ech = [active[k:k + 40] for k in range(0, len(active), 40)]
+            est = [e for res in c.batch_many([[("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for e in res]
+        est = est or [None] * len(active)
         for (cid, d), e in zip(active, est):
             ws = d.get("workers") or []
             if e:

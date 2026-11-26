@@ -7,13 +7,13 @@ class AsyncHTTPClient:
     Docstring for AsyncHTTPClient
     """
     def __init__(self, timeout:int=30, max_concurrent:int=100):
-        self.timeout = aiohttp.ClientTimeout(timeout)
+        self.timeout = aiohttp.ClientTimeout(total=timeout)
         self.max_concurrent = max_concurrent
         self.session:Optional[aiohttp.ClientSession]=None
     
     async def _create_session(self) -> None:
         """Create Aiohttp ClientSession"""
-        self.session = aiohttp.ClientSession(timeout=self.timeout)
+        self.session = aiohttp.ClientSession(timeout=self.timeout, trust_env=True)
     
     async def _close_session(self) -> None:
         """Close Aiohttp Client Session"""

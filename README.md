@@ -6,7 +6,7 @@ filterable by alliance, country, MU and player. Data comes from `api2.warera.io`
 - `streamlit_app.py` serves `site/index.html` with `site/data.json` inlined (deploy on Streamlit Community Cloud).
 - `.github/workflows/refresh.yml` runs hourly: restores the history database from the `state` branch, collects new data,
   rebuilds `site/data.json`, saves the database back to `state` (one force-pushed commit) and commits `data.json`.
-- `wartrack/` is the collector/exporter (standard library only). `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
+- `wartrack/` is the collector/exporter (standard library plus `aiohttp`: requests go through `wartrack/async_requests.py`, several in flight at once; falls back to urllib if aiohttp is missing). `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
 
 ## Set up
 1. Repo **Settings → Secrets and variables → Actions → New repository secret**: `WARERA_API_KEY` = your API key.
