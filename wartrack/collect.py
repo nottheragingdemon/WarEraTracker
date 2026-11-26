@@ -360,8 +360,17 @@ def collect_companies(c, db, scope):
                 owned[cid] = u
             if d.get("nextCursor") and d["items"]:
                 pending.append((u, d["nextCursor"]))
+    # only companies hosted in this country are kept (the company tax tracker's host); "" or "all" keeps every host
+    host = os.environ.get("WARTRACK_HOST", "Ireland").strip()
+    host_regions = None
+    if host and host.lower() != "all":
+        hid = [r["country"] for r in db.execute("SELECT country FROM country_tax WHERE lower(name)=lower(?)", (host,))]
+        host_regions = {r["region"] for r in db.execute("SELECT region FROM region_now WHERE country=?", (hid[0],))} if hid else None
+        log(f"companies: keeping only those hosted in {host}" + ("" if host_regions else " (host not found: keeping all)"))
     seen = {r["id"]: r["seen"] or "" for r in db.execute("SELECT id,seen FROM companies")}
-    ids = sorted(owned, key=lambda x: seen.get(x, ""))   # never-seen first, then the stalest: each run refreshes what fits the budget
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7)).isoformat(timespec="seconds")
+    skip = {r["id"] for r in db.execute("SELECT id FROM company_skip WHERE checked>=?", (cutoff,))} if host_regions else set()
+    ids = sorted((x for x in owned if x not in skip), key=lambda x: seen.get(x, ""))   # never-seen first, then the stalest: each run refreshes what fits the budget
     rows = []
     import time as _t
     t0, est_ok = _t.monotonic(), True
@@ -375,7 +384,9 @@ def collect_companies(c, db, scope):
             log(f"  companies: time budget used after {i}/{len(ids)}; the rest are refreshed in the next runs")
             break
         details = c.batch([("company.getById", {"companyId": x}) for x in chunk])
-        active = [(cid, d) for cid, d in zip(chunk, details) if d and not d.get("disabledAt")]  # inactive companies pay no wages
+        if host_regions:   # other hosts are remembered for a week so they are not fetched again every run
+            db.executemany("INSERT OR REPLACE INTO company_skip VALUES(?,?)", [(cid, ts) for cid, d in zip(chunk, details) if d and d.get("region") not in host_regions])
+        active = [(cid, d) for cid, d in zip(chunk, details) if d and not d.get("disabledAt") and (host_regions is None or d.get("region") in host_regions)]  # inactive companies pay no wages
         # live hourly money cost of the real employees and the manager (not lagged, not cached)
         est = c.batch([("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in active], official=True) if active and est_ok else [None] * len(active)
         for (cid, d), e in zip(active, est):
@@ -390,6 +401,8 @@ def collect_companies(c, db, scope):
         db.executemany("DELETE FROM companies WHERE id=?", [(r["id"],) for r in db.execute("SELECT id FROM companies").fetchall() if r["id"] not in owned])
     else:
         db.execute("DELETE FROM companies")
+    if host_regions:
+        db.executemany("DELETE FROM companies WHERE id=?", [(r["id"],) for r in db.execute("SELECT id,region FROM companies").fetchall() if r["region"] not in host_regions])
     db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
     allrows = [tuple(r) for r in db.execute("SELECT id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr FROM companies")]
     snapshot_wages(db, allrows)
