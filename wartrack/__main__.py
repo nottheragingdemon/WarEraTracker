@@ -1,3 +1,4 @@
+from .api import ApiError
 import argparse, json, os, sys
 from . import api, db as dbm, collect as C, report as R
 
@@ -52,16 +53,25 @@ def main():
         scope = C.Scope(db, None if a.alliance in (None, "all") else a.alliance, since)
         if scope.active: C.log(f"scope: battles involving {a.alliance} ({len(scope.members)} countries) since {since[:10]}")
         if "battles" in what: C.collect_battles(cl, db, since, scope)
+        failed = []
+
+        def stage(name, fn, *args):
+            """a late stage that hits an API hiccup is logged and skipped, so the data collected so far is still saved and exported"""
+            try:
+                fn(*args)
+            except ApiError as e:
+                db.commit(); failed.append(name); C.log(f"{name}: SKIPPED after API errors ({e})")
         if "damage" in what:
             lv = ("country", "mu") if a.no_users else C.LEVELS
-            C.collect_stats(cl, db, lv, a.damage_limit, {"country": 2, "mu": 3, "user": a.user_pages}, scope)
-        if "people" in what: C.collect_people(cl, db, a.player_limit, scope)
-        if "bounty" in what: C.collect_bounty(cl, db, a.bounty_top, scope)
-        if "wealth" in what: C.collect_wealth(cl, db, a.bounty_top, scope)
-        if "transfers" in what: C.collect_transfers(cl, db, scope)
-        if "donations" in what: C.collect_donations(cl, db, scope)
-        if "contracts" in what: C.collect_contracts(cl, db, since, scope)
-        if "companies" in what: C.collect_companies(cl, db, scope)
+            stage("damage", C.collect_stats, cl, db, lv, a.damage_limit, {"country": 2, "mu": 3, "user": a.user_pages}, scope)
+        if "people" in what: stage("people", C.collect_people, cl, db, a.player_limit, scope)
+        if "bounty" in what: stage("bounty", C.collect_bounty, cl, db, a.bounty_top, scope)
+        if "wealth" in what: stage("wealth", C.collect_wealth, cl, db, a.bounty_top, scope)
+        if "transfers" in what: stage("transfers", C.collect_transfers, cl, db, scope)
+        if "donations" in what: stage("donations", C.collect_donations, cl, db, scope)
+        if "contracts" in what: stage("contracts", C.collect_contracts, cl, db, since, scope)
+        if "companies" in what: stage("companies", C.collect_companies, cl, db, scope)
+        if failed: C.log("stages skipped this run: " + ", ".join(failed))
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
         return
     if a.cmd == "alerts":
