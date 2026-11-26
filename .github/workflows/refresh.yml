@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "17 * * * *"   # hourly; GitHub may start runs late or skip one
   workflow_dispatch:
+    inputs:
+      gateway:
+        description: "Use the warerastats gateway (off = official API only)"
+        type: boolean
+        default: true
 
 concurrency:
   group: refresh
@@ -28,6 +33,7 @@ jobs:
       - name: Collect and export
         env:
           WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
+          WARERA_GATEWAY: ${{ (github.event_name == 'workflow_dispatch' && !inputs.gateway) && '0' || vars.WARERA_GATEWAY || '1' }}
         run: sh refresh.sh
       - name: Alerts (only if ALERT_WEBHOOK_URL is set)
         env:
