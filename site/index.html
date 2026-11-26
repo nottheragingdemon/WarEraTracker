@@ -109,7 +109,7 @@ function playerKpis(bs){var u=st.user,d=0,m=0,n=0;
       var dd=dv?dv.t:0,mm=mv?mv.t:0,side=dv&&dv.a&&dv.d?"both":dv&&dv.a?"attacker":dv&&dv.d?"defender":mv&&mv.a&&mv.d?"both":mv&&mv.a?"attacker":mv&&mv.d?"defender":"–";
       rows.push({i:i,b:D.battles[i],d:dd,m:mm,side:side,p:dd>0?mm/(dd/1e6):null})});
     var so=st.psort||"date";
-    box.appendChild(chips([["date","Newest"],["d","Most damage"],["m","Most money"],["p","Best per 1M"]],"psort"));
+    box.appendChild(chips([["date","Newest"],["d","Most damage"],["m","Most money"],["p","Top bounty per 1M"]],"psort"));
     rows.sort(function(x,y){return so==="date"?(x.b[2]<y.b[2]?1:-1):((y[so]==null?-1:y[so])-(x[so]==null?-1:x[so]))});
     var mxp=Math.max.apply(null,rows.map(function(r){return r.p||0}).concat([1]));
     box.appendChild(mk(["Created","Region","Attacker","Defender","Side fought","Damage","Money earned","Money per 1M damage","Battle"],
