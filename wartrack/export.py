@@ -85,6 +85,30 @@ def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
     return rows
 
 
+def company_index_status(db):
+    meta = lambda k: (db.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone() or [None])[0]
+    q = lambda sql, *a: db.execute(sql, a).fetchone()[0]
+    pass_no = int(meta("index_pass") or 0)
+    return {"known": q("SELECT COUNT(*) FROM company_loc"), "located": q("SELECT COUNT(*) FROM company_loc WHERE checked IS NOT NULL"),
+            "pass": pass_no, "passListed": q("SELECT COUNT(*) FROM company_loc WHERE listed=?", pass_no) if pass_no else 0,
+            "passDone": not meta("index_cursor"), "fullAt": meta("index_full_at")}
+
+
+def company_coverage(db, E, scope=None):
+    """Per alliance host country: the tracker's companies, workers and wage tax per hour (all owners) against the game's own region figures."""
+    from .stages.common import alliance_countries
+    hosts = alliance_countries(db) or set(scope.members if scope and scope.members else [])
+    rate = {r["country"]: (r["income"] or 0, r["manager"] or 0) for r in db.execute("SELECT country, income, manager FROM country_tax")}
+    out = []
+    for h in sorted(hosts):
+        g = db.execute("SELECT COALESCE(SUM(companies),0) co, COALESCE(SUM(employees),0) em, COALESCE(SUM(emp),0)+COALESCE(SUM(mgr),0) tax FROM region_now WHERE country=?", (h,)).fetchone()
+        t = db.execute("""SELECT COUNT(*) n, COALESCE(SUM(c.workers>0),0) staffed, COALESCE(SUM(c.workers),0) w, COALESCE(SUM(c.wages),0) wg, COALESCE(SUM(c.mgr),0) mg
+            FROM companies c JOIN region_now r ON r.region=c.region WHERE r.country=?""", (h,)).fetchone()
+        ri, rm = rate.get(h, (0, 0))
+        out.append([E("country", h), t["n"], t["staffed"], t["w"], round(t["wg"] * ri / 100 + t["mg"] * rm / 100, 3), g["co"], g["em"], round(g["tax"], 3)])
+    return out
+
+
 def export(db, out, since, scope=None):
     ents, eidx = [], {}
 
@@ -243,6 +267,7 @@ def export(db, out, since, scope=None):
               "lastBackup": os.environ.get("LAST_BACKUP") or None, "gateway": os.environ.get("WARERA_GATEWAY", "1") != "0",
               "rows": {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in
                        ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill", "country_income", "trades")},
+              "companyIndex": company_index_status(db), "coverage": company_coverage(db, E, scope),
               "donationsSince": db.execute("SELECT MIN(ts) FROM donations").fetchone()[0],
               "transfersSince": db.execute("SELECT MIN(ts) FROM transfers").fetchone()[0]}
     data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,

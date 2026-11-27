@@ -79,13 +79,14 @@ def snapshot_wages(db, rows):
             db.execute("INSERT OR REPLACE INTO wage_snap2 VALUES(?,?,?,?,?,?,?)", (k[0], k[1], now, cur[0], cur[1], round(cur[2], 6), round(cur[3], 6)))
 
 
-def collect_company_index(c, db, scope, recheck_days=7, budget=None):
+def collect_company_index(c, db, scope, recheck_days=30, budget=None):
     """Where every company in the game stands. The API can only list all companies together (newest first, hundreds of
     thousands including closed ones), so each daily run:
       1. reads the top of the list until it reaches companies it already knows (new companies);
       2. continues the full list from where the last run stopped, for part of its time; when a full pass ends, companies
          that weren't seen in it are dropped as gone (never before a pass is complete);
-      3. looks up where the not-yet-located companies stand, then re-checks the oldest 1/recheck_days of the rest.
+      3. looks up where the not-yet-located companies stand, then re-checks the oldest 1/recheck_days of the companies
+         outside alliance countries (those inside are re-checked hourly by the companies stage), to catch moves in.
     The hourly companies stage then refreshes those standing in alliance countries."""
     import time as _t
     budget = float(budget or os.environ.get("WARTRACK_INDEX_BUDGET", "1500"))
@@ -136,8 +137,12 @@ def collect_company_index(c, db, scope, recheck_days=7, budget=None):
     db.commit()
     # 3. locate: unknown first (newest first), then the stalest re-checks
     unknown = [r[0] for r in db.execute("SELECT id FROM company_loc WHERE region IS NULL AND checked IS NULL ORDER BY rowid DESC")]
-    located = db.execute("SELECT COUNT(*) FROM company_loc WHERE checked IS NOT NULL").fetchone()[0]
-    stale = [r[0] for r in db.execute("SELECT id FROM company_loc WHERE checked IS NOT NULL ORDER BY checked LIMIT ?", (max(1, located // recheck_days),))]
+    # re-checks: companies in alliance countries are re-checked every hour by the companies stage, so here only the others,
+    # to catch one moving into an alliance country: 1/recheck_days of them a day, oldest first (closed ones are skipped)
+    hosts_ = alliance_countries(db) or set(scope.members if scope and scope.members else [])
+    host_regions_ = {r[0] for r in db.execute(f"SELECT region FROM region_now WHERE country IN ({','.join('?' * len(hosts_))})", list(hosts_))} if hosts_ else set()
+    others = [r[0] for r in db.execute("SELECT id, region FROM company_loc WHERE checked IS NOT NULL AND disabled=0 ORDER BY checked") if r[1] not in host_regions_]
+    stale = others[:max(1, len(others) // recheck_days)]
     todo, done = unknown + stale, 0
     for g in range(0, len(todo), 320):
         if _t.monotonic() - t0 > budget:

@@ -32,6 +32,7 @@
 var D=null,st={kind:"all",limit:30};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
+function nm(i){var e=D&&D.ents&&D.ents[i];return e?(e[2]||("…"+String(e[1]).slice(-6))):"–"}
 function card(t,kids){return el("div",{class:"card"},[el("h2",{text:t})].concat(kids||[]))}
 function kpis(list){return el("div",{class:"kpis"},list.map(function(x){return el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})])}))}
 function ago(iso){if(!iso)return"never";var h=(Date.now()-Date.parse(iso))/36e5;return h<1?Math.max(1,Math.round(h*60))+" min ago":h<48?Math.round(h)+" h ago":Math.round(h/24)+" days ago"}
@@ -54,8 +55,20 @@ function render(){
   add(hrs(S.digestAt)<=8*24,!S.digestAt||hrs(S.digestAt)<=15*24,S.digestAt?"Weekly digest last sent "+when(S.digestAt):"Weekly digest not sent yet (Mondays 08:23 UTC)");
   add(true,true,"Gateway: "+(S.gateway?"on (warerastats.io first, official API as fallback)":"off — official API only"));
   var don=S.donationsSince,dd=don?(Date.now()-Date.parse(don))/864e5:0;add(dd>=88,dd>=55,"Donations stored from "+(don?don.slice(0,10):"–")+" ("+Math.round(dd)+" days; 90 wanted)");
+  var CV=S.coverage||[],tt=CV.reduce(function(a,r){return a+r[4]},0),gt=CV.reduce(function(a,r){return a+r[7]},0);
+  if(gt>0){var pc=100*tt/gt;add(pc>=90&&pc<=110,pc>=75&&pc<=125,"Company tax tracker covers "+pc.toFixed(0)+"% of the game’s wage tax in alliance countries (100% is a full match; see Company coverage below)")}
+  var IX=S.companyIndex;if(IX&&IX.known){var lp=IX.located/IX.known;add(lp>=0.98,lp>=0.5,"Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies located"+(IX.passDone?"":" (full list pass "+IX.pass+" in progress)"))}
   var list=el("ul",{class:"checks"});checks.forEach(function(c){list.appendChild(el("li",{class:"chk-"+c[0]},[el("span",{class:"chk-ico","aria-hidden":"true",text:c[0]==="ok"?"✓":c[0]==="warn"?"!":"✕"}),el("span",{class:"sr",text:c[0]==="ok"?"OK: ":c[0]==="warn"?"Warning: ":"Problem: "}),c[1]]))});
   v.appendChild(card("Health checks",[list]));
+  // company coverage: the tracker against the game's own figures, per alliance host country (all owners)
+  if(CV.length){var pct=function(a,b){return b?(100*a/b).toFixed(0)+"%":"–"};
+    var rows=CV.slice().sort(function(a,b){return b[7]-a[7]});
+    var tb3=el("tbody");rows.forEach(function(r){var tr=el("tr");[[nm(r[0]),""],[r[2]+" / "+r[5],"n"],[r[3]+" / "+r[6],"n"],[r[4].toFixed(2)+" / "+r[7].toFixed(2),"n"],[pct(r[4],r[7]),"n"]].forEach(function(c,i){
+      tr.appendChild(el("td",{class:(c[1]+(i?"":" lead")).trim(),"data-label":["Host","Staffed companies","Workers","Tax /h","Covered"][i],text:c[0]}))});tb3.appendChild(tr)});
+    var h3=el("tr");["Host country","Companies with staff","Workers","Wage tax /h","Tax covered"].forEach(function(x,i){h3.appendChild(el("th",{class:i?"n":"",text:x+(i&&i<4?" (tracker / game)":"")}))});
+    var ixl=IX&&IX.known?"Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located"+(IX.passDone?(IX.fullAt?"; last full pass "+when(IX.fullAt):""):"; full list pass "+IX.pass+" in progress ("+IX.passListed.toLocaleString()+" listed so far)")+". ":"";
+    v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Each pair is tracker / game."}),weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack compact"},[el("thead",null,[h3]),tb3])])),
+      el("div",{class:"note",text:ixl+"The tracker follows every company standing in an alliance country, whoever owns it, and compares it with the game’s own region totals. The game counts only companies with staff. Below 100%: companies not located yet, or ones that moved in recently; above: wage estimates taken a little later than the game’s figures."})]))}
   // stage timings of the last full refresh
   if(lf){var t=lf[6]||[],mx=Math.max.apply(null,t.map(function(x){return x[1]}).concat([1])),box=el("div",{class:"hbars"});
     t.slice().sort(function(a,b){return b[1]-a[1]}).forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";
