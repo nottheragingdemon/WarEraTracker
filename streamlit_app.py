@@ -171,7 +171,7 @@ def preview_changes(data, current, new):
                 if a["regions"] != b["regions"]:
                     out.append(f"{h} ↔ {c}: regions covered change. Applies from the next refresh; saved months keep their old scope.")
                 if a["payments_since"] != b["payments_since"]:
-                    out.append(f"{h} ↔ {c}: start date {a['payments_since']} → {b['payments_since']}. Payments and balances count from the new date.")
+                    out.append(f"{h} ↔ {c}: start date {a['payments_since']} → {b['payments_since']}. Statements count from the new date.")
     return out
 
 
@@ -236,7 +236,7 @@ def settings():
                 pay = st.number_input(f"{h} ↔ {c}: % of the tax generated that {h} pays {c}", min_value=0.0, max_value=100.0, step=1.0,
                                       value=float(cur_pay.get(c, 90)), key=f"pp_{h}_{c}")
                 import datetime as _dt
-                since = st.date_input(f"{h} ↔ {c}: agreement start (payments and statements count from)", key=f"sd_{h}_{c}",
+                since = st.date_input(f"{h} ↔ {c}: agreement start (statements count from)", key=f"sd_{h}_{c}",
                                       value=_dt.date.fromisoformat(str(cur_since.get(c, "2026-11-01"))))
                 items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay, "payments_since": since.isoformat()})
         if items:

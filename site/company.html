@@ -233,24 +233,17 @@ function monthPays(m,h,o){var f=((D.statements||{})[m]||{})[String(h)],l=((D.sta
 function agreementSummary(hn){
   var h=st.host,cur=new Date().toISOString().slice(0,7),prev=new Date(Date.UTC(+cur.slice(0,4),+cur.slice(5,7)-2,1)).toISOString().slice(0,7);
   var months={};[D.statements||{},D.statementsLive||{}].forEach(function(S){Object.keys(S).forEach(function(m){if((S[m]||{})[String(h)])months[m]=1})});
-  var P=(D.agreementPayments||{})[String(h)]||{};
   var rows=agreedOf(h).map(function(o){var since=sinceOf(h,o),sm=since.slice(0,7);
     var owed=Object.keys(months).filter(function(m){return m>=sm&&m<cur}).reduce(function(a,m){var x=monthPays(m,h,o);return a+(x?x.pay:0)},0);
-    var tx=(P[String(o)]||[]).filter(function(x){return x[0].slice(0,10)>=since}),sent=tx.reduce(function(a,x){return a+x[1]},0),lastTx=tx[tx.length-1];
     var nowM=monthPays(cur,h,o),prevM=monthPays(prev,h,o);
-    /* the first completed month the payments don't yet cover is due on the 1st of the month after it; a week's grace, then "overdue" */
-    var cum=0,dueDate=null;Object.keys(months).filter(function(m){return m>=sm&&m<cur}).sort().forEach(function(m){var x=monthPays(m,h,o);cum+=x?x.pay:0;if(!dueDate&&cum-sent>0.005)dueDate=nextMonthFirst(m)});
-    var late=dueDate?Math.floor((Date.now()-Date.parse(dueDate+"T00:00:00Z"))/864e5):0;
-    return{o:o,since:since,owed:owed,sent:sent,bal:owed-sent,now:nowM?nowM.pay:0,prev:prevM,last:lastTx,dueDate:dueDate,late:late}});
+    return{o:o,since:since,owed:owed,now:nowM?nowM.pay:0,prev:prevM}});
   var tc=tbl([["Partner",function(r){return nm(r.o)}],["This month",function(r){return m2(r.now)},1],["Paper now",function(r){var c=paperOf(r.now).now;return c==null?"–":m2(c)},1],
-    ["Balance",function(r){return Math.abs(r.bal)<0.005?"settled":r.bal>0?m2(r.bal)+(r.late>7?" OVERDUE":" due"):m2(-r.bal)+" ahead"},1]],rows,true);
+    ["Last month",function(r){return r.prev?m2(r.prev.pay):"–"},1]],rows,true);
   var t=tbl([["Partner",function(r){return nm(r.o)}],["Regions covered",function(r){return scopeLabel(h,r.o)}],["Rate",function(r){return payPct(h,r.o)+"%"},1],
     [monthName(cur)+" so far",function(r){return m2(r.now)},1],[monthName(prev),function(r){return r.prev?m2(r.prev.pay)+(r.prev.final?"":" (not final)"):"–"},1],
-    ["Owed for completed months",function(r){return m2(r.owed)},1],["Sent",function(r){return m2(r.sent)},1],
-    ["Balance",function(r){return Math.abs(r.bal)<0.005?"settled":r.bal>0?m2(r.bal)+" still to pay"+(r.late>7?" · OVERDUE "+r.late+" days (due "+r.dueDate+")":r.dueDate?" · due "+r.dueDate:""):m2(-r.bal)+" paid in advance (counts against the months not yet ended)"},1],
-    ["Last payment",function(r){return r.last?r.last[0].slice(0,10)+" · "+m2(r.last[1]):"none yet"}]],rows);
-  var due=rows.reduce(function(a,r){return a+Math.max(0,r.bal)},0),nowT=rows.reduce(function(a,r){return a+r.now},0);
-  return card("Tax agreements: "+hn,[kpis([[m2(nowT),"Owed to partners, "+monthName(cur)+" so far","final on "+nextMonthFirst(cur)],[nowT>0&&paperOf(nowT).now!=null?m2(paperOf(nowT).now):"–","Paper cost for "+monthName(cur)+" so far, at today’s price",nowT>0?paperOf(nowT).qty.toFixed(2)+" paper"+(paperOf(nowT,cur).avg!=null?" · "+m2(paperOf(nowT,cur).avg)+" at the month’s average price":""):""],[m2(due),"Still to pay for completed months",due>0.005?(rows.some(function(r){return r.late>7})?"overdue, see Balance below":"see Balance below"):"all settled"]]),tc,collapsible("How the partner figures are worked out",[t,note("Owed = the monthly statements (what "+hn+" pays each partner: its rate × the tax generated in the covered regions), counted from each agreement’s start date ("+rows.map(function(r){return nm(r.o)+" "+r.since}).join(", ")+"). Sent = every treasury transfer from "+hn+" to the partner since that date, as the game records it (the tracker can’t tell a tax payment from another transfer). The current month is owed once it ends, so a payment sent before then shows as paid ahead.")])])}
+    ["Total for completed months",function(r){return m2(r.owed)},1],["Agreement start",function(r){return r.since}]],rows);
+  var tot=rows.reduce(function(a,r){return a+r.owed},0),nowT=rows.reduce(function(a,r){return a+r.now},0);
+  return card("Tax agreements: "+hn,[kpis([[m2(nowT),"Owed to partners, "+monthName(cur)+" so far","final on "+nextMonthFirst(cur)],[nowT>0&&paperOf(nowT).now!=null?m2(paperOf(nowT).now):"–","Paper cost for "+monthName(cur)+" so far, at today’s price",nowT>0?paperOf(nowT).qty.toFixed(2)+" paper"+(paperOf(nowT,cur).avg!=null?" · "+m2(paperOf(nowT,cur).avg)+" at the month’s average price":""):""],[m2(tot),"Total for completed months","since each agreement’s start"]]),tc,collapsible("How the partner figures are worked out",[t,note("Each amount is what "+hn+" pays the partner: its rate × the tax generated in the covered regions, from each agreement’s start date ("+rows.map(function(r){return nm(r.o)+" "+r.since}).join(", ")+"). The month so far is final on the 1st. The tracker doesn’t compare these with in-game transfers: a treasury transfer isn’t always a tax payment.")])])}
 /* sending a tax payment costs paper: tax amount x paperRatio paper. The paper price moves a lot, so the cost is shown at today's
    price and at the month's average price (hourly samples; low and high are in the note) */
 function paperMonth(mk){var m=(D.paperMonths||{})[mk];return m?{avg:m[0],lo:m[1],hi:m[2],n:m[3]}:null}
