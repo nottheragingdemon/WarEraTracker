@@ -140,11 +140,16 @@ def collect_companies(c, db, scope):
             ech = [active[k:k + 40] for k in range(0, len(active), 40)]
             est = [e for res in c.batch_many([[("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for e in res]
         est = est or [None] * len(active)
-        for (cid, d), e in zip(active, est):
-            ws = d.get("workers") or []
+        # the company record no longer lists its workers: their list (with each wage) comes from employee.getCompanyEmployees
+        staff = [None] * len(active)
+        if active:
+            ech = [active[k:k + 40] for k in range(0, len(active), 40)]
+            staff = [x for res in c.batch_many([[("employee.getCompanyEmployees", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for x in res]
+        for (cid, d), e, sl in zip(active, est, staff):
+            ws = sl if isinstance(sl, list) else (d.get("workers") or [])
             if e:
                 wages, mgr = float(e.get("wageCost") or 0), float(e.get("managerCost") or 0)
-            else:  # estimate unavailable: fall back to the wages listed on the company
+            else:  # estimate unavailable: fall back to the wages of the listed employees
                 wages, mgr = sum(float(w.get("wage") or 0) for w in ws), 0.0
             rows.append((cid, d.get("name"), d.get("user") or owned[cid], d.get("itemCode"), d.get("estimatedValue") or 0,
                          d.get("region"), citizens.get(owned[cid]), ts, len(ws), round(wages, 6), round(mgr, 6)))

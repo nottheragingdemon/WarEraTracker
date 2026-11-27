@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.3.1 — 2026-11-27
+- **Company tax tracker fix:** worker counts were 0 for every company because the game's company record stopped listing workers. They now come from `employee.getCompanyEmployees`, so the staff cross-check against the game's region figures works again. Wages and tax were not affected (they come from the wage estimate).
+
 ## 1.3.0 — 2026-11-27
 - **Guide:** a new page for alliance members explaining every app, how figures such as bounty per 1M damage, builds and the market tax estimate are worked out, the data's limits, the Discord alerts and a glossary.
 - **Collector dependencies** install async-http-kit by its `v0.4.0` tag; the Tests workflow also runs when they change.
