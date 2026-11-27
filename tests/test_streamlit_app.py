@@ -64,7 +64,7 @@ class PageInlining(unittest.TestCase):
     def load_page(self):
         import json, pathlib, re, types
         src = open(os.path.join(ROOT, "streamlit_app.py"), encoding="utf-8").read()
-        start = src.index("@st.cache_data(ttl=300)\ndef page"); end = src.index("def show(")
+        start = re.search(r"@st\.cache_data\(ttl=\d+\)\ndef page", src).start(); end = src.index("def show(")
         st = types.SimpleNamespace(cache_data=lambda **kw: (lambda f: f))
         ns = {"st": st, "json": json, "re": re, "HERE": pathlib.Path(ROOT)}
         exec(src[start:end], ns)

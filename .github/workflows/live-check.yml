@@ -1,0 +1,28 @@
+name: Live app check
+
+# Every 6 hours: is the Streamlit app up? (A sleeping app is fine.) A failure posts to the alert webhook.
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - name: Check the app
+        env:
+          STREAMLIT_URL: ${{ vars.STREAMLIT_URL || 'https://wareratracker.streamlit.app/' }}
+        run: python3 scripts/live_check.py
+      - name: Failure alert
+        if: failure()
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 scripts/battlecheck.py --failure "WarEra Ireland tools: the live Streamlit app check failed. $RUN_URL"

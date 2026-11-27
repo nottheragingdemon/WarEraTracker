@@ -49,8 +49,10 @@ function render(){
   var checks=[];
   var add=function(ok,warn,text){checks.push([ok?"ok":warn?"warn":"bad",text])};
   var age=hrs(D.generated);add(age<=2,age<=6,"Data is "+ago(D.generated).replace(/ ago$/,"")+" old"+(age<=2?"":" — the hourly refresh may have failed or been skipped"));
+  if(D.paperPrice!=null||(D.paperDays||[]).length){var page=D.paperPriceAt?(Date.now()-Date.parse(D.paperPriceAt))/36e5:null;
+    add(page!=null&&page<=3,page!=null&&page<=6,"Paper price "+(D.paperPrice!=null?D.paperPrice.toFixed(4):"unknown")+(page!=null?", read "+(page<1?Math.max(1,Math.round(page*60))+" min":Math.round(page)+" h")+" ago":""));}
   add(lf&&!lf[5],lf&&lf[5],lf?(lf[5]?"Last full refresh skipped: "+lf[5]+" (API errors)":"Last full refresh collected every stage"):"No full refresh recorded yet");
-  if(full.length){var fails=full.slice(0,24).filter(function(r){return r[5]}).length;add(!fails,fails<=3,fails+" of the last "+Math.min(24,full.length)+" full refreshes skipped a stage")}
+  if(full.length){var fails=full.slice(0,6).filter(function(r){return r[5]}).length;add(!fails,fails<=1,fails+" of the last "+Math.min(6,full.length)+" full refreshes skipped a stage"+(fails?" (the Last 7 days card shows the week)":""))}
   add(hrs(backupIso)<=8*24,hrs(backupIso)<=15*24,S.lastBackup?"Newest database backup: "+S.lastBackup:"No database backup yet");
   add(hrs(S.digestAt)<=8*24,!S.digestAt||hrs(S.digestAt)<=15*24,S.digestAt?"Weekly digest last sent "+when(S.digestAt):"Weekly digest not sent yet (Mondays 08:23 UTC)");
   add(true,true,"Gateway: "+(S.gateway?"on (warerastats.io first, official API as fallback)":"off — official API only"));
@@ -102,6 +104,12 @@ function render(){
     t.slice().sort(function(a,b){return b[1]-a[1]}).forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";
       box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0]}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:x[1].toFixed(1)+" s"})]))});
     v.appendChild(card("Where the last full refresh spent its time",[box,el("div",{class:"note",text:when(lf[0])+" · "+lf[3]+" API calls"+(lf[4]?" ("+lf[4]+" via the gateway)":"")+". Stages that are skipped most hours (MU list, closed contracts) show near 0 s."})]))}
+  // paper price: latest value, when it was read, and the daily average for the last 30 days (sending tax costs paper)
+  (function(){var pd=D.paperDays||[];if(D.paperPrice==null&&!pd.length)return;
+    if(pd.length>1){var mx=Math.max.apply(null,pd.map(function(x){return x[3]}).concat([0.0001])),box=el("div",{class:"hbars"});
+      pd.slice(-14).reverse().forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";
+        box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0].slice(5)}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:x[1].toFixed(4)})]))});
+      v.appendChild(card("Paper price, daily average",[box,el("div",{class:"note",text:"Sending a tax payment costs paper; this is the market price sampled every hour (low to high over the last day: "+pd[pd.length-1][2].toFixed(4)+" to "+pd[pd.length-1][3].toFixed(4)+")."})]))}})();
   // health of the last 7 days: from the stored run records (full refreshes only)
   (function(){var wk=full.filter(function(r){return Date.parse(r[0])>Date.now()-7*864e5});if(wk.length<3)return;
     var bad=wk.filter(function(r){return r[5]}).length,secs=wk.map(function(r){return r[2]}),avg=secs.reduce(function(a,b){return a+b},0)/secs.length,mx=Math.max.apply(null,secs);

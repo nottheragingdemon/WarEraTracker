@@ -3,6 +3,14 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.8.0 — 2026-11-27
+- **Live app check** (every 6 hours): the Streamlit app's health endpoint; a failure posts to the webhook, a sleeping app doesn't.
+- **Streamlit:** pages are cached for an hour and refreshed at once when the data file changes (it re-read and re-inlined about 4 MB every 5 minutes per page).
+- **Status:** a paper price line in the health checks (value, age; warns when stale) and a daily-average card for the last 2 weeks; the "skipped a stage" warning looks at the last 6 runs instead of 24, so it clears soon after a one-off error.
+- **Tax tracker:** month by month shows what is paid to partners (bars and a "Paper cost (month avg)" column).
+- **Ask WarEra:** the example questions fold away when you ask.
+- **Back end:** exports `paperDays`; drops the unused `agreement_payments` table.
+
 ## 2.7.0 — 2026-11-27
 - **Tests:** the smoke test also runs every page as the Streamlit app serves it (`--streamlit`) and fails if Battles or Transfers show no numbers (the 2.6.1 bug would now be caught).
 - **Data checks:** the Battle check warns once when the site data is missing or empty (per `contract.json`), as well as when it is more than 3 hours old. The back end refuses to publish data that fails the contract, including the part files.

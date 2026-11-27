@@ -286,12 +286,13 @@ function statementHistory(M,hn,rn){if(agreedOf(st.host))rn="";
   var ms=Object.keys(mon).sort().reverse(),cur=new Date().toISOString().slice(0,7);
   var title="Month by month: "+hn+(rn?" · "+rn:"");
   if(!ms.length)return card(title,[note("No tracked months yet.")]);
-  var mx=Math.max.apply(null,ms.map(function(m){return mon[m].t}).concat([1])),box=el("div",{class:"hbars"});
-  ms.forEach(function(m){var x=mon[m],b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x.t/mx)+"%";
-    box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:monthName(m)}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:String(m0(x.t))})]))});
+  var AGH=!!agreedOf(st.host),val=function(x){return AGH&&x.pay!=null?x.pay:x.t};   // with agreements the bars show what the host pays partners
+  var mx=Math.max.apply(null,ms.map(function(m){return val(mon[m])}).concat([1])),box=el("div",{class:"hbars"});
+  ms.forEach(function(m){var x=mon[m],b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*val(x)/mx)+"%";
+    box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:monthName(m)}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:String(m0(val(x)))})]))});
   var status=function(m){var x=mon[m];return x.final?"Final":m===cur?"So far":x.days?"Not saved (tracked "+Object.keys(x.days).length+" of "+monthDays(m)+" days)":"Saved on "+nextMonthFirst(m)};
   var any=ms.some(function(m){return mon[m].p>0.005});
-  var t=tbl([["Month",function(m){return monthName(m)}],[agreedOf(st.host)?"Tax generated":"Tax owed",function(m){return m2(mon[m].t)},1]].concat(any?[["To core countries",function(m){return m2(mon[m].p)},1],[hn+(agreedOf(st.host)?" pays partners":" keeps"),function(m){return m2(agreedOf(st.host)&&mon[m].pay!=null?mon[m].pay:mon[m].t-mon[m].p)},1]]:[]).concat([["Status",function(m){return status(m)}]]),ms);
+  var t=tbl([["Month",function(m){return monthName(m)}],[agreedOf(st.host)?"Tax generated":"Tax owed",function(m){return m2(mon[m].t)},1]].concat(any?[["To core countries",function(m){return m2(mon[m].p)},1],[hn+(agreedOf(st.host)?" pays partners":" keeps"),function(m){return m2(agreedOf(st.host)&&mon[m].pay!=null?mon[m].pay:mon[m].t-mon[m].p)},1]]:[]).concat(AGH?[["Paper cost (month avg)",function(m){var c=mon[m].pay!=null?paperOf(mon[m].pay,m).avg:null;return c==null?"–":m2(c)},1]]:[]).concat([["Status",function(m){return status(m)}]]),ms);
   return card(title,[box,t,note((agreedOf(st.host)?"Partner countries together, in the regions their agreements cover ("+agreementsText(st.host)+"); the last column is what "+hn+" pays them. ":"All source countries together. ")+"Final months are the statements saved on the 1st; the others are worked out from the stored history, which covers about 3 months.")])}
 /* when the host changed its income or manager tax */
 function rateHistory(hn){

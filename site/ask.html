@@ -176,6 +176,7 @@ function renderTable(title,cols,rows,note){
 
 /* ---------- ask ---------- */
 async function ask(){
+  var xw=$("exwrap");if(xw)xw.open=false;   // the full screen is for the answer
   var q=$("q").value.trim();if(!q||busy||!sample)return;busy=true;$("go").disabled=true;$("ans").textContent="";$("tables").textContent="";logLines=[];$("log").hidden=true;results={};seq=0;
   $("status").textContent="Thinking…";var shown=0;
   var today=new Date().toISOString().slice(0,10);

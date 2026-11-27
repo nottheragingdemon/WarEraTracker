@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 def build(name, root=ROOT):
     src = (ROOT / "streamlit_app.py").read_text(encoding="utf-8")
-    start = src.index("@st.cache_data(ttl=300)\ndef page")
+    start = re.search(r"@st\.cache_data\(ttl=\d+\)\ndef page", src).start()
     end = src.index("def show(")
     ns = {"st": types.SimpleNamespace(cache_data=lambda **kw: (lambda f: f)), "json": json, "re": re, "HERE": pathlib.Path(root)}
     exec(src[start:end], ns)

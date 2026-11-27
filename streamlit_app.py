@@ -29,8 +29,8 @@ header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stToolbar
 </style>""", unsafe_allow_html=True)
 
 
-@st.cache_data(ttl=300)
-def page(name: str) -> str:
+@st.cache_data(ttl=3600)
+def page(name: str, stamp: float = 0.0) -> str:   # stamp: the data file's modification time, so a new data commit gets fresh pages at once
     html = (HERE / "site" / name).read_text(encoding="utf-8")
     data = (HERE / "site" / "data.json").read_text(encoding="utf-8")
     json.loads(data)  # fail early if the file is damaged
@@ -64,7 +64,7 @@ def page(name: str) -> str:
 
 def show(name: str):
     try:
-        html = page(name)   # our own pages and data, never user input
+        html = page(name, (HERE / "site" / "data.json").stat().st_mtime)   # our own pages and data, never user input
         if hasattr(st, "iframe"):   # components.html is deprecated in newer Streamlit
             st.iframe(html, height="content")
         else:

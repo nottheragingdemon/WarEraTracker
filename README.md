@@ -47,6 +47,7 @@ and `site/company-data.json` here (the "data: …" commits); Streamlit redeploys
 | Workflow | When | What |
 |---|---|---|
 | Battle check | every 15 minutes | new and ended battles involving the alliance to the webhook (`scripts/battlecheck.py`; already-announced marks on the `battlecheck-state` branch; switches: test alert, test failure); also warns when the site data is more than 3 hours old or missing/empty (once per outage) |
+| Live app check | every 6 hours | is the Streamlit app up (`scripts/live_check.py`; a sleeping app is fine); a failure posts to the webhook. Optional variable `STREAMLIT_URL` |
 | Tests | on push | page, Streamlit and artifact tests, then every page in headless Chrome (`scripts/smoke_pages.py`), once as plain files and once as the Streamlit app serves them (`--streamlit`), checking real numbers are on screen |
 | Release | by hand | tags a version from `CHANGELOG.md` and publishes a GitHub release |
 
