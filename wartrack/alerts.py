@@ -207,7 +207,11 @@ def statement_posts(db, url):
     """Once per month and host: post last month's frozen company tax statement (hosts by name, $STATEMENT_HOSTS, default Ireland)."""
     from . import statement as STM
     month = STM.previous_month()
-    names = [x.strip() for x in os.environ.get("STATEMENT_HOSTS", "Ireland").split(",") if x.strip()]
+    from .stages.common import tax_agreements
+    ag = tax_agreements(db)
+    name_of = {r[0]: r[1] for r in db.execute("SELECT country, name FROM country_tax")}
+    default = ",".join(sorted(name_of[h] for h in ag if name_of.get(h))) if ag is not None else "Ireland"   # the agreement hosts
+    names = [x.strip() for x in os.environ.get("STATEMENT_HOSTS", default).split(",") if x.strip()]
     for nm in names:
         row = db.execute("SELECT country FROM country_tax WHERE name=?", (nm,)).fetchone()
         if not row or _state(db, f"statement_{row[0]}") == month:

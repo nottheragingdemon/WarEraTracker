@@ -10,6 +10,8 @@ def ms(s):
 
 class StatementTests(unittest.TestCase):
     def setUp(self):
+        from wartrack.stages import common
+        self._ag, common.AGREEMENTS_FILE = common.AGREEMENTS_FILE, "/nonexistent/agreements.json"
         d = self.db = dbm.connect(":memory:")
         d.execute("INSERT INTO country_tax(country,name,income,manager) VALUES('h','Hland',10,0),('o','Oland',5,0),('c','Cland',5,0)")
         d.execute("INSERT INTO region_now(region,name,country,core) VALUES('r1','R1','h','h'),('r2','R2','h','c')")
@@ -20,6 +22,20 @@ class StatementTests(unittest.TestCase):
         t0 = ms("2026-10-31T22:00:00")
         d.execute("INSERT INTO wage_snap3 VALUES('h','h','o',?,1,3,100.0,0)", (t0,))   # own region: 10 tax/h
         d.execute("INSERT INTO wage_snap3 VALUES('h','c','o',?,1,2,50.0,0)", (t0,))    # conquered from c: 5 tax/h, 10% to c
+
+    def tearDown(self):
+        from wartrack.stages import common
+        common.AGREEMENTS_FILE = self._ag
+
+    def test_agreements_filter(self):
+        import json, os, tempfile
+        from wartrack.stages import common
+        self.db.execute("INSERT INTO wage_snap3 VALUES('h','h','c',?,1,1,20.0,0)", (ms("2026-10-31T22:00:00"),))
+        path = os.path.join(tempfile.mkdtemp(), "agreements.json")
+        json.dump({"agreements": {"Hland": ["Cland"]}}, open(path, "w"))
+        common.AGREEMENTS_FILE = path
+        rows = S.compute(self.db, "h", "2026-11", now_ms=ms("2026-11-01T05:00:00"))
+        self.assertEqual(set(rows), {"c"})   # Oland has no agreement with Hland: left out
 
     def test_compute_month_split(self):
         # November: from 00:00 to the last check's 6-hour cap (03:00 + up to 6 h, cut at 'now')

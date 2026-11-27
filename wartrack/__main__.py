@@ -98,8 +98,8 @@ def main():
             timed("prune", C.prune, db)
             if "companies" in what and "companies" not in failed:   # on the 1st: freeze last month's tax statements
                 from . import statement as STM
-                from .stages.common import alliance_countries
-                timed("statements", STM.freeze, db, alliance_countries(db), None, C.log)
+                from .stages.common import company_hosts
+                timed("statements", STM.freeze, db, company_hosts(db), None, C.log)
         C.log("timings: " + ", ".join(f"{n} {t:.0f}s/{k} calls" for n, t, k in timings))
         import json as _json
         db.execute("INSERT OR REPLACE INTO run_stats VALUES(?,?,?,?,?,?,?)",   # for the Status page

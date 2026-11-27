@@ -64,6 +64,9 @@ function hostOf(c){var r=(D.regionsNow||{})[c[4]];return r?r[1]:-1}
 /* a region's core (original) country; when another country holds it, the game hands that core country a share of its tax */
 function coreOf(reg){var r=(D.regionsNow||{})[reg];return r?(r[6]!=null&&r[6]>=0?r[6]:r[1]):-1}
 function corePct(){return D.coreTaxPct!=null?+D.coreTaxPct:10}
+/* tax agreements (set on the Streamlit Settings page): the source countries a host bills; null = no agreements file, all owners */
+function agreedOf(h){var a=D.agreements;if(!a)return null;return a[String(h)]||[]}
+function isAgreed(h,o){var l=agreedOf(h);return l==null||l.indexOf(+o)>=0}
 function regMatch(reg){return st.region===ALL_REGIONS||reg===st.region}
 function step(arr,t){var lo=0,hi=arr.length-1,k=-1;while(lo<=hi){var m=(lo+hi)>>1;if(arr[m][0]<=t){k=m;lo=m+1}else hi=m-1}return k<0?null:arr[k]}
 function calc(){
@@ -129,6 +132,7 @@ function render(){
   var v=$("view");v.textContent="";
   if(st.host<0||(st.src<0&&st.src!==ALL_OWNERS)){v.appendChild(note("No collected companies yet. Company data is collected by the scheduled refresh; check back after the next run."));return}
   var M=calc(),hn=nm(st.host),sn=srcName(),today=new Date().toISOString().slice(0,10),mk=st.month;
+  if(agreedOf(st.host))v.appendChild(note("Tax agreements: "+nm(st.host)+" bills companies owned by citizens of "+(agreedOf(st.host).map(nm).join(", ")||"no country yet")+". Only those companies are tracked; the list is set on the Streamlit app’s Settings page."));
   var rn=st.region===ALL_REGIONS?"":D.regionsNow[st.region][0],where=rn?rn+" ("+hn+")":hn,pctS=M.pct+"%";
   var passNames=Object.keys(M.passTo).map(function(k){return nm(+k)}).join(", ");
   var dm=Object.keys(M.days).filter(function(d){return d.slice(0,7)===mk}).sort().map(function(d){return M.days[d]});
@@ -150,7 +154,7 @@ function render(){
       (M.pass>0?"Conquered regions: the game hands "+pctS+" of the tax from a region to its original (core) country while another country holds it, so "+hn+" keeps "+m4(M.keep)+" /h of the "+m4(M.hour)+" /h. ":"")+"Employee tax = the wages those companies pay their employees each hour × "+hn+"’s income tax rate; manager tax = the managers’ hourly pay × "+hn+"’s manager tax rate"+(M.mrate===0?" (0%, so no manager tax is due)":"")+". Pay figures are the game’s live hourly wage and manager costs for each company (employee.getCompanyEstimate).")]);
   var back=M.regs.filter(function(g){return g.conq&&st.src===g.core});
   if(back.length){var own=back.reduce(function(s,g){return s+g.pass},0),allBack=back.reduce(function(s,g){return s+g.all*M.pct/100},0);
-    c1.appendChild(note(sn+" is the original country of "+back.map(function(g){return g.name}).join(", ")+": it gets "+pctS+" of all the tax collected there. From its own citizens’ companies that is "+m4(own)+" /h ("+m2(own*24)+" /day); from every owner’s companies in "+(back.length>1?"those regions":"that region")+" it is "+m4(allBack)+" /h ("+m2(allBack*24)+" /day), counting the companies the tracker sees."))}
+    c1.appendChild(note(sn+" is the original country of "+back.map(function(g){return g.name}).join(", ")+": it gets "+pctS+" of all the tax collected there. From its own citizens’ companies that is "+m4(own)+" /h ("+m2(own*24)+" /day)"+(D.agreements?" (only companies owned by agreed countries are tracked, so other owners’ share isn’t counted).":"; from every owner’s companies in "+(back.length>1?"those regions":"that region")+" it is "+m4(allBack)+" /h ("+m2(allBack*24)+" /day), counting the companies the tracker sees.")))}
   v.appendChild(c1);
   v.appendChild(whatIf(M,hn,sn));
   /* 2: cross check */
@@ -194,7 +198,7 @@ function render(){
 /* month statement: what each source country's companies owed the host in the month, split into the core-country share and what the host keeps */
 function statement(M,mk,hn,rn){
   var fz=!rn&&((D.statements||{})[mk]||{})[String(st.host)];   // frozen on the 1st of the next month: the final figures
-  var rows=fz?fz.map(function(r){return{o:r[0],t:r[1],p:r[2],k:r[1]-r[2]}}):Object.keys(M.ownDays).map(function(o){var t=0,p=0,dd=M.ownDays[o];Object.keys(dd).forEach(function(d){if(d.slice(0,7)===mk){t+=dd[d][0];p+=dd[d][1]}});return{o:+o,t:t,p:p,k:t-p}})
+  var rows=fz?fz.map(function(r){return{o:r[0],t:r[1],p:r[2],k:r[1]-r[2]}}):Object.keys(M.ownDays).filter(function(o){return isAgreed(st.host,o)}).map(function(o){var t=0,p=0,dd=M.ownDays[o];Object.keys(dd).forEach(function(d){if(d.slice(0,7)===mk){t+=dd[d][0];p+=dd[d][1]}});return{o:+o,t:t,p:p,k:t-p}})
     .filter(function(r){return r.t>0.005}).sort(function(a,b){return b.t-a.t});
   var tot=rows.reduce(function(a,r){a.t+=r.t;a.p+=r.p;a.k+=r.k;return a},{t:0,p:0,k:0});
   var title="Statement for "+monthName(mk)+": "+hn+(rn?" · "+rn:"")+(fz?" (final)":"");
@@ -204,11 +208,11 @@ function statement(M,mk,hn,rn){
   var txt=function(){var L=[title+(fz?"":" (tracked so far)")+", UTC days; payment due "+nextMonthFirst(mk)];rows.forEach(function(r){L.push(nm(r.o)+": "+m2(r.t)+(tot.p>0?" (to core "+m2(r.p)+", kept "+m2(r.k)+")":""))});
     L.push("Total: "+m2(tot.t)+(tot.p>0?" (to core "+m2(tot.p)+", "+hn+" keeps "+m2(tot.k)+")":""));return L.join("\n")};
   var b=el("button",{class:"chip",type:"button",text:"Copy as text"});b.onclick=function(){var s=txt();(navigator.clipboard?navigator.clipboard.writeText(s):Promise.reject()).then(function(){b.textContent="Copied"},function(){window.prompt("Copy the statement:",s)});setTimeout(function(){b.textContent="Copy as text"},2000)};
-  return card(title,[t,b,note((fz?"Final: saved on "+nextMonthFirst(mk)+", so these figures no longer change. ":"Saved as final on "+nextMonthFirst(mk)+". ")+"Every source country’s companies in "+(rn||hn)+", whatever source is picked above. Tax owed is the tracked wages × "+hn+"’s rates for each hour of the month so far; payments already made aren’t subtracted. Download CSV for a spreadsheet.")])}
+  return card(title,[t,b,note((fz?"Final: saved on "+nextMonthFirst(mk)+", so these figures no longer change. ":"Saved as final on "+nextMonthFirst(mk)+". ")+(agreedOf(st.host)?"Only countries with a tax agreement with "+hn+" are billed ("+(agreedOf(st.host).map(nm).join(", ")||"none set")+"). ":"Every source country’s companies in "+(rn||hn)+", whatever source is picked above. ")+" Tax owed is the tracked wages × "+hn+"’s rates for each hour of the month so far; payments already made aren’t subtracted. Download CSV for a spreadsheet.")])}
 /* month by month: frozen statements where saved, otherwise worked out from the stored history (up to about 3 months) */
 function statementHistory(M,hn,rn){
   var fz=rn?{}:(D.statements||{}),mon={};
-  Object.keys(M.ownDays).forEach(function(o){var dd=M.ownDays[o];Object.keys(dd).forEach(function(d){var m=d.slice(0,7),x=mon[m]=mon[m]||{t:0,p:0,days:{}};x.t+=dd[d][0];x.p+=dd[d][1];x.days[d]=1})});
+  Object.keys(M.ownDays).filter(function(o){return isAgreed(st.host,o)}).forEach(function(o){var dd=M.ownDays[o];Object.keys(dd).forEach(function(d){var m=d.slice(0,7),x=mon[m]=mon[m]||{t:0,p:0,days:{}};x.t+=dd[d][0];x.p+=dd[d][1];x.days[d]=1})});
   Object.keys(fz).forEach(function(m){var r=fz[m][String(st.host)];if(!r)return;mon[m]={t:r.reduce(function(a,x){return a+x[1]},0),p:r.reduce(function(a,x){return a+x[2]},0),final:true}});
   var ms=Object.keys(mon).sort().reverse(),cur=new Date().toISOString().slice(0,7);
   var title="Month by month: "+hn+(rn?" · "+rn:"");
@@ -219,7 +223,7 @@ function statementHistory(M,hn,rn){
   var status=function(m){var x=mon[m];return x.final?"Final":m===cur?"So far":"Not saved (tracked "+Object.keys(x.days||{}).length+" of "+monthDays(m)+" days)"};
   var any=ms.some(function(m){return mon[m].p>0.005});
   var t=tbl([["Month",function(m){return monthName(m)}],["Tax owed",function(m){return m2(mon[m].t)},1]].concat(any?[["To core countries",function(m){return m2(mon[m].p)},1],[hn+" keeps",function(m){return m2(mon[m].t-mon[m].p)},1]]:[]).concat([["Status",function(m){return status(m)}]]),ms);
-  return card(title,[box,t,note("All source countries together. Final months are the statements saved on the 1st; the others are worked out from the stored history, which covers about 3 months.")])}
+  return card(title,[box,t,note((agreedOf(st.host)?"Agreed countries together ("+(agreedOf(st.host).map(nm).join(", ")||"none set")+"). ":"All source countries together. ")+"Final months are the statements saved on the 1st; the others are worked out from the stored history, which covers about 3 months.")])}
 /* when the host changed its income or manager tax */
 function rateHistory(hn){
   var rh=((D.rateHist||{})[String(st.host)]||[]).slice().sort(function(a,b){return a[0]-b[0]}),ch=[];
@@ -246,7 +250,7 @@ function whatIf(M,hn,sn){
   function draw(){
     var e=st.wi.e/100,mg=st.wi.m/100;
     var selNow=M.wages*cur[0]/100+M.mpay*cur[1]/100,selNew=M.wages*e+M.mpay*mg;
-    var ctyNow=gameE+gameM,ctyNew=all*e*scaleE+(allM*mg);
+    var ctyNow=gameE+gameM,ctyNew=(cur[0]?gameE*st.wi.e/cur[0]:all*e*scaleE)+(cur[1]?gameM*st.wi.m/cur[1]:allM*mg);   // the game's own figure, scaled by the rate change
     var tot=(+inc.total||0),kf=M.hour?M.keep/M.hour:1,rows=[[st.src===ALL_OWNERS?"All companies shown above":"The "+sn+"-owned companies shown above",selNow,selNew]].concat(M.pass>0?[["… of which "+hn+" keeps (after the core-country share)",selNow*kf,selNew*kf]]:[]).concat([["All wage tax in "+hn+" (game total, rescaled)",ctyNow,ctyNew],["All of "+hn+"’s income (every stream)",tot,tot-ctyNow+ctyNew]]);
     out.textContent="";
     out.appendChild(tbl([["",function(r){return r[0]}],["Now /day",function(r){return m0(r[1]*24)},1],["What-if /day",function(r){return m0(r[2]*24)},1],["Change /day",function(r){var d=(r[2]-r[1])*24;return(d>0?"+":"")+m0(d)},1],
@@ -326,7 +330,7 @@ function fillSelects(){
     rs.value=st.region}
   function fillSrc(){
     var srcN={},tot=0;D.companies.forEach(function(c){if(hostOf(c)===st.host&&regMatch(c[4])&&c[5]>=0){srcN[c[5]]=(srcN[c[5]]||0)+1;tot++}});
-    var ss=$("f-src");ss.textContent="";ss.appendChild(el("option",{value:String(ALL_OWNERS),text:"All owners ("+tot+")"}));
+    var ss=$("f-src");ss.textContent="";ss.appendChild(el("option",{value:String(ALL_OWNERS),text:(agreedOf(st.host)?"All agreed countries (":"All owners (")+tot+")"}));
     var keys=Object.keys(srcN).sort(function(a,b){return srcN[b]-srcN[a]||nm(+a).localeCompare(nm(+b))});
     [["Emerald Accord",keys.filter(function(k){return ea&&ea.has(+k)})],["Other countries",keys.filter(function(k){return !(ea&&ea.has(+k))})]].forEach(function(g){
       if(!g[1].length)return;var og=el("optgroup",{label:g[0]});g[1].forEach(function(k){og.appendChild(el("option",{value:k,text:nm(+k)+" ("+srcN[k]+")"}))});ss.appendChild(og)});

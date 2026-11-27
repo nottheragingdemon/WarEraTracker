@@ -23,6 +23,14 @@ class StreamlitAppTests(unittest.TestCase):
         for want in ("Tracker", "Taxes", "Transfers", "Efficiency", "Status", "Guide", "MapTap", "Boreen"):
             self.assertIn(want, labels)
         self.assertNotIn("Ask", labels)   # hidden without the dev key
+        self.assertNotIn("Settings", labels)
+
+    def test_settings_page_with_dev_key(self):
+        at = AppTest.from_file(os.path.join(ROOT, "streamlit_app.py"), default_timeout=60)
+        at.secrets["DEV_KEY"] = "k"
+        at.query_params["key"] = "k"
+        at.run()
+        self.assertIn("Settings", [p.label for p in at.get("page_link")])
 
 
 if __name__ == "__main__":

@@ -70,6 +70,7 @@
 
   <div class="card" id="company"><h2>Company tax tracker</h2>
     <p>For a <b>host</b> country (any Emerald Accord country where companies stand) and a <b>source</b> country (where their owners are citizens, from any country, or <i>All owners</i>): the income tax the host collects on those companies' wages. Pick a <b>region</b> of the host to narrow it to one region.</p>
+    <p><b>Tax agreements:</b> only countries with a tax agreement are tracked and billed: for now Ireland bills companies owned by citizens of the United Kingdom. The list is changed on the Streamlit app's <b>Settings</b> page (behind the dev key) and applies from the next hourly refresh.</p>
     <ul>
       <li><b>Per hour, right now:</b> wages paid, employee and manager tax, from the game's own live wage figures.</li>
       <li>With <b>All owners</b> chosen, the figures should match the game's own totals for the host closely: it is the quickest way to check the data.</li>
@@ -101,7 +102,7 @@
   </div>
 
   <div class="card" id="efficiency"><h2>Player efficiency</h2>
-    <p>For each alliance nation, its top 20 players with at least 1M damage in the last 7 days, ranked by how much wealth they have, or gained, for the damage they deal.</p>
+    <p>For each alliance nation, its top 20 (or, with <b>Bottom 20</b>, its least efficient 20) players with at least 1M damage in the last 7 days, ranked by how much wealth they have, or gained, for the damage they deal.</p>
     <ul>
       <li><b>Wealth gained per 1M damage:</b> wealth now minus wealth about a week ago, divided by damage in millions over the same days. <b>Wealth per 1M damage:</b> current wealth divided by damage in millions.</li>
       <li><b>Build</b> comes from how the player spent skill points. A skill at level L costs 1 + 2 + … + L points. The share in the four economy skills (companies, energy, management, production) decides it:

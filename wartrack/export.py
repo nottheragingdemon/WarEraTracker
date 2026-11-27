@@ -154,9 +154,9 @@ def full_history(db, E, days=7):
 
 def company_coverage(db, E, scope=None):
     """Per alliance host country: the tracker's companies, workers and wage tax per hour (all owners) against the game's own region figures."""
-    from .stages.common import alliance_countries
+    from .stages.common import company_hosts
     from .stages.economy import coverage_rows
-    hosts = alliance_countries(db) or set(scope.members if scope and scope.members else [])
+    hosts = company_hosts(db, scope)
     return [[E("country", r[0])] + r[1:] for r in coverage_rows(db, hosts)]
 
 
@@ -275,6 +275,9 @@ def export(db, out, since, scope=None):
                                  E("country", r["core"] or r["country"])]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
+    from .stages.common import tax_agreements
+    ag = tax_agreements(db)
+    agreements = None if ag is None else {str(E("country", h)): sorted(E("country", s) for s in srcs) for h, srcs in ag.items()}
     statements = {}   # frozen month statements: {month: {host: [[owner, owed, passed], ...]}}
     for r in db.execute("SELECT * FROM statements ORDER BY month, host, owed DESC"):
         statements.setdefault(r["month"], {}).setdefault(str(E("country", r["host"])), []).append([E("country", r["owner_country"]), r["owed"], r["passed"]])
@@ -340,7 +343,7 @@ def export(db, out, since, scope=None):
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "wageHistReg": wage_hist_reg, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate,
-            "statements": statements, "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
+            "statements": statements, "agreements": agreements, "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
     # players are found by name; their full ids are only a fallback label (the last 6 characters), so named players keep the
     # last 8 characters of the id. Ids were about a third of the main file's download.
     for e in ents:

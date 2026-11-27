@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.12.0 — 2026-11-27
+- **Tax agreements:** only source countries with a tax agreement are collected and billed (`agreements.json`; for now Ireland ↔ United Kingdom). The collector follows only companies in agreement hosts owned by agreed countries' citizens; statements, the Discord post and the month-by-month view include agreed countries only. Status no longer measures coverage against the game's country totals while agreements are in force.
+- **Streamlit Settings page** (behind the dev key): pick each host's agreed countries and save; it writes `agreements.json` to the repo with a `GITHUB_TOKEN` from the app's Secrets (fine-grained, this repo, Contents read and write).
+- **Tax what-if:** the whole-country line scales the game's own figure by the rate change (it no longer depends on tracking every company).
+- **Player efficiency:** *Top 20 / Bottom 20* switch (the least efficient players, with their rank in the nation); the collector follows up to 300 players a country (was 100) so the bottom of the 1M+ damage list is covered.
+
 ## 1.11.0 — 2026-11-27
 - **Statement preview:** a manual *Statement preview* workflow (and `python -m wartrack alerts --statement-preview Ireland`) posts this month's statement so far to Discord, marked as a preview.
 - **Company tax tracker:** *Month by month* (each month's tax owed, core-country share and what the host keeps; final where saved, otherwise worked out from history) and *Tax rate history* (every change to the host's employee and manager tax, how long each rate held).

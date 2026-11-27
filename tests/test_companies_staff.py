@@ -43,6 +43,14 @@ class Fake:
 
 
 class CompanyTests(unittest.TestCase):
+    def setUp(self):   # no agreements file: every owner in the alliance's countries is followed
+        from wartrack.stages import common
+        self._ag, common.AGREEMENTS_FILE = common.AGREEMENTS_FILE, "/nonexistent/agreements.json"
+
+    def tearDown(self):
+        from wartrack.stages import common
+        common.AGREEMENTS_FILE = self._ag
+
     def test_index_then_hourly(self):
         db = dbm.connect(":memory:")
         db.execute("INSERT INTO region_now(region,name,country) VALUES('r1','Home','c1'),('r9','Away','c9')")
@@ -63,6 +71,23 @@ class CompanyTests(unittest.TestCase):
         finally:
             Fake.ALL["k2"] = ("r1", "u2")
         self.assertEqual(sorted(r[0] for r in db.execute("SELECT id FROM companies")), ["k1"])
+
+
+    def test_agreements_limit_owners(self):
+        import json, os, tempfile
+        from wartrack.stages import common
+        db = dbm.connect(":memory:")
+        db.execute("INSERT INTO region_now(region,name,country) VALUES('r1','Home','c1'),('r9','Away','c9')")
+        db.execute("INSERT INTO country_tax(country,name) VALUES('c1','Hostland'),('x9','Partnerland'),('c9','Elsewhere')")
+        path = os.path.join(tempfile.mkdtemp(), "agreements.json")
+        json.dump({"agreements": {"Hostland": ["Partnerland"]}}, open(path, "w"))
+        common.AGREEMENTS_FILE = path
+        self.assertEqual(common.tax_agreements(db), {"c1": {"x9"}})
+        f = Fake()
+        EC.collect_company_index(f, db, Scope())
+        EC.collect_companies(f, db, Scope())
+        rows = {r["id"]: r["owner_country"] for r in db.execute("SELECT id, owner_country FROM companies")}
+        self.assertEqual(rows, {"k2": "x9"})   # only the agreed country's citizens' company in the host
 
 
 if __name__ == "__main__":

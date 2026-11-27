@@ -56,7 +56,7 @@ function render(){
   add(true,true,"Gateway: "+(S.gateway?"on (warerastats.io first, official API as fallback)":"off — official API only"));
   var don=S.donationsSince,dd=don?(Date.now()-Date.parse(don))/864e5:0;add(dd>=88,dd>=55,"Donations stored from "+(don?don.slice(0,10):"–")+" ("+Math.round(dd)+" days; 90 wanted)");
   var CV=S.coverage||[],tt=CV.reduce(function(a,r){return a+r[4]},0),gt=CV.reduce(function(a,r){return a+r[7]},0);
-  if(gt>0){var pc=100*tt/gt;add(pc>=90&&pc<=110,pc>=75&&pc<=125,"Company tax tracker covers "+pc.toFixed(0)+"% of the game’s wage tax in alliance countries (100% is a full match; see Company coverage below)")}
+  if(gt>0&&!D.agreements){var pc=100*tt/gt;add(pc>=90&&pc<=110,pc>=75&&pc<=125,"Company tax tracker covers "+pc.toFixed(0)+"% of the game’s wage tax in alliance countries (100% is a full match; see Company coverage below)")}
   var IX=S.companyIndex;if(IX&&IX.known){var lp=IX.located/IX.known;add(lp>=0.98,lp>=0.5,"Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies located"+(IX.passDone?"":" (full list pass "+IX.pass+" in progress)"))}
   var FR=S.freshness||[],stl=FR.filter(function(f){return f.state==="stale"});
   if(FR.length)add(!stl.length,false,stl.length?stl.length+" kind(s) of data stopped arriving: "+stl.map(function(f){return f.label.toLowerCase()}).join(", ")+" (see Data freshness)":"Every kind of data is arriving on time ("+FR.filter(function(f){return f.state==="ok"}).length+" checked)");
@@ -70,7 +70,8 @@ function render(){
         f.label+": "+age+" (expected within "+(f.limit_h<48?f.limit_h+" h":f.limit_h/24+" days")+")"]))});
     v.appendChild(card("Data freshness",[fl,el("div",{class:"note",text:"The newest record of each kind of data, checked at every refresh. A stale line means something stopped saving data even though no run failed; it is also posted to Discord. Donations, trades and transfers depend on players, so they get longer limits."})]))}
   // company coverage: the tracker against the game's own figures, per alliance host country (all owners)
-  if(CV.length){var pct=function(a,b){return b?(100*a/b).toFixed(0)+"%":"–"};
+  if(D.agreements)v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Tax agreements are in force, so only companies owned by agreed countries are collected ("+Object.keys(D.agreements).map(function(h){return nm(+h)+": "+(D.agreements[h].map(nm).join(", ")||"none")}).join(" · ")+"). Coverage against the game’s country totals isn’t measured while that is the case."+(IX&&IX.known?" Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located.":"")})]));
+  if(CV.length&&!D.agreements){var pct=function(a,b){return b?(100*a/b).toFixed(0)+"%":"–"};
     var rows=CV.slice().sort(function(a,b){return b[7]-a[7]});
     var CH=S.coverageHist||[],wk=new Date(Date.now()-7*864e5).toISOString().slice(0,10),trend=function(h){
       var pts=CH.filter(function(x){return x[1]===h&&x[0]>=wk&&x[2]!=null});if(pts.length<2)return"from today";
@@ -85,7 +86,7 @@ function render(){
     v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Each pair is tracker / game."}),weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack compact"},[el("thead",null,[h3]),tb3])])),
       el("div",{class:"note",text:"Overall tax covered by day: "+(dl.length?dl.join(" · "):"recorded from today")+"."}),el("div",{class:"note",text:ixl+"The tracker follows every company standing in an alliance country, whoever owns it, and compares it with the game’s own region totals. The game counts only companies with staff. Below 100%: companies not located yet, or ones that moved in recently; above: wage estimates taken a little later than the game’s figures."})]))}
   // storage-full check: does the game's tax follow all staffed companies, or only the ones still producing?
-  var FH=S.fullHist||[];if(CV.length&&CV[0].length>9){
+  var FH=S.fullHist||[];if(CV.length&&CV[0].length>9&&!D.agreements){
     var avg=function(h,i){var p=FH.filter(function(x){return x[0]===h&&x[6]>0});if(!p.length)return null;return 100*p.reduce(function(a,x){return a+x[i]/x[6]},0)/p.length};
     var fmt=function(x){return x==null?"–":x.toFixed(0)+"%"},tb4=el("tbody"),dist={a:0,n:0,k:0};
     CV.slice().sort(function(a,b){return b[7]-a[7]}).forEach(function(r){if(!r[7])return;var a7=avg(r[0],4),n7=avg(r[0],5);

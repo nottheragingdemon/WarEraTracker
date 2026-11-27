@@ -58,6 +58,35 @@ class Scope:
 SCOPE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scope.json")   # repo root
 
 
+AGREEMENTS_FILE = os.path.join(os.path.dirname(SCOPE_FILE), "agreements.json")   # repo root; edited from the Streamlit Settings page
+
+
+def tax_agreements(db, path=None):
+    """{host country id: set of source (owner) country ids} from agreements.json ({"Ireland": ["United Kingdom"], ...}, by
+    country name). None when the file doesn't exist (then every alliance country is a host and every owner is tracked)."""
+    path = path or AGREEMENTS_FILE
+    if not os.path.exists(path):
+        return None
+    try:
+        cfg = json.load(open(path)).get("agreements") or {}
+    except (ValueError, OSError):
+        return None
+    ids = {r[1]: r[0] for r in db.execute("SELECT country, name FROM country_tax")}
+    out = {}
+    for host, srcs in cfg.items():
+        if host in ids:
+            out[ids[host]] = {ids[s] for s in srcs or [] if s in ids}
+    return out
+
+
+def company_hosts(db, scope=None):
+    """The host countries whose companies are collected: those with a tax agreement, else the alliance's countries."""
+    ag = tax_agreements(db)
+    if ag is not None:
+        return set(ag)
+    return alliance_countries(db) or set(scope.members if scope and scope.members else [])
+
+
 def alliance_countries(db):
     """member countries of the alliance named in scope.json (empty if none)"""
     path = SCOPE_FILE

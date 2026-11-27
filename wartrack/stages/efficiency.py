@@ -13,8 +13,9 @@ def skill_points(level):
     return level * (level + 1) // 2
 
 
-def collect_efficiency(c, db, scope=None, per_country=100, min_week=200_000):
-    """Player efficiency: for each alliance country, the players with the most damage this week (game weekly ranking):
+def collect_efficiency(c, db, scope=None, per_country=300, min_week=200_000):
+    """Player efficiency: for each alliance country, the players with the most damage this week (game weekly ranking), down to
+    200k damage (up to 300 a country, so the page's bottom 20 among the 1M+ damage players are covered as well as the top 20):
     wealth and damage totals snapshotted once per UTC day (so weekly changes can be computed) and their skill allocation."""
     members = list(scope.members) if scope and scope.members else []
     if not members:

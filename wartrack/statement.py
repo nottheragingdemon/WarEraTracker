@@ -72,7 +72,10 @@ def compute(db, host, month, now_ms=None):
             o = out.setdefault(owner, [0.0, 0.0])
             o[0] += tax
             o[1] += tax * share * pct
-    return {k: [round(v[0], 4), round(v[1], 4)] for k, v in out.items() if v[0] > 0.00005}
+    from .stages.common import tax_agreements
+    ag = tax_agreements(db)
+    agreed = ag.get(host, set()) if ag is not None else None   # with agreements, only agreed countries are billed
+    return {k: [round(v[0], 4), round(v[1], 4)] for k, v in out.items() if v[0] > 0.00005 and (agreed is None or k in agreed)}
 
 
 def previous_month(now=None):

@@ -2,7 +2,7 @@
 import os
 import json
 
-from .common import alliance_countries, log, now_iso
+from .common import alliance_countries, company_hosts, tax_agreements, log, now_iso
 
 
 def collect_regions(c, db):
@@ -162,7 +162,7 @@ def collect_company_index(c, db, scope, recheck_days=30, budget=None):
     unknown = [r[0] for r in db.execute("SELECT id FROM company_loc WHERE region IS NULL AND checked IS NULL ORDER BY rowid DESC")]
     # re-checks: companies in alliance countries are re-checked every hour by the companies stage, so here only the others,
     # to catch one moving into an alliance country: 1/recheck_days of them a day, oldest first (closed ones are skipped)
-    hosts_ = alliance_countries(db) or set(scope.members if scope and scope.members else [])
+    hosts_ = company_hosts(db, scope)
     host_regions_ = {r[0] for r in db.execute(f"SELECT region FROM region_now WHERE country IN ({','.join('?' * len(hosts_))})", list(hosts_))} if hosts_ else set()
     others = [r[0] for r in db.execute("SELECT id, region FROM company_loc WHERE checked IS NOT NULL AND disabled=0 ORDER BY checked") if r[1] not in host_regions_]
     stale = others[:max(1, len(others) // recheck_days)]
@@ -181,7 +181,7 @@ def collect_company_index(c, db, scope, recheck_days=30, budget=None):
         done += len(group)
         db.commit()
     # owners of companies in the alliance's countries: refresh their citizenship once a day
-    hosts = alliance_countries(db) or set(scope.members if scope and scope.members else [])
+    hosts = company_hosts(db, scope)
     if hosts:
         ph = ",".join("?" * len(hosts))
         owners = [r[0] for r in db.execute(f"SELECT DISTINCT l.owner FROM company_loc l JOIN region_now r ON r.region=l.region WHERE r.country IN ({ph}) AND l.disabled=0", list(hosts))]
@@ -233,11 +233,12 @@ def collect_companies(c, db, scope):
     """Every company standing in an alliance country (the hosts), whoever owns it: details, the live wage estimate and the
     employee list. Located by the daily company index; stalest first within a time budget."""
     import time as _t
-    hosts = alliance_countries(db) or set(scope.members if scope and scope.members else [])
+    hosts = company_hosts(db, scope)
     if not hosts:
-        log("companies: no alliance countries, skipped"); return
+        log("companies: no host countries (no tax agreements or alliance countries), skipped"); return
     ph = ",".join("?" * len(hosts))
-    host_regions = {r[0] for r in db.execute(f"SELECT region FROM region_now WHERE country IN ({ph})", list(hosts))}
+    region_host = {r[0]: r[1] for r in db.execute(f"SELECT region, country FROM region_now WHERE country IN ({ph})", list(hosts))}
+    host_regions = set(region_host)
     cand = {r["id"]: r["owner"] for r in db.execute("SELECT id, owner, region FROM company_loc WHERE disabled=0") if r["region"] in host_regions}
     if not cand:
         log("companies: the company index is empty; run the Company index workflow once"); return
@@ -249,6 +250,16 @@ def collect_companies(c, db, scope):
     if unknown:
         _store_owners(c, db, unknown)
         owner_country = {r["id"]: r["country"] for r in db.execute("SELECT id, country FROM users")}
+    agreed = tax_agreements(db)   # with agreements: only companies owned by an agreed country's citizens are followed
+    loc_region = {r["id"]: r["region"] for r in db.execute("SELECT id, region FROM company_loc WHERE disabled=0")}
+    def wanted(cid, owner, region=None):
+        if agreed is None:
+            return True
+        h = region_host.get(region or loc_region.get(cid))
+        return h is not None and owner_country.get(owner) in agreed.get(h, ())
+    if agreed is not None:
+        cand = {cid: o for cid, o in cand.items() if wanted(cid, o)}
+        log(f"companies: tax agreements in force, following {len(cand)} companies owned by agreed countries")
     t0, rows = _t.monotonic(), []
     BUDGET = float(os.environ.get("WARTRACK_COMPANY_BUDGET", "480"))
     log(f"companies: {len(ids)} in {len(hosts)} alliance countries, fetching details")
@@ -263,7 +274,8 @@ def collect_companies(c, db, scope):
         for cid, d in zip(group, details):   # keep the index current: moved, closed or disabled
             if d:
                 db.execute("UPDATE company_loc SET region=?, owner=?, disabled=?, checked=? WHERE id=?", (d.get("region"), d.get("user"), 1 if d.get("disabledAt") else 0, ts, cid))
-        active = [(cid, d) for cid, d in zip(group, details) if d and not d.get("disabledAt") and d.get("region") in host_regions]
+        active = [(cid, d) for cid, d in zip(group, details) if d and not d.get("disabledAt") and d.get("region") in host_regions
+                  and wanted(cid, d.get("user") or cand.get(cid), d.get("region"))]
         ech = [active[k:k + 40] for k in range(0, len(active), 40)]
         est = [e for res in c.batch_many([[("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for e in res] if active else []
         staff = [x for res in c.batch_many([[("employee.getCompanyEmployees", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for x in res] if active else []
@@ -277,7 +289,8 @@ def collect_companies(c, db, scope):
             rows.append((cid, d.get("name"), owner, d.get("itemCode"), d.get("estimatedValue") or 0,
                          d.get("region"), owner_country.get(owner), ts, len(ws), round(wages, 6), round(mgr, 6), 1 if d.get("isFull") else 0))
     # drop companies that left the alliance's countries, closed or disappeared from the index
-    keep = {r["id"] for r in db.execute("SELECT id, region FROM company_loc WHERE disabled=0") if r["region"] in host_regions}
+    keep = {r["id"] for r in db.execute("SELECT id, region, owner FROM company_loc WHERE disabled=0")
+            if r["region"] in host_regions and wanted(r["id"], r["owner"], r["region"])}
     db.executemany("DELETE FROM companies WHERE id=?", [(r["id"],) for r in db.execute("SELECT id FROM companies").fetchall() if r["id"] not in keep])
     db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr,full) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     allrows = [tuple(r) for r in db.execute("SELECT id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr FROM companies")]

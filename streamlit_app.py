@@ -100,9 +100,87 @@ def ask_warera():
     st.link_button("Open Ask WarEra", ASK_URL.rstrip("/"), type="primary")
 
 
+REPO = "nottheragingdemon/WarEraTracker"
+AGREEMENTS_PATH = "agreements.json"
+ALLIANCE = "The Emerald Accord"
+
+
+def _gh(method, path, body=None):
+    """GitHub contents API with the GITHUB_TOKEN from the app's Secrets (a fine-grained token: this repo, Contents read and write)."""
+    import urllib.request
+    token = str(st.secrets["GITHUB_TOKEN"])
+    req = urllib.request.Request(f"https://api.github.com/repos/{st.secrets.get('GITHUB_REPO', REPO)}/contents/{path}",
+                                 data=json.dumps(body).encode() if body is not None else None, method=method,
+                                 headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+                                          "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "warera-ireland-tools"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode())
+
+
+def _has_token():
+    try:
+        return bool(st.secrets["GITHUB_TOKEN"])
+    except Exception:
+        return False
+
+
+def settings():
+    import base64
+    st.title("⚙️ Settings")
+    st.subheader("Tax agreements")
+    st.caption("For each host country (where the companies stand), the countries whose citizens' companies it bills. "
+               "Only those companies are collected, shown and billed; the change applies from the next hourly refresh.")
+    data = json.loads((HERE / "site" / "data.json").read_text(encoding="utf-8"))
+    ents = data.get("ents", [])
+    names = sorted({e[2] for e in ents if e[0] == "country" and e[2]})
+    hosts = []
+    for a, members in (data.get("alliances") or {}).items():
+        if ents[int(a)][2] == ALLIANCE:
+            hosts = sorted(ents[c][2] for c in members if ents[c][2])
+    sha, current = None, {}
+    if _has_token():
+        try:
+            got = _gh("GET", AGREEMENTS_PATH)
+            sha = got["sha"]
+            current = json.loads(base64.b64decode(got["content"]).decode()).get("agreements") or {}
+        except Exception as e:   # no file yet, or the token can't read it
+            if "404" not in str(e):
+                st.error(f"Couldn't read the saved agreements: {e}")
+    elif (HERE / AGREEMENTS_PATH).exists():
+        current = json.loads((HERE / AGREEMENTS_PATH).read_text(encoding="utf-8")).get("agreements") or {}
+    chosen = {}
+    for h in sorted(set(hosts) | set(current)):
+        chosen[h] = st.multiselect(f"{h} bills companies owned by citizens of", names, default=[c for c in current.get(h, []) if c in names],
+                                   key=f"ag_{h}", placeholder="no agreement")
+    new = {h: sorted(v) for h, v in chosen.items() if v}
+    if not new:
+        st.warning("With no agreements at all, no company data is collected.")
+    body = {"about": "Tax agreements: for each host country (where the companies stand), the source countries (the owners' citizenship) "
+                     "it has a tax agreement with. Only these companies are collected and billed. Edited from the Streamlit Settings page.",
+            "agreements": new}
+    if not _has_token():
+        st.info("Saving needs a GITHUB_TOKEN in this app's Secrets (a fine-grained token for this repository with Contents: read and write). "
+                "Until then, copy this into agreements.json in the repository:")
+        st.code(json.dumps(body, indent=2), language="json")
+        return
+    if new == {h: sorted(v) for h, v in current.items() if v}:
+        st.caption("No changes.")
+        return
+    if st.button("Save agreements", type="primary"):
+        try:
+            payload = {"message": "Settings: tax agreements (from the Streamlit app)",
+                       "content": base64.b64encode((json.dumps(body, indent=2) + "\n").encode()).decode()}
+            if sha:
+                payload["sha"] = sha
+            _gh("PUT", AGREEMENTS_PATH, payload)
+            st.success("Saved. The collector uses it from the next hourly refresh; the pages follow after that refresh.")
+        except Exception as e:
+            st.error(f"Couldn't save: {e}")
+
+
 # Temporarily hidden while testing. Open the app with ?key=<DEV_KEY> (DEV_KEY is set in the app's Secrets, never in the repo)
 # to see them; the unlock lasts for that browser session. Set HIDDEN = () to bring the pages back for everyone.
-HIDDEN = ("ask",)
+HIDDEN = ("ask", "settings")
 
 
 def _unlocked():
@@ -127,10 +205,11 @@ _pages = {
     "status": st.Page(status, title="Status", icon="🩺", url_path="status"),
     "guide": st.Page(guide, title="Guide", icon="📖", url_path="guide"),
     "ask": st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
+    "settings": st.Page(settings, title="Settings", icon="⚙️", url_path="settings"),
 }
 _dev = _unlocked()
 SHORT = {"tracker": "Tracker", "company-tax": "Taxes", "transfers": "Transfers", "efficiency": "Efficiency",
-         "status": "Status", "guide": "Guide", "ask": "Ask"}
+         "status": "Status", "guide": "Guide", "ask": "Ask", "settings": "Settings"}
 _shown = [(key, pg) for key, pg in _pages.items() if _dev or key not in HIDDEN]
 nav = st.navigation([pg for _, pg in _shown], position="hidden")
 with st.container(key="appnav"):   # the app menu: one button per app (styled fixed at the top above)
