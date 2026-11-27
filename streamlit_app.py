@@ -139,6 +139,42 @@ def _gh_actions(method, path, body=None):
         return json.loads(raw) if raw else {}
 
 
+def _gh_repo(method, subpath, body=None):
+    """Any GitHub REST path under the back-end repository (commits, contents at a version)."""
+    import urllib.request
+    req = urllib.request.Request(f"https://api.github.com/repos/{st.secrets.get('GITHUB_REPO', REPO)}/{subpath}",
+                                 data=json.dumps(body).encode() if body is not None else None, method=method,
+                                 headers={"Authorization": f"Bearer {str(st.secrets['GITHUB_TOKEN'])}", "Accept": "application/vnd.github+json",
+                                          "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "warera-ireland-tools"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read().decode())
+
+
+def history_panel(current_sha):
+    """The last few saves of agreements.json, each restorable (a restore is a new save, so it can be undone too)."""
+    import base64
+    with st.expander("Earlier versions: undo a change"):
+        try:
+            commits = _gh_repo("GET", f"commits?path={AGREEMENTS_PATH}&per_page=6")
+        except Exception as e:   # noqa: BLE001
+            st.caption("Couldn't read the history. " + explain_save_error(e))
+            return
+        if not commits:
+            st.caption("No earlier versions.")
+        for i, c in enumerate(commits):
+            when = c["commit"]["committer"]["date"][:16].replace("T", " ")
+            msg = c["commit"]["message"].splitlines()[0]
+            st.write(f"**{when} UTC**: {msg}" + (" (current)" if i == 0 else ""))
+            if i and st.button("Restore this version", key=f"restore_{c['sha'][:10]}"):
+                try:
+                    old = _gh_repo("GET", f"contents/{AGREEMENTS_PATH}?ref={c['sha']}")
+                    _gh_repo("PUT", f"contents/{AGREEMENTS_PATH}", {"message": f"Settings: restored the version of {when} (from the Streamlit app)",
+                                                                      "content": old["content"].replace("\n", ""), "sha": current_sha})
+                    st.success("Restored. Reload the page to see it; the collector uses it from the next hourly refresh.")
+                except Exception as e:   # noqa: BLE001
+                    st.error("Couldn't restore it. " + explain_save_error(e))
+
+
 def dryrun_panel():
     """Latest month-end dry run, and a button to start one (the check runs on GitHub against a copy of the history; nothing real changes)."""
     with st.expander("Month-end check: will next month's statement come out right?"):
@@ -201,10 +237,18 @@ def token_status():
         return "bad", f"GitHub rejected the token (HTTP {e.code}). It has expired or can't reach the back-end repository."
     except Exception as e:
         return "bad", f"Couldn't check the token: {e}"
+    missing = []   # what the token can't read (GitHub doesn't list a token's permissions; a read tells whether the permission is there)
+    for label, probe in (("Contents (the agreements file)", lambda: _gh("GET", AGREEMENTS_PATH)),
+                         ("Actions (the month-end check button)", lambda: _gh_actions("GET", "workflows"))):
+        try:
+            probe()
+        except Exception:   # noqa: BLE001
+            missing.append(label)
+    extra = f" Missing permission: {', '.join(missing)}." if missing else ""
     if not exp:
-        return "ok", "Token works (no expiry date)."
+        return ("warn" if missing else "ok"), "Token works (no expiry date)." + extra
     left = (dt.datetime.strptime(exp.replace(" UTC", "").strip(), "%Y-%m-%d %H:%M:%S") - dt.datetime.utcnow()).days
-    return ("warn" if left < 14 else "ok"), f"Token works and expires {exp[:10]} ({left} days left)."
+    return ("warn" if left < 14 or missing else "ok"), f"Token works and expires {exp[:10]} ({left} days left)." + extra
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -299,6 +343,7 @@ def settings():
             _file = json.loads(base64.b64decode(got["content"]).decode())
             current = _file.get("agreements") or {}
             cur_ratio = float(_file.get("paper_ratio", 0.5))
+            history_panel(sha)
         except Exception as e:   # the token can't read the file (GitHub answers 404 when a token has no access to a private repository)
             current = published()
             st.warning(f"Couldn't read agreements.json with this app's GitHub token. {explain_save_error(e)} The agreements shown are the ones published "

@@ -3,6 +3,11 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.12.0 — 2026-11-27
+- **Tax tracker:** "On course for" shows where the month is heading (the month so far scaled to the whole month, after 2 days of tracking) with the paper cost at the month's low and high price.
+- **Settings:** "Earlier versions" lists the last saves of the agreements and restores any of them (a restore is itself a save). The token check also names a missing permission (Contents or Actions).
+- **Checks:** the live page check runs every 6 hours (keeps a free app awake); an accessibility check (contrast, names on buttons, links and fields) runs on every page in the light and dark theme in the tests. Back end: the monthly statement post attaches the CSV; a test runs export, contract, statement and archive in one pass.
+
 ## 2.11.0 — 2026-11-27
 - **Settings:** the GitHub token is checked when the page opens and the result shows at the top; "core regions" stays "core" when the page shows the published agreements; a "Month-end check" section shows the latest dry run and can start one (the token needs the Actions permission on the back-end repo for this).
 - **Phones:** the tax cards use two columns, zero "sent by the game" rows are hidden in the per-partner cards.

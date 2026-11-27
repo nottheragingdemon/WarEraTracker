@@ -24,3 +24,7 @@ jobs:
         run: python scripts/smoke_pages.py
       - name: The same pages as the Streamlit app serves them (data inlined), with real numbers on screen
         run: python scripts/smoke_pages.py --streamlit
+      - name: Accessibility (contrast, names for buttons, links and fields) in the light and dark theme
+        run: |
+          npm install --prefix /tmp/axe axe-core --silent
+          AXE=/tmp/axe/node_modules/axe-core/axe.min.js python scripts/a11y_pages.py

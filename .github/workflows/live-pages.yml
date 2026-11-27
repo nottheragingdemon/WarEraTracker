@@ -1,10 +1,10 @@
 name: Live page check
 
-# Every 12 hours: open each live Streamlit page in a real browser and check it shows data (not Loading… or an error).
+# Every 6 hours: open each live Streamlit page in a real browser and check it shows data (not Loading… or an error).
 # An app that is asleep or can't be looked into is not a failure (the Live app check covers "is it up").
 on:
   schedule:
-    - cron: "47 5,17 * * *"
+    - cron: "47 */6 * * *"
   workflow_dispatch:
 
 permissions:

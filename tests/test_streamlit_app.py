@@ -84,6 +84,16 @@ class SettingsAgreements(unittest.TestCase):
         self.assertTrue(any("Latest check: success" in s.value for s in at.success))
         self.assertIn("Core regions only (not conquered ones)", [x.value for x in at.selectbox])
 
+    def test_history_panel_lists_versions(self):
+        at = self.run_settings("_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
+                               "import json as _j, base64 as _b\n"
+                               "_f = {'paper_ratio': 0.5, 'agreements': {}}\n"
+                               "def _gh(m, p, body=None): return {'sha': 's', 'content': _b.b64encode(_j.dumps(_f).encode()).decode()}\n"
+                               "def _gh_actions(m, p, body=None): return {'workflow_runs': []}\n"
+                               "def _gh_repo(m, p, body=None): return [{'sha': 'aaaaaaaaaaaa', 'commit': {'committer': {'date': '2026-11-27T10:00:00Z'}, 'message': 'Settings: new'}},"
+                               " {'sha': 'bbbbbbbbbbbb', 'commit': {'committer': {'date': '2026-11-20T10:00:00Z'}, 'message': 'Settings: old'}}]\n")
+        self.assertEqual([b.label for b in at.button if b.label == "Restore this version"], ["Restore this version"])   # not offered for the current one
+
     def test_published_core_detected(self):
         at = self.run_settings("")
         self.assertIn("Core regions only (not conquered ones)", [x.value for x in at.selectbox])
@@ -95,6 +105,34 @@ class SettingsAgreements(unittest.TestCase):
         self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
         self.assertTrue(any("Couldn't read agreements.json" in w.value for w in at.warning))
         self.assertEqual([b.label for b in at.button if b.label == "Save agreements"], [])
+
+
+class TokenStatus(unittest.TestCase):
+    def test_missing_permissions_are_named(self):
+        import io, types, urllib.error
+        src = open(os.path.join(os.path.dirname(__file__), "..", "streamlit_app.py")).read()
+        ns = {"st": types.SimpleNamespace(secrets={"GITHUB_TOKEN": "t"}), "REPO": "o/r", "AGREEMENTS_PATH": "a.json"}
+        exec(src[src.index("def token_status"):src.index("@st.cache_data(ttl=300")], ns)
+        class R:
+            headers = {"github-authentication-token-expiration": "2099-01-01 00:00:00 UTC"}
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+        import urllib.request
+        orig = urllib.request.urlopen
+        urllib.request.urlopen = lambda *a, **k: R()
+        try:
+            ns["_gh"] = lambda *a, **k: {}
+            def no(*a, **k): raise urllib.error.HTTPError("u", 403, "x", {}, None)
+            ns["_gh_actions"] = no
+            kind, msg = ns["token_status"]()
+            self.assertEqual(kind, "warn")
+            self.assertIn("Missing permission: Actions", msg)
+            ns["_gh_actions"] = lambda *a, **k: {}
+            kind, msg = ns["token_status"]()
+            self.assertEqual(kind, "ok")
+            self.assertNotIn("Missing", msg)
+        finally:
+            urllib.request.urlopen = orig
 
 
 class SaveErrors(unittest.TestCase):

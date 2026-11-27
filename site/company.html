@@ -230,6 +230,13 @@ function render(){
 /* agreements at a glance: per partner, what the host owes (completed months, from the statements) against what it has sent */
 function monthPays(m,h,o){var f=((D.statements||{})[m]||{})[String(h)],l=((D.statementsLive||{})[m]||{})[String(h)],r=(f||l||[]).filter(function(x){return x[0]===+o})[0];
   if(!r)return null;return{pay:r[3]!=null?r[3]:r[1]-r[2],gen:r[1],final:!!f}}
+/* where the month is heading: the month so far scaled to the whole month (needs 2 days of tracking in the month), with the paper cost at the
+   month's lowest and highest price so far */
+function forecastOf(sofar,mk){
+  var ms=Date.UTC(+mk.slice(0,4),+mk.slice(5,7)-1,1),start=Math.max(ms,D.since?Date.parse(D.since):ms),days=(Date.now()-start)/864e5;
+  if(!(sofar>0)||days<2)return null;
+  var pay=sofar*monthDays(mk)/Math.min(days,monthDays(mk)),pm=paperMonth(mk),q=pay*(D.paperRatio==null?0.5:D.paperRatio);
+  return{pay:pay,cost:pm&&pm.hi>pm.lo?[q*pm.lo,q*pm.hi]:null}}
 function agreementSummary(hn){
   var h=st.host,cur=new Date().toISOString().slice(0,7),prev=new Date(Date.UTC(+cur.slice(0,4),+cur.slice(5,7)-2,1)).toISOString().slice(0,7);
   var months={};[D.statements||{},D.statementsLive||{}].forEach(function(S){Object.keys(S).forEach(function(m){if((S[m]||{})[String(h)])months[m]=1})});
@@ -243,7 +250,8 @@ function agreementSummary(hn){
     [monthName(cur)+" so far",function(r){return m2(r.now)},1],[monthName(prev),function(r){return r.prev?m2(r.prev.pay)+(r.prev.final?"":" (not final)"):"–"},1],
     ["Total for completed months",function(r){return m2(r.owed)},1],["Agreement start",function(r){return r.since}]],rows);
   var tot=rows.reduce(function(a,r){return a+r.owed},0),nowT=rows.reduce(function(a,r){return a+r.now},0);
-  return card("Tax agreements: "+hn,[kpis([[m2(nowT),"Owed, "+monthName(cur)+" so far","final on "+nextMonthFirst(cur)],[nowT>0&&paperOf(nowT).now!=null?m2(paperOf(nowT).now):"–","Paper cost now",nowT>0?paperOf(nowT).qty.toFixed(2)+" paper"+(paperOf(nowT,cur).avg!=null?" · "+m2(paperOf(nowT,cur).avg)+" at the month’s average price":""):""]].concat(tot>0?[[m2(tot),"Completed months","since each agreement’s start"]]:[])),tc,collapsible("How the partner figures are worked out",[t,note("Each amount is what "+hn+" pays the partner: its rate × the tax generated in the covered regions, from each agreement’s start date ("+rows.map(function(r){return nm(r.o)+" "+r.since}).join(", ")+"). The month so far is final on the 1st. The tracker doesn’t compare these with in-game transfers: a treasury transfer isn’t always a tax payment.")])])}
+  var fc=forecastOf(nowT,cur);
+  return card("Tax agreements: "+hn,[kpis([[m2(nowT),"Owed, "+monthName(cur)+" so far","final on "+nextMonthFirst(cur)],[nowT>0&&paperOf(nowT).now!=null?m2(paperOf(nowT).now):"–","Paper cost now",nowT>0?paperOf(nowT).qty.toFixed(2)+" paper"+(paperOf(nowT,cur).avg!=null?" · "+m2(paperOf(nowT,cur).avg)+" at the month’s average price":""):""]].concat(tot>0?[[m2(tot),"Completed months","since each agreement’s start"]]:[]).concat(fc?[[m2(fc.pay),"On course for","by "+nextMonthFirst(cur)+(fc.cost?" · paper cost "+m2(fc.cost[0])+" to "+m2(fc.cost[1]):"")]]:[])),tc,collapsible("How the partner figures are worked out",[t,note("Each amount is what "+hn+" pays the partner: its rate × the tax generated in the covered regions, from each agreement’s start date ("+rows.map(function(r){return nm(r.o)+" "+r.since}).join(", ")+"). The month so far is final on the 1st. “On course for” assumes the rest of the month goes like the days tracked so far (it needs 2 days), and prices the paper at the month’s lowest and highest price so far. The tracker doesn’t compare these with in-game transfers: a treasury transfer isn’t always a tax payment.")])])}
 /* sending a tax payment costs paper: tax amount x paperRatio paper. The paper price moves a lot, so the cost is shown at today's
    price and at the month's average price (hourly samples; low and high are in the note) */
 function paperMonth(mk){var m=(D.paperMonths||{})[mk];return m?{avg:m[0],lo:m[1],hi:m[2],n:m[3]}:null}
