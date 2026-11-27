@@ -179,3 +179,10 @@ details.more>summary::-webkit-details-marker{display:none}details.more>summary::
 details.more[open]>summary{margin-bottom:12px}
 
 @media (max-width:560px){.hrow{grid-template-columns:minmax(120px,38%) 1fr 64px}}
+
+/* the app tabs scroll sideways on phones: fade the right edge so it is clear there is more */
+@media (max-width:640px){.apps{padding-right:40px;-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}}
+/* long explanations fold away */
+details.fold{margin:8px 0}details.fold>summary{cursor:pointer;color:var(--muted);font-size:13px;padding:6px 0}
+table.tight th,table.tight td{padding:6px 5px;font-size:13px}table.tight th{font-size:11px;letter-spacing:.02em}
+table.tight td,table.tight th{white-space:normal}table.tight td.n{white-space:normal;overflow-wrap:anywhere}

@@ -3,6 +3,10 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.4.0 — 2026-11-27
+- **Tax tracker (with agreements):** a short summary table first (partner, this month, paper cost now, balance); the full partner table and the explanations fold under "How the partner figures are worked out" / "How is this calculated?". The Region and Source filters moved into "More detail", where they apply. A payment ahead of the month is labelled "paid in advance".
+- **Phones:** the app tabs fade at the right edge to show they scroll; battle and transfer lists use the compact card layout (about half the height).
+
 ## 2.3.2 — 2026-11-27
 - Tax tracker: today's paper price is the headline (the summary shows the cost at today's price, with the month-average cost beneath). The agreement statement hides the "Sent by the game" and "keeps" columns when they are zero, and a note says the source/region selectors only filter the detailed view. Phone: wider country labels in the ranking bars.
 
