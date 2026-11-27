@@ -39,14 +39,15 @@ The collector, the history database and its backups, the tax agreements and the 
 and `site/company-data.json` here (the "data: …" commits); Streamlit redeploys on those pushes.
 
 ## Data
-- `site/data.json` is the core data (per-battle stats packed); `site/ask-data.json` (bounty history, contracts) is loaded by Ask WarEra only; `site/company-data.json` (tracked companies and wage history) by the Company page and Ask.
+- `site/data.json` is the core data (about 0.7 MB); `site/battle-data.json` (per-battle stats) is loaded by the Battles page and Ask, `site/transfer-data.json` (donor lists) by the Transfers page, `site/ask-data.json` (bounty history, contracts) by Ask only, `site/company-data.json` (tracked companies, wage history) by the Company page and Ask. Pages load the parts with `weLoad()`; the Streamlit app inlines them.
+- `site/contract.json` is the agreement with the back end: the data `schema` number, the keys `data.json` must have, and the parts that must be non-empty. The back end checks it before publishing; the Battle check also warns when data is missing, empty or older than 3 hours.
 - History is kept for 90 days in the back end (frozen tax statements permanently). The Company tax tracker covers the companies under Ireland's tax agreements (Mexico in Ireland's core regions, the United Kingdom in Northern Ireland).
 
 ## Workflows (this repo)
 | Workflow | When | What |
 |---|---|---|
-| Battle check | every 15 minutes | new and ended battles involving the alliance to the webhook (`scripts/battlecheck.py`; already-announced marks on the `battlecheck-state` branch; switches: test alert, test failure) |
-| Tests | on push | page, Streamlit and artifact tests, then every page in headless Chrome (`scripts/smoke_pages.py`) |
+| Battle check | every 15 minutes | new and ended battles involving the alliance to the webhook (`scripts/battlecheck.py`; already-announced marks on the `battlecheck-state` branch; switches: test alert, test failure); also warns when the site data is more than 3 hours old or missing/empty (once per outage) |
+| Tests | on push | page, Streamlit and artifact tests, then every page in headless Chrome (`scripts/smoke_pages.py`), once as plain files and once as the Streamlit app serves them (`--streamlit`), checking real numbers are on screen |
 | Release | by hand | tags a version from `CHANGELOG.md` and publishes a GitHub release |
 
 The hourly refresh, company index, backups, weekly digest, statements and their workflows are in the back-end repo.
@@ -62,4 +63,4 @@ The first run of each alert type only records a baseline.
 The history database and its weekly backups are in the back-end repo (`state` and `backup/state-*` branches there). A released version of the pages can be checked out by its tag (see `CHANGELOG.md`).
 
 ## Tests
-`python -m unittest discover -s tests` (the Company page in headless Chrome, the Streamlit app, the artifact copies) and `python3 scripts/smoke_pages.py`. The collector's tests are in the back-end repo.
+`python -m unittest discover -s tests` (the Company page in headless Chrome, the Streamlit app, the artifact copies, the data contract) and `python3 scripts/smoke_pages.py [--streamlit]`. The collector's tests are in the back-end repo.

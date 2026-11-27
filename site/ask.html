@@ -25,10 +25,10 @@
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
   <textarea id="q" placeholder="e.g. Top 10 players by damage in the last 3 days, with their country and MU"></textarea>
-  <div class="ex" id="ex"></div>
   <div><button class="go" id="go" disabled>Ask</button> <span class="note" id="status"></span></div>
   <div class="ans" id="ans"></div>
   <div id="tables"></div>
+  <details class="fold" id="exwrap" open><summary>Example questions</summary><div class="ex" id="ex"></div></details>
   <details id="log" hidden><summary>How Claude got this (queries and API calls)</summary><pre id="logtxt"></pre></details>
 </div>
 <script>

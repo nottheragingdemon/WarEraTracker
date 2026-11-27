@@ -24,3 +24,16 @@ class StaleCheck(unittest.TestCase):
     def test_bad_timestamp_ignored(self):
         self.assertIsNone(bc.stale_check({"generated": "x"}, {}, self.now))
         self.assertIsNone(bc.stale_check({}, {}, self.now))
+
+
+class EmptyParts(unittest.TestCase):
+    def test_reports_missing_and_empty(self):
+        import json, tempfile
+        with tempfile.TemporaryDirectory() as d:
+            json.dump({"nonEmpty": ["ents"], "parts": {"b.json": ["statsP"]}}, open(os.path.join(d, "contract.json"), "w"))
+            json.dump({"ents": []}, open(os.path.join(d, "data.json"), "w"))
+            self.assertEqual(bc.empty_parts(d), ["ents", "b.json"])
+            json.dump({"statsP": []}, open(os.path.join(d, "b.json"), "w"))
+            self.assertEqual(bc.empty_parts(d), ["ents", "b.json:statsP"])
+            json.dump({"ents": [1]}, open(os.path.join(d, "data.json"), "w")); json.dump({"statsP": [1]}, open(os.path.join(d, "b.json"), "w"))
+            self.assertEqual(bc.empty_parts(d), [])

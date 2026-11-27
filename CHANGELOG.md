@@ -3,6 +3,14 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.7.0 — 2026-11-27
+- **Tests:** the smoke test also runs every page as the Streamlit app serves it (`--streamlit`) and fails if Battles or Transfers show no numbers (the 2.6.1 bug would now be caught).
+- **Data checks:** the Battle check warns once when the site data is missing or empty (per `contract.json`), as well as when it is more than 3 hours old. The back end refuses to publish data that fails the contract, including the part files.
+- **Paper:** the cost notes say when the price was last updated and warn when it is more than 3 hours old. The back end freezes a finished month's paper price with its statement, and the month-end Discord post includes the paper to send and its cost at the month's average.
+- **Ask WarEra:** the Ask button sits right under the question box; the example questions are below the answer.
+- **Back end:** treasury transfers to partners are no longer collected or published (nothing reads them).
+- READMEs updated for both repos.
+
 ## 2.6.1 — 2026-11-27
 - **Fix: Damage tab empty (and donors missing) in the Streamlit app since 2.2.0.** The app inlines the data into each page, but not the new `battle-data.json` / `transfer-data.json`, which the pages then couldn't fetch. The app now inlines them for the pages that use them; a test covers it.
 

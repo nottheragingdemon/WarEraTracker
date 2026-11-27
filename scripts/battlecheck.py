@@ -77,6 +77,24 @@ def stale_check(data, state, now=None):
     return None
 
 
+def empty_parts(site=None):
+    """Names of data files or keys the pages need that are missing or empty (per site/contract.json)."""
+    site = site or os.path.join(ROOT, "site")
+    try:
+        c = json.load(open(os.path.join(site, "contract.json")))
+        data = json.load(open(os.path.join(site, "data.json")))
+    except (OSError, ValueError):
+        return ["data.json or contract.json unreadable"]
+    out = [k for k in c.get("nonEmpty", []) if not data.get(k)]
+    for name, keys in c.get("parts", {}).items():
+        try:
+            part = json.load(open(os.path.join(site, name)))
+        except (OSError, ValueError):
+            out.append(name); continue
+        out += [f"{name}:{k}" for k in keys if not part.get(k)]
+    return out
+
+
 def main(state_path, test=False):
     if test:
         post("✅ Test alert from WarEra Ireland tools: the webhook works. New battles involving The Emerald Accord will appear here.")
@@ -90,6 +108,15 @@ def main(state_path, test=False):
         if ents[int(a)][2] == ALLIANCE:
             alliance_id, members = ents[int(a)][1], {ents[c][1] for c in m}
     state = json.load(open(state_path)) if os.path.exists(state_path) else {}
+    empty = empty_parts()
+    if empty and not state.get("empty_alert"):
+        state["empty_alert"] = ", ".join(empty)
+        try:
+            post("⚠️ The site's data is missing or empty: " + ", ".join(empty) + ". Some pages will show no numbers.")
+        except Exception as e:
+            print(f"could not send the empty-data notice: {e}")
+    elif not empty and state.get("empty_alert"):
+        state.pop("empty_alert")
     note = stale_check(data, state)
     if note:
         try:
