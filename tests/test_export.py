@@ -70,6 +70,7 @@ class ExportTests(unittest.TestCase):
         now = int(time.time() * 1000)
         d = self.db
         d.execute("INSERT INTO region_now(region,name,country) VALUES('r1','R1','c1'),('r2','R2','c1')")
+        d.executescript(dbm.LEGACY_WAGE_SCHEMA)
         # old per-region rows two days ago (summed per host), new host-level rows: hourly in the last 48 h kept, older thinned
         d.execute("INSERT INTO wage_snap VALUES('r1','c2',?,1,2,1.0,0)", (now - 80 * 3600000,))
         d.execute("INSERT INTO wage_snap VALUES('r2','c2',?,1,3,2.0,0)", (now - 80 * 3600000 + 1000,))

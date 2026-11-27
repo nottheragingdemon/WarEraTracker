@@ -18,6 +18,7 @@ class ConqueredTests(unittest.TestCase):
                for r in d.execute("SELECT * FROM wage_snap3")}
         self.assertEqual(got, {("c1", "c1", "c2"): (1, 3, 10.0), ("c1", "c9", "c2"): (1, 2, 4.0), ("c1", "c9", "c9"): (1, 1, 2.0)})
         # an old host-level row from before the split has no core field in the export
+        d.executescript(dbm.LEGACY_WAGE_SCHEMA)
         d.execute("INSERT INTO wage_snap2 VALUES('c1','c2',?,2,5,14.0,0)", (int(time.time() * 1000) - 3600000,))
         ents, idx = [], {}
         def E(t, i):

@@ -59,6 +59,7 @@ var CAP=6*3600*1000;
 var ALL_OWNERS=-2,ALL_REGIONS="*";
 function srcMatch(o){return st.src===ALL_OWNERS?o>=0:o===st.src}
 function srcName(){return st.src===ALL_OWNERS?"all owners’":nm(st.src)}
+function srcCo(){return st.src===ALL_OWNERS?"companies":nm(st.src)+" companies"}   // "UK companies", or just "companies" for all owners
 function hostOf(c){var r=(D.regionsNow||{})[c[4]];return r?r[1]:-1}
 /* a region's core (original) country; when another country holds it, the game hands that core country a share of its tax */
 function coreOf(reg){var r=(D.regionsNow||{})[reg];return r?(r[6]!=null&&r[6]>=0?r[6]:r[1]):-1}
@@ -77,28 +78,32 @@ function calc(){
     var g=regs[c[4]]=regs[c[4]]||{id:c[4],name:R[c[4]][0],n:0,w:0,wages:0,mg:0};g.n++;g.w+=c[6]||0;g.wages+=c[7]||0;g.mg+=c[8]||0});
   var wages=0,mpay=0,staff=0,gInc=0,gMan=0,pass=0,passTo={},list=Object.keys(regs).map(function(k){var g=regs[k],r=R[k];
     g.emp=r[2];g.mgr=r[3];g.nco=r[4];g.nem=r[5];g.si=g.nem?Math.min(1,g.w/g.nem):0;g.sm=g.nco?Math.min(1,g.n/g.nco):0;
-    g.gi=g.emp*g.si;g.gm=g.mgr*g.sm;g.ti=g.wages*(ct[0]||0)/100;g.tm=g.mg*(ct[1]||0)/100;g.o=g.ti+g.tm;
-    g.core=coreOf(k);g.conq=g.core>=0&&g.core!==st.host;g.pass=g.conq?g.o*pct:0;g.keep=g.o-g.pass;g.all=regAll[k]||0;
+    g.core=coreOf(k);var gu=g.core>=0&&g.core!==st.host?1/(1-pct):1;   // the game's figure for a conquered region is what the holder keeps
+    g.gi=g.emp*gu*g.si;g.gm=g.mgr*gu*g.sm;g.ti=g.wages*(ct[0]||0)/100;g.tm=g.mg*(ct[1]||0)/100;g.o=g.ti+g.tm;
+    g.conq=g.core>=0&&g.core!==st.host;g.pass=g.conq?g.o*pct:0;g.keep=g.o-g.pass;g.all=regAll[k]||0;
     if(g.conq){pass+=g.pass;passTo[g.core]=(passTo[g.core]||0)+g.pass}
     wages+=g.wages;mpay+=g.mg;staff+=g.w;gInc+=g.gi;gMan+=g.gm;return g}).sort(function(a,b){return b.o-a.o});
   var empTax=wages*(ct[0]||0)/100,manTax=mpay*(ct[1]||0)/100;
   // history series per owner and core country. Rows from before the split was recorded (no 8th field) are per owner only:
   // they count up to the first split row, with the region share and the core-country share estimated from today's pay.
-  var selCore=st.region===ALL_REGIONS?null:coreOf(st.region),selConq=selCore!=null&&selCore!==st.host,exact=true,per={},splitT=Infinity;
+  var selCore=st.region===ALL_REGIONS?null:coreOf(st.region),selConq=selCore!=null&&selCore!==st.host,per={},splitT=Infinity;
   (D.wageHist||[]).forEach(function(r){if(r[0]!==st.host||!srcMatch(r[1]))return;var legacy=r[7]==null,core=legacy?-9:r[7];
     if(!legacy)splitT=Math.min(splitT,r[2]);if(!legacy&&selCore!=null&&core!==selCore)return;
     var k=r[1]+"|"+core;(per[k]=per[k]||{core:core,owner:r[1],legacy:legacy,rows:[]}).rows.push([r[2],r[3],r[4],r[5],r[6]||0])});
   Object.keys(per).forEach(function(k){var s=per[k];
     if(s.legacy){var tot=ownT[s.owner]||0;s.f=selCore==null?1:(tot?(ownR[s.owner]||0)/tot:0);s.pf=selCore==null?(tot?(ownC[s.owner]||0)/tot:0):(selConq?1:0)}
-    else{s.f=selCore==null?1:(grp[k]?(regW[k]||0)/grp[k]:0);s.pf=s.core!==st.host?1:0;if(s.f<0.9999)exact=false}});   // one region of a group: its share of the group's pay now
-  var legacyUsed=false;
+    else{s.f=selCore==null?1:(grp[k]?(regW[k]||0)/grp[k]:0);s.pf=s.core!==st.host?1:0}});   // one region of a group: its share of the group's pay now
+  // a conquered region also has its own exact history (from 27 Nov 2026); it replaces the estimates from its first row
+  var regT=Infinity;if(selConq)(D.wageHistReg||[]).forEach(function(r){if(r[0]!==st.region||!srcMatch(r[1]))return;regT=Math.min(regT,r[2]);
+    var k="reg|"+r[1];(per[k]=per[k]||{core:selCore,owner:r[1],reg:true,f:1,pf:1,rows:[]}).rows.push([r[2],r[3],r[4],r[5],r[6]||0])});
+  var legacyUsed=false,estUsed=false;
   var rates=(D.rateHist||{})[st.host]||[],runs=(D.runs||[]).slice(),now=Date.now();
   var ivs=[],days={};
   for(var i=0;i<runs.length;i++){
     var t0=runs[i],nx=i+1<runs.length?runs[i+1]:now,t1=Math.min(nx,t0+CAP);if(t1<=t0)continue;
     var rt=step(rates,t0),rate=rt?rt[1]:ct[0],mr=rt?rt[2]:ct[1];
-    var n=0,w=0,wg=0,mg=0,ps=0;Object.keys(per).forEach(function(k){var s=per[k],x=step(s.rows,t0),f=s.f;if(!x||(s.legacy&&t0>=splitT))return;
-      if(s.legacy&&f>0)legacyUsed=true;
+    var n=0,w=0,wg=0,mg=0,ps=0;Object.keys(per).forEach(function(k){var s=per[k],x=step(s.rows,t0),f=s.f;if(!x||(s.legacy&&t0>=splitT)||(!s.reg&&t0>=regT))return;
+      if(s.legacy&&f>0)legacyUsed=true;if(!s.reg&&!s.legacy&&f>0&&f<0.9999)estUsed=true;
       n+=x[1]*f;w+=x[2]*f;wg+=x[3]*f;mg+=x[4]*f;ps+=(x[3]*(rate||0)/100+x[4]*(mr||0)/100)*f*s.pf*pct});
     var hrs=(t1-t0)/36e5,tax=wg*(rate||0)/100,mt=mg*(mr||0)/100;
     ivs.push({t:t0,h:hrs,n:n,w:w,wages:wg,mg:mg,rate:rate,tax:tax,mt:mt,ps:ps});
@@ -106,7 +111,7 @@ function calc(){
       d.h+=hh;d.n+=n*hh;d.w+=w*hh;d.paid+=wg*hh;d.tax+=tax*hh;d.mt+=mt*hh;d.ps+=ps*hh;a=b}}
   Object.keys(days).forEach(function(k){var d=days[k];d.o=d.tax+d.mt;d.keep=d.o-d.ps;d.n=d.h?d.n/d.h:0;d.w=d.h?d.w/d.h:0});
   return{gMan:gMan,comps:comps,regs:list,wages:wages,staff:staff,ncomp:comps.length,rate:ct[0],mrate:ct[1],empTax:empTax,manTax:manTax,mpay:mpay,hour:empTax+manTax,gInc:gInc,days:days,ivs:ivs,
-    pass:pass,passTo:passTo,keep:empTax+manTax-pass,pct:pct*100,exact:exact,legacy:legacyUsed,anyConq:list.some(function(g){return g.conq})}}
+    pass:pass,passTo:passTo,keep:empTax+manTax-pass,pct:pct*100,exact:!estUsed,legacy:legacyUsed,regFrom:regT<Infinity?regT:null,anyConq:list.some(function(g){return g.conq})}}
 function owedChart(dm,title){
   var card=card0(title),mx=Math.max.apply(null,dm.map(function(x){return x.o}).concat([0]))||1,ch=el("div",{class:"chart"});
   ["0","50%","calc(100% - 1px)"].forEach(function(t){var g=el("div",{class:"gl"});g.style.top=t;ch.appendChild(g)});
@@ -133,13 +138,13 @@ function render(){
     [(M.rate==null?"–":M.rate+"%")+" · "+(M.mrate==null?"–":M.mrate+"%"),hn+"’s taxes","employee income · manager"],
     [m2(owedM),"Total owed, "+monthName(mk),"tracked "+num(hM,1)+" of "+m0(hAll)+" h"],
     [m2(est),"Estimated bill, full month",monthName(mk)]].concat(M.pass>0?[[m2(M.keep*24),hn+" keeps a day",m2(M.pass*24)+" a day goes to "+passNames]]:[])));
-  if(!M.ncomp){v.appendChild(card("Nothing to assess",[note("No active "+sn+" companies stand in "+where+" right now. Pick another combination.")]));return}
+  if(!M.ncomp){v.appendChild(card("Nothing to assess",[note("No active "+srcCo()+" stand in "+where+" right now. Pick another combination.")]));return}
   /* 1: per hour now */
-  var c1=card("What "+hn+" collects on "+sn+" companies"+(rn?" in "+rn:"")+", per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
+  var c1=card("What "+hn+" collects on "+(st.src===ALL_OWNERS?"all companies":srcCo())+(rn?" in "+rn:"")+", per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
     [["Employees ("+M.staff+" workers)",m4(M.wages),String(M.rate==null?"–":M.rate+"%"),m4(M.empTax)],
      ["Managers ("+M.ncomp+" companies)",m4(M.mpay),String(M.mrate==null?"–":M.mrate+"%"),m4(M.manTax)],
      ["Total","","",m4(M.hour)]].concat(M.pass>0?M.regs.filter(function(g){return g.conq}).map(function(g){return["Passed to "+nm(g.core)+" ("+pctS+" of the tax from "+g.name+")","","",m4(g.pass)]}).concat([[hn+" keeps","","",m4(M.keep)]]):[])),
-    note(M.hour.toFixed(4)+" /h × 24 = "+(M.hour*24).toFixed(2)+" /day. "+M.ncomp+" active "+sn+" companies across "+M.regs.length+" region(s) of "+hn+". "+
+    note(M.hour.toFixed(4)+" /h × 24 = "+(M.hour*24).toFixed(2)+" /day. "+M.ncomp+" active "+srcCo()+" across "+M.regs.length+" region(s) of "+hn+". "+
       (M.pass>0?"Conquered regions: the game hands "+pctS+" of the tax from a region to its original (core) country while another country holds it, so "+hn+" keeps "+m4(M.keep)+" /h of the "+m4(M.hour)+" /h. ":"")+"Employee tax = the wages those companies pay their employees each hour × "+hn+"’s income tax rate; manager tax = the managers’ hourly pay × "+hn+"’s manager tax rate"+(M.mrate===0?" (0%, so no manager tax is due)":"")+". Pay figures are the game’s live hourly wage and manager costs for each company (employee.getCompanyEstimate).")]);
   var back=M.regs.filter(function(g){return g.conq&&st.src===g.core});
   if(back.length){var own=back.reduce(function(s,g){return s+g.pass},0),allBack=back.reduce(function(s,g){return s+g.all*M.pct/100},0);
@@ -152,7 +157,7 @@ function render(){
   else{var ratio=M.gInc?M.empTax/M.gInc*100:null;
     c2.appendChild(tbl([["Measure",function(r){return r[0]}],["Value",function(r){return r[1]},1]],[
     ["Employee tax /h, wages × rate (billed)",m4(M.empTax)],["Employee tax /h, game’s region figure × worker share",m4(M.gInc)],["Billed as % of the game’s figure",ratio==null?"–":m2(ratio)],["Manager tax /h, manager pay × rate (billed)",m4(M.manTax)],["Manager tax /h, game’s region figure × company share",m4(M.gMan)]]));
-    c2.appendChild(note("The game’s figures are each region’s total employee and manager income tax, scaled by "+sn+"’s share of the region’s workers and companies. A large gap means the paid wages or the shares differ from what the game taxed."))}
+    c2.appendChild(note("The game’s figures are each region’s total employee and manager income tax, scaled by "+(st.src===ALL_OWNERS?"the tracked companies’":sn+"’s")+" share of the region’s workers and companies. A large gap means the paid wages or the shares differ from what the game taxed."+(M.anyConq?" For a conquered region the game’s figure is what "+hn+" keeps after the "+M.pct+"% share, so it is scaled back up to the full tax here.":"")))}
   v.appendChild(c2);
   /* 3: hour by hour */
   var last=M.ivs.slice(-24).reverse(),c3=card("Hour by hour, latest checks",[]);
@@ -167,7 +172,7 @@ function render(){
     c4.appendChild(tbl([["Day (UTC)",function(r){return r.d.day}],["Hours tracked",function(r){return m2(r.d.h)},1],["Avg companies",function(r){return m1(r.d.n)},1],["Avg employees",function(r){return m1(r.d.w)},1],["Employee wages paid",function(r){return m2(r.d.paid)},1],["Employee tax",function(r){return m2(r.d.tax)},1],["Manager tax",function(r){return m2(r.d.mt)},1],["Owed",function(r){return m2(r.d.o)},1]].concat(M.anyConq?[["To core country",function(r){return m2(r.d.ps)},1],[hn+" keeps",function(r){return m2(r.d.keep)},1]]:[]).concat([["Cumulative",function(r){return m2(r.c)},1]]),rows));
     c4.appendChild(note("Each refresh records the active companies, their workers and wages, and the host’s tax rate; the values at one check are held until the next (at most 6 h). Days are UTC. Company and worker counts change quickly, so each check uses what was found at that time."+
       (M.legacy&&(M.anyConq||rn)?" Before 27 Nov 2026 the tracker stored pay per country only, so for those days "+(rn?rn+"’s part and ":"")+"the core-country share are estimated from today’s split of the pay.":"")+
-      (!M.exact?" History for one region is estimated: it is stored per country, so "+rn+"’s part is its current share of the pay in "+hn+"’s regions with the same original country.":"")))}
+      (!M.exact?" Some of this region’s history is estimated: it was stored per country, so "+rn+"’s part is its current share of the pay in "+hn+"’s regions with the same original country"+(M.regFrom?" (exact per-region records start "+fmtD(new Date(M.regFrom).toISOString())+" UTC)":"")+".":"")))}
   v.appendChild(c4);
   /* 5: month bill */
   v.appendChild(card("This month’s bill: "+monthName(mk),[tbl([["Item",function(r){return r[0]}],["Amount",function(r){return r[1]},1]],[
@@ -176,7 +181,7 @@ function render(){
   /* 6: regions + companies */
   v.appendChild(card("By region (now)",[tbl([["Region",function(g){return g.name+(g.conq?" · conquered from "+nm(g.core):"")}],["Companies",function(g){return g.n+" / "+g.nco},1],["Workers",function(g){return g.w+" / "+g.nem},1],["Wages /h",function(g){return m4(g.wages)},1],["Manager /h",function(g){return m4(g.mg)},1],["Owed /h",function(g){return m4(g.o)},1],["Owed /day",function(g){return m2(g.o*24)},1]].concat(M.anyConq?[["To core /day",function(g){return m2(g.pass*24)},1],["Kept /day",function(g){return m2(g.keep*24)},1]]:[]),M.regs)].concat(M.anyConq?[note("A conquered region’s original country receives "+pctS+" of its tax (the game’s conqueredRegionCoreTaxPercent).")]:[])));
   var lim=st.limit||100,cs=M.comps.slice().sort(function(a,b){return(b[7]||0)-(a[7]||0)});
-  var c5=card("Active "+sn+" companies in "+where,[tbl([["Company",function(c){return c[0]||""}],["Owner",function(c){return nm(c[1])}],["Makes",function(c){return c[2]||""}],["Region",function(c){return D.regionsNow[c[4]][0]}],["Employees",function(c){return m0(c[6]||0)},1],["Wages /h",function(c){return m4(c[7]||0)},1],["Manager /h",function(c){return m4(c[8]||0)},1]],cs.slice(0,lim))]);
+  var c5=card("Active "+srcCo()+" in "+where,[tbl([["Company",function(c){return c[0]||""}],["Owner",function(c){return nm(c[1])}],["Makes",function(c){return c[2]||""}],["Region",function(c){return D.regionsNow[c[4]][0]}],["Employees",function(c){return m0(c[6]||0)},1],["Wages /h",function(c){return m4(c[7]||0)},1],["Manager /h",function(c){return m4(c[8]||0)},1]],cs.slice(0,lim))]);
   if(cs.length>lim){var b=el("button",{class:"chip",text:"Show more ("+(cs.length-lim)+" left)"});b.onclick=function(){st.limit=lim+200;render()};c5.appendChild(b)}
   v.appendChild(c5);
   v.appendChild(incomeCard(hn))}
@@ -213,8 +218,12 @@ function marketEst(c){
   return{rate:rate,avg:v/7,trades:n,perDay:v/7*rate/100,days:days}}
 /* tax from the host's conquered regions (game figures): the core country gets its share of each */
 function conqNote(hn){var R=D.regionsNow||{},g=0,to={};Object.keys(R).forEach(function(k){var r=R[k],c=coreOf(k);if(r[1]===st.host&&c>=0&&c!==st.host){var t=(+r[2]||0)+(+r[3]||0);g+=t;to[c]=(to[c]||0)+t}});
-  if(!g)return"";var p=corePct();
-  return" "+hn+" holds conquered regions: "+m0(g*24)+" a day of its income tax comes from them, and the game hands "+p+"% of it ("+m1(g*24*p/100)+" a day) to their original countries ("+Object.keys(to).map(function(c){return nm(+c)+" "+m1(to[c]*24*p/100)}).join(", ")+").";}
+  if(!g)return"";var p=corePct(),f=p/(100-p);   // the game's region figures are already net of the share handed on
+  return" "+hn+" holds conquered regions: "+m0(g*24)+" a day of its income tax comes from them. That is after the game has handed "+p+"% of their tax ("+m1(g*24*f)+" a day) to their original countries ("+Object.keys(to).map(function(c){return nm(+c)+" "+m1(to[c]*24*f)}).join(", ")+"), so the figures above are what "+hn+" actually receives.";}
+/* the host's own (core) regions that another country holds: the game hands the host its share of their tax */
+function lostRegions(c){var R=D.regionsNow||{},p=corePct()/100,out=[];Object.keys(R).forEach(function(k){var r=R[k];if(coreOf(k)===c&&r[1]!==c){var net=((+r[2]||0)+(+r[3]||0))*24;   // the holder's share
+    out.push({id:k,name:r[0],by:r[1],tax:net/(1-p),got:net/(1-p)*p})}});
+  return out.sort(function(a,b){return b.got-a.got})}
 function incomeCard(hn){
   var row=(D.countryNow||{})[String(st.host)],inc=row&&row[5];
   if(!inc)return card("Country income per day: "+hn,[note("The game’s income figures for "+hn+" arrive with the next refresh.")]);
@@ -235,6 +244,11 @@ function incomeCard(hn){
       el("div",{class:"kpi"},[el("b",{text:String(m0(row[0]))}),el("span",{text:"Treasury now"})])]),box,t,
     note("The game’s current income rate for "+hn+", per hour × 24. Employee income tax here is the whole country’s, from every company in it, not only the ones tracked above."+conqNote(hn)+
       (D.tradeDays?" Market tax is an estimate: the game doesn’t report it, so it is "+hn+"’s market tax rate ("+me.rate+"%) × the average daily value of market trades linked to "+hn+" over the last 7 full days ("+m0(me.avg)+" a day, "+me.trades+" trades). It counts the trades the game lists under "+hn+" (where its citizens bought or sold); which side’s country actually collects the tax isn’t published, so treat this as a rough guide.":" Market tax isn’t reported by the game, so it isn’t included."))];
+  var lost=lostRegions(st.host);
+  if(lost.length){var lg=lost.reduce(function(s,x){return s+x.got},0);
+    kids.push(el("h3",{text:"Received from "+hn+"’s regions held by other countries: "+m1(lg)+" a day"}));
+    kids.push(tbl([["Region",function(x){return x.name}],["Held by",function(x){return nm(x.by)}],["Region’s income tax /day (before the split)",function(x){return m0(x.tax)},1],[corePct()+"% to "+hn+" /day",function(x){return m1(x.got)},1]],lost));
+    kids.push(note("These are "+hn+"’s original (core) regions that another country has conquered. The holder collects their income tax and the game hands "+corePct()+"% of it to "+hn+". Figures are from the game’s own region tax rates × 24. This is already part of "+hn+"’s employee and manager income tax above (the game adds it there), so it is not added again."))}
   // day by day: the average hourly rate that day x 24 (sampled every 15 minutes to an hour)
   var hist=(D.countryIncomeDays||[]).filter(function(r){return r[0]===st.host}).slice(-30);
   if(hist.length){kids.push(el("h3",{text:"Income per day, last "+hist.length+" days"}));
@@ -280,7 +294,7 @@ function fillSelects(){
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   D=d;stale();D.companies=D.companies||[];
-  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.wageHist=cx.wageHist||[];D.companies=cx.companies||D.companies||[]}catch(e){D.wageHist=D.wageHist||[];D.companies=D.companies||[]}
+  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[];D.companies=cx.companies||D.companies||[]}catch(e){D.wageHist=D.wageHist||[];D.companies=D.companies||[]}
   var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
   st.month=(days.length?days[days.length-1]:new Date().toISOString().slice(0,10)).slice(0,7);
   $("f-month").value=st.month;$("f-month").onchange=function(){if(this.value){st.month=this.value;render()}};

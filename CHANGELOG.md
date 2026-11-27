@@ -3,6 +3,15 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.8.0 — 2026-11-27
+- **Company tax tracker:** "Received from lost regions" in the country income section: an alliance country's original regions held by another country and the 10% of their tax it receives (e.g. Mexico from Veracruz & Tabasco, held by Guatemala).
+- **Company tax tracker:** exact history for one conquered region (recorded per region from today, `wage_snap_reg`); before that it is estimated from today's split, as noted on the page.
+- **Correctness:** the game's tax figure for a conquered region is what the holder keeps (90%), and the original country's employee tax already includes its 10% (checked: UK 17.928 + 3.736 = 21.664). The cross-check and the Status coverage now scale conquered regions back up to the full tax, so Ireland reads 97.7% instead of 101.5%.
+- **Wording:** "All owners" headings read "all companies" / "active companies" instead of "all owners’ companies".
+- **Ask WarEra:** `regions_now` now has held-by and original country, whether conquered, the original country's share per hour, and the game's tax amounts and counts (the old column names called these rates and tracked counts, which was wrong); new `region_wage_history`.
+- **Housekeeping:** the two old wage history tables are no longer created and are dropped once nothing in them is within the 35-day history; a headless-Chrome test checks the 90/10 split on the page.
+- **Diagnose employees** workflow (manual, read-only): compares employee lists with the game's region counts, to find why the US and Mexico show more workers than the game.
+
 ## 1.7.0 — 2026-11-27
 - **Company tax tracker:** a region picker after the host country, and conquered regions: the game hands 10% (`conqueredRegionCoreTaxPercent`, read from the game config) of a conquered region's tax to its original country, e.g. the United Kingdom gets 10% of the tax from Northern Ireland, which Ireland holds. Per hour, day by day and the month's bill now show what is passed on and what the host keeps; with the original country as the source, it also shows what that country gets back.
 - **Collector:** stores each region's original country and the game's share, and records wage history per host, original country and owner (`wage_snap3`).

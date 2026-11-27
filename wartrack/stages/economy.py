@@ -75,6 +75,23 @@ def snapshot_wages(db, rows):
     last = {(x["host"], x["core"], x["owner_country"]): (x["companies"], x["workers"], x["wages"], x["mgr"] or 0.0) for x in db.execute(
         "SELECT host,core,owner_country,companies,workers,wages,mgr FROM wage_snap3 WHERE (host,core,owner_country,t) IN "
         "(SELECT host,core,owner_country,MAX(t) FROM wage_snap3 GROUP BY host,core,owner_country)")}
+    _write_changes(db, "wage_snap3", agg, last, now)
+    # conquered regions also per region (few of them), so one region's split history is exact
+    hosts = {hc[0] for hc in agg}
+    conq = {reg for reg, hc in host_of.items() if hc[0] != hc[1] and hc[0] in hosts}
+    ragg = {}
+    for r in rows:
+        if r[5] in conq and r[6]:
+            a = ragg.setdefault((r[5], r[6]), [0, 0, 0.0, 0.0]); a[0] += 1; a[1] += r[8] or 0; a[2] += r[9] or 0; a[3] += r[10] or 0
+    rlast = {(x["region"], x["owner_country"]): (x["companies"], x["workers"], x["wages"], x["mgr"] or 0.0) for x in db.execute(
+        "SELECT region,owner_country,companies,workers,wages,mgr FROM wage_snap_reg WHERE (region,owner_country,t) IN "
+        "(SELECT region,owner_country,MAX(t) FROM wage_snap_reg GROUP BY region,owner_country)")}
+    rlast = {k: v for k, v in rlast.items() if k[0] in conq or v != (0, 0, 0.0, 0.0)}
+    _write_changes(db, "wage_snap_reg", ragg, rlast, now)
+
+
+def _write_changes(db, table, agg, last, now):
+    """Write a snapshot row per key whose counts changed or whose pay moved by more than 0.5% since its last row."""
     moved = lambda a, b: abs(a - b) > max(1e-9, 0.005 * max(abs(a), abs(b)))
     for k in set(agg) | set(last):
         cur = tuple(agg.get(k) or (0, 0, 0.0, 0.0))
@@ -82,7 +99,7 @@ def snapshot_wages(db, rows):
         if prev is None and cur == (0, 0, 0.0, 0.0):
             continue
         if prev is None or prev[0] != cur[0] or prev[1] != cur[1] or moved(prev[2], cur[2]) or moved(prev[3], cur[3]):
-            db.execute("INSERT OR REPLACE INTO wage_snap3 VALUES(?,?,?,?,?,?,?,?)", (*k, now, cur[0], cur[1], round(cur[2], 6), round(cur[3], 6)))
+            db.execute(f"INSERT OR REPLACE INTO {table} VALUES({','.join('?' * (len(k) + 5))})", (*k, now, cur[0], cur[1], round(cur[2], 6), round(cur[3], 6)))
 
 
 def collect_company_index(c, db, scope, recheck_days=30, budget=None):
@@ -183,12 +200,23 @@ def _store_owners(c, db, owners):
         db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
 
 
+def core_tax_pct(db):
+    """The share (%) of a conquered region's tax the game hands to its original country (game config; 10 if unknown)."""
+    try:
+        return float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])
+    except (TypeError, ValueError):
+        return 10.0
+
+
 def coverage_rows(db, hosts):
     """Per host country: [host, companies tracked, staffed, workers, wage tax/h (all owners), game companies, game workers, game tax/h]."""
     rate = {r["country"]: (r["income"] or 0, r["manager"] or 0) for r in db.execute("SELECT country, income, manager FROM country_tax")}
+    keep = 1 - core_tax_pct(db) / 100   # a conquered region's game tax figure is what the holder keeps: gross it up to compare
     out = []
     for h in sorted(hosts):
-        g = db.execute("SELECT COALESCE(SUM(companies),0) co, COALESCE(SUM(employees),0) em, COALESCE(SUM(emp),0)+COALESCE(SUM(mgr),0) tax FROM region_now WHERE country=?", (h,)).fetchone()
+        g = db.execute("""SELECT COALESCE(SUM(companies),0) co, COALESCE(SUM(employees),0) em,
+            COALESCE(SUM((COALESCE(emp,0)+COALESCE(mgr,0)) / CASE WHEN core IS NOT NULL AND core!=country THEN ? ELSE 1 END),0) tax
+            FROM region_now WHERE country=?""", (keep, h)).fetchone()
         t = db.execute("""SELECT COUNT(*) n, COALESCE(SUM(c.workers>0),0) staffed, COALESCE(SUM(c.workers),0) w, COALESCE(SUM(c.wages),0) wg, COALESCE(SUM(c.mgr),0) mg
             FROM companies c JOIN region_now r ON r.region=c.region WHERE r.country=?""", (h,)).fetchone()
         ri, rm = rate.get(h, (0, 0))

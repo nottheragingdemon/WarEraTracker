@@ -19,7 +19,13 @@ class PruneTests(unittest.TestCase):
             db.execute("INSERT INTO battle_stat VALUES(?,?,?,?,?,?)", (b, "damage", "country", "c", "a", 1))
         for d, h in ((20, 6), (20, 18), (3, 6), (3, 18), (95, 12)):
             db.execute("INSERT INTO bounty_snap VALUES(?,?,?,?,?,?)", (iso(d, h), "userBounty", "u", 1, None, None))
+        db.executescript(dbm.LEGACY_WAGE_SCHEMA)
+        db.execute("INSERT INTO wage_snap VALUES('r','c',?,1,1,1.0,0)", (int((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=40)).timestamp() * 1000),))
+        db.execute("INSERT INTO wage_snap2 VALUES('h','c',?,1,1,1.0,0)", (int((dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=2)).timestamp() * 1000),))
         C.prune(db, 90)
+        tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        self.assertNotIn("wage_snap", tables)    # retired format, nothing left inside the 35-day history: dropped
+        self.assertIn("wage_snap2", tables)      # still has recent rows
         self.assertEqual(sorted(r[0] for r in db.execute("SELECT id FROM battles")), ["live", "new"])   # active battles are kept
         self.assertEqual(db.execute("SELECT COUNT(*) FROM battle_stat").fetchone()[0], 2)
         snaps = [r[0] for r in db.execute("SELECT ts FROM bounty_snap ORDER BY ts")]

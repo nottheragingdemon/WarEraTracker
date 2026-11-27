@@ -58,8 +58,12 @@ function build(){
   T.companies={cols:["company","owner","item","est_value","region","owner_country","workers","hourly_wages","hourly_manager_cost"],
    rows:(D.companies||[]).map(function(c){return[c[0],ent(c[1]),c[2],c[3],regionName[c[4]]||c[4],ent(c[5]),c[6],c[7],c[8]]})};
   var RN=D.regionsNow||{};
-  T.regions_now={cols:["region","host_country","employee_tax_pct","manager_tax_pct","tracked_companies","tracked_employees"],
-   rows:Object.keys(RN).map(function(k){var r=RN[k];return[r[0],ent(r[1]),r[2],r[3],r[4],r[5]]})};
+  var CP=D.coreTaxPct!=null?+D.coreTaxPct:10;
+  T.regions_now={cols:["region","held_by_country","core_country","conquered","hourly_employee_tax","hourly_manager_tax","core_country_share_per_hour","game_companies","game_employees"],
+   rows:Object.keys(RN).map(function(k){var r=RN[k],core=r[6]!=null&&r[6]>=0?r[6]:r[1],cq=core!==r[1];
+     return[r[0],ent(r[1]),ent(core),cq,r[2],r[3],cq?Math.round((r[2]+r[3])*CP)/100:0,r[4],r[5]]})};
+  T.region_wage_history={cols:["time","region","owner_country","companies","workers","hourly_wages","hourly_manager_cost"],
+   rows:(D.wageHistReg||[]).map(function(r){return[new Date(r[2]).toISOString().slice(0,16)+"Z",regionName[r[0]]||r[0],ent(r[1]),r[3],r[4],r[5],r[6]]})};
   T.wage_history={cols:["time","host_country","owner_country","companies","workers","hourly_wages","hourly_manager_cost","region_core_country"],
    rows:(D.wageHist||[]).map(function(r){return[new Date(r[2]).toISOString().slice(0,16)+"Z",ent(r[0]),ent(r[1]),r[3],r[4],r[5],r[6],r[7]==null?null:ent(r[7])]})};
   var ct=[];Object.keys(D.rateHist||{}).forEach(function(k){D.rateHist[k].forEach(function(x){ct.push([new Date(x[0]).toISOString().slice(0,16)+"Z",ent(+k),x[1],x[2]])})});
@@ -93,7 +97,8 @@ var DOC={
  bounty:"bounty snapshots over time per player/MU/country (amount at snapshot_time); only top ~200 tracked",
  contracts:"mercenary contracts tied to tracked battles: budget, payout (current payout), winners, bid_count",
  companies:"every company standing in an Emerald Accord country (the host), whoever owns it: name, owner, item, value, region, owner_country (the owner's citizenship, any country), workers, and the current hourly money cost of wages and of the manager. Join region to regions_now for the host country",
- regions_now:"every region now: host country, employee and manager income tax rates (%), tracked companies and employees in it",
+ regions_now:"every region now: held_by_country (who holds it and collects its tax), core_country (its original country), conquered (true when another country holds it: the game then hands the core country 10% of its tax, core_country_share_per_hour), hourly_employee_tax and hourly_manager_tax (the game's tax amounts per hour, not rates), and the game's own company and employee counts",
+ region_wage_history:"wage cost snapshots per conquered region in an alliance country and owner country (from 27 Nov 2026): companies, workers, hourly_wages, hourly_manager_cost",
  wage_history:"wage cost snapshots per host country (an alliance country) and owner country: companies, workers, hourly_wages, hourly_manager_cost, region_core_country (original country of the regions counted: differs from the host for conquered regions, which hand it 10% of their tax; null before 27 Nov 2026); every change in the last 48 hours, one per 6 hours before that, 35 days",
  country_tax_history:"employee and manager income tax rate (%) per country each time the rate was sampled or changed",
  region_tax_days:"integrated region tax (employee+manager income tax) per region and UTC day since tracking began; hours_tracked = hours covered that day",
@@ -108,9 +113,9 @@ var DOC={
 
 /* ---------- query tool ---------- */
 /* the company list and wage history come from company-data.json, fetched the first time a question queries them */
-var LAZY={companies:1,wage_history:1},companyLoaded=false;
+var LAZY={companies:1,wage_history:1,region_wage_history:1},companyLoaded=false;
 async function loadCompanyData(){if(companyLoaded)return;
-  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.companies=cx.companies||[];D.wageHist=cx.wageHist||[]}catch(e){D.companies=D.companies||[];D.wageHist=D.wageHist||[]}
+  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.companies=cx.companies||[];D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[]}catch(e){D.companies=D.companies||[];D.wageHist=D.wageHist||[]}
   companyLoaded=true;build()}
 function runQuery(q){
   var t=T[q.table];if(!t)throw new Error("unknown table "+q.table+". Tables: "+Object.keys(T).join(", "));

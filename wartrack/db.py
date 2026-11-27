@@ -29,8 +29,8 @@ CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
 CREATE TABLE IF NOT EXISTS coverage_hist(day TEXT, host TEXT, staffed INTEGER, game_companies INTEGER, workers INTEGER, game_workers INTEGER, tax REAL, game_tax REAL, PRIMARY KEY(day, host));
 CREATE TABLE IF NOT EXISTS company_loc(id TEXT PRIMARY KEY, region TEXT, owner TEXT, disabled INTEGER, checked TEXT, listed INTEGER);
+CREATE TABLE IF NOT EXISTS wage_snap_reg(region TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(region, owner_country, t));
 CREATE TABLE IF NOT EXISTS wage_snap3(host TEXT, core TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, core, owner_country, t));
-CREATE TABLE IF NOT EXISTS wage_snap2(host TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, owner_country, t));
 CREATE TABLE IF NOT EXISTS trades(id TEXT, ts TEXT, country TEXT, buyer_country TEXT, money REAL, item TEXT, quantity REAL, PRIMARY KEY(id, country));
 CREATE TABLE IF NOT EXISTS country_income(country TEXT, t INTEGER, money REAL, income TEXT, PRIMARY KEY(country, t));
 CREATE TABLE IF NOT EXISTS run_stats(ts TEXT PRIMARY KEY, kind TEXT, seconds REAL, calls INTEGER, gw INTEGER, skipped TEXT, timings TEXT);
@@ -49,11 +49,18 @@ CREATE INDEX IF NOT EXISTS transfers_ts ON transfers(ts);
 CREATE TABLE IF NOT EXISTS donations(id TEXT PRIMARY KEY, ts TEXT, country TEXT, donor TEXT, money REAL, donor_country TEXT);
 CREATE INDEX IF NOT EXISTS donations_ts ON donations(ts);
 CREATE TABLE IF NOT EXISTS company_skip(id TEXT PRIMARY KEY, checked TEXT);
-CREATE TABLE IF NOT EXISTS wage_snap(region TEXT, owner_country TEXT, t INTEGER, companies INT, workers INT, wages REAL, mgr REAL, PRIMARY KEY(region,owner_country,t));
 CREATE TABLE IF NOT EXISTS rate_hist(country TEXT, t INTEGER, income REAL, manager REAL, PRIMARY KEY(country,t));
 CREATE TABLE IF NOT EXISTS alliances(id TEXT PRIMARY KEY, name TEXT, leader TEXT);
 CREATE TABLE IF NOT EXISTS alliance_members(alliance TEXT, country TEXT, PRIMARY KEY(alliance,country));
 CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY, country TEXT, mu TEXT, name TEXT);
+"""
+
+
+# wage history formats used before 27 Nov 2026; no longer written. Kept only while they hold rows (the prune drops them
+# once their last row ages out); created here for tests of the old-history export.
+LEGACY_WAGE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS wage_snap(region TEXT, owner_country TEXT, t INTEGER, companies INT, workers INT, wages REAL, mgr REAL, PRIMARY KEY(region,owner_country,t));
+CREATE TABLE IF NOT EXISTS wage_snap2(host TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, owner_country, t));
 """
 
 
