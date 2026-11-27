@@ -3,6 +3,10 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.5.2 — 2026-11-27
+- **Fix:** a batch request where some entries failed (HTTP 207, e.g. a company that closed) failed the whole companies stage; now the entries that worked are kept and the failed ones count as missing. This skipped the companies stage at 09:17 once the index had located 19,416 companies in alliance countries.
+- **Freshness:** the 15-minute check may be up to 2 hours old before it counts as stale, because GitHub often runs it only hourly at busy times.
+
 ## 1.5.1 — 2026-11-27
 - **Freshness checks:** every kind of data (16 of them, from the hourly refresh to country income, companies, player snapshots, donations) is checked against how often it should arrive. Stale data shows on the Status page (new *Data freshness* card and a health check) and is posted to Discord once, then every 6 hours, with a note when it recovers. Runs in both the hourly refresh and the 15-minute check, so a missed refresh is caught too. This would have flagged the 1.2.2 income-history bug within about 2.5 hours.
 

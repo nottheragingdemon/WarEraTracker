@@ -26,6 +26,9 @@ class Fake(BaseHTTPRequestHandler):
             return self.reply(200, {"error": {"code": -32603, "data": {"httpStatus": 500}, "message": "db down"}})
         if side == "gw" and rest == "gw.unknown":
             return self.reply(200, {"error": {"code": -32004, "data": {"httpStatus": 404}, "message": "no such"}})
+        if "batch" in q and "gone.company" in rest:   # tRPC answers 207 when some entries of a batch fail
+            body = [{"result": {"data": {"p": "ok"}}} if p != "gone.company" else {"error": {"message": "not found"}} for p in procs]
+            return self.reply(207, body)
         if rest == "client.error":
             return self.reply(400, {"error": {"message": "bad input"}})
 
@@ -126,6 +129,10 @@ class ClientTests(unittest.TestCase):
         time.sleep(0.4)
         self.assertTrue(c.use_gateway)
         self.assertEqual(c.call("x.y")["side"], "gw")
+
+    def test_batch_207_partial_failure(self):
+        self.assertEqual(self.c.batch([("x.a", {}), ("gone.company", {})]), [{"p": "ok"}, None])
+        self.assertEqual(self.c.batch_many([[("x.a", {}), ("gone.company", {})]]), [[{"p": "ok"}, None]])
 
     def test_batch_many_matches_batch(self):
         lists = [[("x.a", {}), ("x.b", {})] for _ in range(20)]

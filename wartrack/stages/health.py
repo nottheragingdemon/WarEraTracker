@@ -5,7 +5,7 @@ import datetime as dt
 # name, what it means, SQL giving the newest time (ISO text, epoch ms or a YYYY-MM-DD day), hours allowed
 CHECKS = [
     ("refresh", "Hourly full refresh ran", "SELECT MAX(ts) FROM run_stats WHERE kind='full'", 2.5),
-    ("sample", "15-minute battle and tax check ran", "SELECT MAX(ts) FROM run_stats WHERE kind='sample'", 1.0),
+    ("sample", "15-minute battle and tax check ran", "SELECT MAX(ts) FROM run_stats WHERE kind='sample'", 2.0),   # GitHub often runs it only hourly at busy times
     ("index", "Daily company index ran", "SELECT MAX(ts) FROM run_stats WHERE kind='index'", 30),
     ("regions", "Region tax rates checked", "SELECT MAX(t) FROM run_log", 1.5),
     ("countries", "Country treasuries and taxes updated", "SELECT MAX(updated) FROM country_now", 2.0),

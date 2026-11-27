@@ -124,6 +124,8 @@ class Client:
     def _judge(self, names, gw, status, body, batch):
         """Look at one reply -> ("ok", data) or ("again", seconds to wait first); raises ApiError on a real client error."""
         good = isinstance(body, (dict, list))
+        if status == 207 and batch and good:   # a batch where some entries failed (e.g. a company that no longer exists)
+            status = 200
         if status == 200 and good:
             if not batch:
                 if gw and "result" not in body:
