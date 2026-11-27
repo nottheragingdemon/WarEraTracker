@@ -143,7 +143,7 @@ function render(){
     [m2(M.hour),"Owed per hour, right now","employees "+m4(M.empTax)+" · managers "+m4(M.manTax)],
     [(M.rate==null?"–":M.rate+"%")+" · "+(M.mrate==null?"–":M.mrate+"%"),hn+"’s taxes","employee income · manager"],
     [m2(owedM),"Total owed, "+monthName(mk),"tracked "+num(hM,1)+" of "+m0(hAll)+" h"],
-    [m2(est),"Estimated bill, full month",monthName(mk)]].concat(M.pass>0?[[m2(M.keep*24),hn+" keeps a day",m2(M.pass*24)+" a day goes to "+passNames]]:[])));
+    [m2(est),"Estimated bill, full month",monthName(mk)]].concat(M.pass>0?[[m2(M.keep*24),hn+" keeps a day","plus "+m2(M.pass*24)+" a day ("+pctS+") handed to "+passNames+", the original country of "+M.regs.filter(function(g){return g.conq}).map(function(g){return g.name}).join(", ")]]:[])));
   if(!M.ncomp){v.appendChild(card("Nothing to assess",[note("No active "+srcCo()+" stand in "+where+" right now. Pick another combination.")]));return}
   /* 1: per hour now */
   var c1=card("What "+hn+" collects on "+(st.src===ALL_OWNERS?"all companies":srcCo())+(rn?" in "+rn:"")+", per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
@@ -326,7 +326,7 @@ function fillSelects(){
     rs.appendChild(el("option",{value:ALL_REGIONS,text:"All regions ("+tot+")"}));
     Object.keys(regN).sort(function(a,b){return R[a][0].localeCompare(R[b][0])}).forEach(function(k){var c=coreOf(k);
       rs.appendChild(el("option",{value:k,text:R[k][0]+" ("+regN[k]+")"+(c>=0&&c!==st.host?" · conquered from "+nm(c):"")}))});
-    if(st.firstReg){st.firstReg=false;var ni=Object.keys(regN).filter(function(k){return R[k][0]==="Northern Ireland"})[0];if(ni)st.region=ni}   // default view: Northern Ireland
+    if(st.firstReg){st.firstReg=false;var ni=Object.keys(regN).filter(function(k){return R[k][0]==="Northern Ireland"})[0];if(ni){st.region=ni;st.regionByDefault=true}}   // default view: Northern Ireland
     if(st.region!==ALL_REGIONS&&!regN[st.region])st.region=ALL_REGIONS;
     rs.value=st.region}
   function fillSrc(){
@@ -339,9 +339,12 @@ function fillSelects(){
     if(st.src!==ALL_OWNERS&&!srcN[st.src])st.src=ALL_OWNERS;
     ss.value=String(st.src)}
   fillReg();fillSrc();
-  hs.onchange=function(){st.host=+this.value;st.region=ALL_REGIONS;st.src=ALL_OWNERS;st.limit=0;fillReg();fillSrc();render()};
-  $("f-region").onchange=function(){st.region=this.value;st.limit=0;fillSrc();render()};
-  $("f-src").onchange=function(){st.src=+this.value;st.limit=0;render()}}
+  hs.onchange=function(){st.host=+this.value;st.region=ALL_REGIONS;st.regionByDefault=false;st.src=ALL_OWNERS;st.limit=0;fillReg();fillSrc();render()};
+  $("f-region").onchange=function(){st.region=this.value;st.regionByDefault=false;st.limit=0;fillSrc();render()};
+  $("f-src").onchange=function(){st.src=+this.value;st.limit=0;
+    // the opening view's Northern Ireland only suits the UK: another source shows all of Ireland unless a region was picked by hand
+    if(st.regionByDefault){st.regionByDefault=false;st.region=ALL_REGIONS;fillReg();var keep=st.src;fillSrc();st.src=keep;$("f-src").value=String(keep)}
+    render()}}
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   D=d;stale();D.companies=D.companies||[];

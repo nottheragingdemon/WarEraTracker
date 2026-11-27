@@ -3,6 +3,10 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.12.2 — 2026-11-27
+- **Company tax tracker:** picking another source country after opening the page shows all of Ireland (the opening view's Northern Ireland only suits the United Kingdom), unless a region was picked by hand. The "keeps a day" card now says the 10% goes to the region's original country, and which region.
+- **Tax agreements:** Ireland adds Mexico.
+
 ## 1.12.1 — 2026-11-27
 - **Faster saves:** the hourly history save compresses with all CPU cores (`xz -T0 -6` instead of single-threaded `-9`), the slowest step of each refresh (about 57 s).
 - **Faster companies stage:** wage estimates and employee lists are fetched in one parallel round instead of two.
