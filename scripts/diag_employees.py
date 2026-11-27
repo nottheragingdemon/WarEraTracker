@@ -24,6 +24,9 @@ def main(names):
         res = []
         for k in range(0, len(comps), 40):
             res += c.batch([("employee.getCompanyEmployees", {"companyId": r["id"]}) for r in comps[k:k + 40]], official=True)
+        host = reg["country"]
+        rate = (db.execute("SELECT income FROM country_tax WHERE country=?", (host,)).fetchone() or [0])[0] or 0
+        nat = collections.Counter(); natw = collections.Counter(); left = 0; traits = collections.Counter(); wsum = 0.0
         keys, setcount, owner_in, total, ages, vals = collections.Counter(), collections.Counter(), 0, 0, [], collections.defaultdict(collections.Counter)
         for r, lst in zip(comps, res):
             lst = lst if isinstance(lst, list) else []
@@ -40,12 +43,21 @@ def main(names):
                             ages.append((k, (now - dt.datetime.fromisoformat(v.replace("Z", "+00:00"))).total_seconds() / 3600))
                         except ValueError:
                             pass
+                n = "host" if e.get("nationality") == host else "other"
+                nat[n] += 1; natw[n] += float(e.get("wage") or 0); wsum += float(e.get("wage") or 0)
+                left += 1 if e.get("leftAt") else 0
+                for t in e.get("traits") or []:
+                    if isinstance(t, dict) and t.get("code") in ("expat",):
+                        traits[(n, t["code"])] += 1
                 u = e.get("user") or e.get("userId")
                 if isinstance(u, dict):
                     u = u.get("_id")
                 if u and u == r["owner"]:
                     owner_in += 1
         print(f"   listed workers {total}; owner in own list {owner_in}")
+        print(f"   nationality = host: {nat['host']} workers, wages {natw['host']:.3f}/h; other: {nat['other']} workers, wages {natw['other']:.3f}/h; left: {left}; expat trait: {dict(traits)}")
+        allw = db.execute("SELECT COUNT(*), COALESCE(SUM(workers),0), COALESCE(SUM(wages),0) FROM companies WHERE region=?", (reg["region"],)).fetchone()
+        print(f"   region: game tax/h {reg['emp']:.3f}; tracked all companies {allw[0]}, workers {allw[1]}, wages {allw[2]:.3f} -> tax {allw[2] * rate / 100:.3f}; sample wage sum {wsum:.3f}")
         print("   fields (present / non-empty):", {k: f"{keys[k]}/{setcount[k]}" for k in keys})
         print("   small values:", {k: dict(v.most_common(6)) for k, v in vals.items()})
         by = collections.defaultdict(list)
