@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.14.1 — 2026-11-27
+- **Tax agreements:** Ireland pays each partner 90% of the tax generated (`pay_percent` per agreement, set on the Settings page), for both the United Kingdom and Mexico. The statement shows tax generated, what Ireland pays, the game's own 10% for a conquered region, and what Ireland keeps; frozen statements store the payment.
+
 ## 1.14.0 — 2026-11-27
 - **Tax agreements by region:** each agreement now says which of the host's regions it covers: `all`, `core` (the host's original regions) or a list of regions. Ireland ↔ Mexico covers Ireland's core regions; Ireland ↔ United Kingdom covers Northern Ireland only. The collector follows only the companies an agreement covers.
 - **Payments, not bills:** with agreements, the month statement is *what Ireland pays each partner*: the tax generated on the partner's citizens' companies in the covered regions, less the 10% the game already sends a conquered region's original country (so the UK gets 90% from Ireland on top of the game's 10%). The page shows the collector's own figures, so the page, the frozen statement and the Discord post agree.

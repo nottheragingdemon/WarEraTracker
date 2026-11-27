@@ -103,7 +103,9 @@ def compute(db, host, month, now_ms=None):
             o = out.setdefault(owner, [0.0, 0.0])
             o[0] += tax
             o[1] += tax * share * pct
-    return {k: [round(v[0], 4), round(v[1], 4)] for k, v in out.items() if v[0] > 0.00005}
+    from .stages.common import agreement_pay
+    pay = agreement_pay(db).get(host, {}) if cover is not None else {}
+    return {k: [round(v[0], 4), round(v[1], 4), round(v[0] * pay[k] / 100, 4) if k in pay else None] for k, v in out.items() if v[0] > 0.00005}
 
 
 def previous_month(now=None):
@@ -120,7 +122,7 @@ def freeze(db, hosts, now=None, log=print):
         rows = compute(db, h, month)
         if not rows:
             continue
-        db.executemany("INSERT OR REPLACE INTO statements VALUES(?,?,?,?,?)", [(month, h, o, v[0], v[1]) for o, v in rows.items()])
+        db.executemany("INSERT OR REPLACE INTO statements(month,host,owner_country,owed,passed,pays) VALUES(?,?,?,?,?,?)", [(month, h, o, v[0], v[1], v[2]) for o, v in rows.items()])
         log(f"statement: {month} frozen for {h} ({len(rows)} source countries)")
     db.commit()
     return month
@@ -133,7 +135,7 @@ def preview_text(db, host, month=None):
     if db.execute("SELECT 1 FROM statements WHERE month=? AND host=?", (month, host)).fetchone():
         return text(db, month, host)
     rows = compute(db, host, month)
-    db.executemany("INSERT OR REPLACE INTO statements VALUES(?,?,?,?,?)", [(month, host, o, v[0], v[1]) for o, v in rows.items()])
+    db.executemany("INSERT OR REPLACE INTO statements(month,host,owner_country,owed,passed,pays) VALUES(?,?,?,?,?,?)", [(month, host, o, v[0], v[1], v[2]) for o, v in rows.items()])
     try:
         t = text(db, month, host)
     finally:
@@ -147,17 +149,18 @@ def text(db, month, host, top=12):
     share to a conquered region's original country)."""
     from .stages.common import tax_agreements
     name = lambda c: (db.execute("SELECT name FROM country_tax WHERE country=?", (c,)).fetchone() or [c])[0]
-    rows = db.execute("SELECT owner_country o, owed, passed FROM statements WHERE month=? AND host=? ORDER BY owed DESC", (month, host)).fetchall()
+    rows = db.execute("SELECT owner_country o, owed, passed, pays FROM statements WHERE month=? AND host=? ORDER BY owed DESC", (month, host)).fetchall()
     if not rows:
         return None
     label = dt.datetime.strptime(month, "%Y-%m").strftime("%B %Y")
     hn = name(host)
     if tax_agreements(db) is not None:
         lines = [f"🧾 **{hn}: tax agreement payments, {label}** (final)"]
+        pays = lambda r: r["pays"] if r["pays"] is not None else r["owed"] - r["passed"]
         for r in rows:
-            pay = r["owed"] - r["passed"]
-            lines.append(f"• {hn} pays **{name(r['o'])}: {pay:,.2f}**" + (f" (tax generated {r['owed']:,.2f}; the game already sent {r['passed']:,.2f} of it to the region's original country)" if r["passed"] >= 0.005 else f" (tax generated {r['owed']:,.2f})"))
-        lines.append(f"**Total {hn} pays: {sum(r['owed'] - r['passed'] for r in rows):,.2f}**")
+            pct = 100 * pays(r) / r["owed"] if r["owed"] else 0
+            lines.append(f"• {hn} pays **{name(r['o'])}: {pays(r):,.2f}** ({pct:.0f}% of the {r['owed']:,.2f} tax generated)")
+        lines.append(f"**Total {hn} pays: {sum(pays(r) for r in rows):,.2f}**")
         lines.append("Employee and manager income tax on the partners' citizens' companies in the regions each agreement covers, every hour of the month (UTC).")
         return "\n".join(lines)
     tot = sum(r["owed"] for r in rows)

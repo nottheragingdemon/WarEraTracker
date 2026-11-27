@@ -155,12 +155,14 @@ def settings():
         if host_name:
             regions_of.setdefault(host_name, []).append(r[0])
     def norm(items):   # [{"country", "regions"}], also accepting bare names
-        return [{"country": x, "regions": "all"} if isinstance(x, str) else {"country": x.get("country"), "regions": x.get("regions", "all")} for x in items or []]
+        return [{"country": x, "regions": "all", "pay_percent": 90} if isinstance(x, str) else
+                {"country": x.get("country"), "regions": x.get("regions", "all"), "pay_percent": x.get("pay_percent", 90)} for x in items or []]
     current = {h: norm(v) for h, v in current.items()}
     SCOPES = {"Core regions only (not conquered ones)": "core", "All regions": "all", "Chosen regions": "list"}
     new = {}
     for h in sorted(set(hosts) | set(current)):
         cur = {x["country"]: x["regions"] for x in current.get(h, []) if x["country"]}
+        cur_pay = {x["country"]: x["pay_percent"] for x in current.get(h, []) if x["country"]}
         picked = st.multiselect(f"{h}: partner countries (whose citizens' companies are covered)", names,
                                 default=[c for c in cur if c in names], key=f"ag_{h}", placeholder="no agreement")
         items = []
@@ -173,7 +175,9 @@ def settings():
             if scope == "list":
                 opts = sorted(regions_of.get(h, []))
                 scope = st.multiselect(f"{h} ↔ {c}: which regions", opts, default=[r for r in (was if isinstance(was, list) else []) if r in opts], key=f"rg_{h}_{c}")
-            items.append({"country": c, "regions": scope})
+            pay = st.number_input(f"{h} ↔ {c}: % of the tax generated that {h} pays {c}", min_value=0.0, max_value=100.0, step=1.0,
+                                  value=float(cur_pay.get(c, 90)), key=f"pp_{h}_{c}")
+            items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay})
         if items:
             new[h] = items
     if not new:
@@ -181,7 +185,7 @@ def settings():
     body = {"about": "Tax agreements. For each host country (where the companies stand): the partner countries whose citizens' companies are "
                      "covered, and which of the host's regions each agreement covers: \"all\", \"core\" (the host's own original regions, not "
                      "conquered ones) or a list of region names. The host sends the partner the tax it collects on those companies' employee "
-                     "and manager wages. Only these companies are collected. Edited from the Streamlit Settings page.",
+                     "and manager wages (pay_percent of it). Only these companies are collected. Edited from the Streamlit Settings page.",
             "agreements": new}
     if not _has_token():
         st.info("Saving needs a GITHUB_TOKEN in this app's Secrets (a fine-grained token for this repository with Contents: read and write). "

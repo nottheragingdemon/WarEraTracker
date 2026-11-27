@@ -97,6 +97,26 @@ def tax_agreements(db, path=None):
     return out
 
 
+def agreement_pay(db, path=None):
+    """{host country id: {partner country id: percent of the tax generated that the host pays the partner}} (default 90)."""
+    path = path or AGREEMENTS_FILE
+    if not os.path.exists(path):
+        return {}
+    try:
+        cfg = json.load(open(path)).get("agreements") or {}
+    except (ValueError, OSError):
+        return {}
+    ids = {r[1]: r[0] for r in db.execute("SELECT country, name FROM country_tax")}
+    out = {}
+    for host, items in cfg.items():
+        for it in items or []:
+            name = it if isinstance(it, str) else it.get("country")
+            pct = 90.0 if isinstance(it, str) else float(it.get("pay_percent", 90))
+            if host in ids and name in ids:
+                out.setdefault(ids[host], {})[ids[name]] = pct
+    return out
+
+
 def agreement_covers(ag, host, owner_country, region):
     """Whether a company (its host, owner's country and region) falls under a tax agreement; True when there are no agreements."""
     if ag is None:

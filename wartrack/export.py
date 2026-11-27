@@ -278,11 +278,13 @@ def export(db, out, since, scope=None):
     from .stages.common import tax_agreements
     ag = tax_agreements(db)
     # {host: [[partner, [covered region ids] or None for all regions], ...]}
-    agreements = None if ag is None else {str(E("country", h)): sorted([E("country", s), sorted(cov) if cov is not None else None] for s, cov in srcs.items())
+    from .stages.common import agreement_pay
+    payp = agreement_pay(db)   # [partner, covered region ids or None, percent of the tax the host pays]
+    agreements = None if ag is None else {str(E("country", h)): sorted([E("country", s), sorted(cov) if cov is not None else None, payp.get(h, {}).get(s, 90.0)] for s, cov in srcs.items())
                                           for h, srcs in ag.items()}
     statements = {}   # frozen month statements: {month: {host: [[owner, owed, passed], ...]}}
     for r in db.execute("SELECT * FROM statements ORDER BY month, host, owed DESC"):
-        statements.setdefault(r["month"], {}).setdefault(str(E("country", r["host"])), []).append([E("country", r["owner_country"]), r["owed"], r["passed"]])
+        statements.setdefault(r["month"], {}).setdefault(str(E("country", r["host"])), []).append([E("country", r["owner_country"]), r["owed"], r["passed"], r["pays"]])
     # with agreements, the page shows the same figures the statement will freeze: worked out here for the months not saved yet
     statements_live = {}
     if ag:
@@ -295,7 +297,7 @@ def export(db, out, since, scope=None):
                     continue
                 rows = STM.compute(db, h, m)
                 if rows:
-                    statements_live.setdefault(m, {})[str(E("country", h))] = sorted(([E("country", o), v[0], v[1]] for o, v in rows.items()), key=lambda x: -x[1])
+                    statements_live.setdefault(m, {})[str(E("country", h))] = sorted(([E("country", o), v[0], v[1], v[2]] for o, v in rows.items()), key=lambda x: -x[1])
     wage_hist = company_history(db, E)
     wage_hist_reg = region_history(db, E)
     rate_hist = {}

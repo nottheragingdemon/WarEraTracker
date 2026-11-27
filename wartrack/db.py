@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS statements(month TEXT, host TEXT, owner_country TEXT, owed REAL, passed REAL, PRIMARY KEY(month, host, owner_country));
+CREATE TABLE IF NOT EXISTS statements(month TEXT, host TEXT, owner_country TEXT, owed REAL, passed REAL, pays REAL, PRIMARY KEY(month, host, owner_country));
 CREATE TABLE IF NOT EXISTS db_size(day TEXT PRIMARY KEY, bytes INTEGER);
 CREATE TABLE IF NOT EXISTS full_hist(host TEXT, t INTEGER, staffed INTEGER, full INTEGER, tax REAL, tax_not_full REAL, game_tax REAL, PRIMARY KEY(host, t));
 CREATE TABLE IF NOT EXISTS coverage_hist(day TEXT, host TEXT, staffed INTEGER, game_companies INTEGER, workers INTEGER, game_workers INTEGER, tax REAL, game_tax REAL, PRIMARY KEY(day, host));
@@ -94,6 +94,8 @@ def connect(path):
     db.executescript(SCHEMA)
     if "income" not in [r[1] for r in db.execute("PRAGMA table_info(country_now)")]:
         db.execute("ALTER TABLE country_now ADD COLUMN income TEXT")   # the game's hourly income per stream, as JSON
+    if "pays" not in [r[1] for r in db.execute("PRAGMA table_info(statements)")]:
+        db.execute("ALTER TABLE statements ADD COLUMN pays REAL")   # with tax agreements: what the host pays the partner
     if "core" not in [r[1] for r in db.execute("PRAGMA table_info(region_now)")]:
         db.execute("ALTER TABLE region_now ADD COLUMN core TEXT")   # the region's original country (it gets a share of tax when conquered)
     return db
