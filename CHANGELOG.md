@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.15.2 — 2026-11-27
+- **Company tax tracker:** the destroyed / downgraded / total-value-drop section now covers companies in the sworn enemy countries too (the list in Settings), not only the alliance's. The Country column shows the owner's country.
+
 ## 2.15.0 — 2026-11-27
 - **Company tax tracker:** "Companies destroyed or downgraded (last 30 days)" at the bottom: per player the number destroyed and downgraded, the value lost and the last time, plus every event. The game keeps no record of these (it refunds 80%), so they are inferred each hour: a company that closed, was disabled or left the game's list is destroyed, and one whose estimated value fell 15% or more is downgraded. Only companies in the alliance's countries are followed; events build up from now on.
 
