@@ -24,7 +24,7 @@ class FreshnessTests(unittest.TestCase):
         st = self.states()
         self.assertEqual(st["income"], "ok")
         self.assertEqual(st["refresh"], "stale")     # 5 h > 2.5 h
-        self.assertEqual(st["coverage"], "ok")       # yesterday's day counts until its end + 26 h
+        self.assertEqual(st["coverage"], "ok")       # yesterday: 36 h since its start, within 50 h
         self.assertEqual(st["companies"], "none")    # no data yet: not an alarm
 
     def test_alert_once_then_recovery(self):

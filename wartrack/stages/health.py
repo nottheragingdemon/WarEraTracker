@@ -14,7 +14,7 @@ CHECKS = [
     ("bounty", "Bounty rankings snapshot", "SELECT MAX(ts) FROM bounty_snap", 3),
     ("wealth", "Player wealth ranking updated", "SELECT MAX(updated) FROM wealth_now", 3),
     ("companies", "Companies refreshed", "SELECT MAX(seen) FROM companies", 3),
-    ("coverage", "Company coverage recorded", "SELECT MAX(day) FROM coverage_hist", 26),
+    ("coverage", "Company coverage recorded", "SELECT MAX(day) FROM coverage_hist", 50),
     ("players", "Player efficiency snapshot", "SELECT MAX(ts) FROM player_snap", 3),
     ("contracts", "Mercenary contracts read in full", "SELECT v FROM meta WHERE k='contracts_full_at'", 6),
     ("donations", "Newest citizen donation", "SELECT MAX(ts) FROM donations", 24),
@@ -29,8 +29,8 @@ def _when(v):
     if isinstance(v, (int, float)) or (isinstance(v, str) and v.isdigit()):
         return dt.datetime.fromtimestamp(int(v) / 1000, dt.timezone.utc)
     s = str(v)
-    if len(s) == 10:   # a day: counts from the end of that day
-        return dt.datetime.fromisoformat(s).replace(tzinfo=dt.timezone.utc) + dt.timedelta(days=1)
+    if len(s) == 10:   # a day: counts from its start (so the limit allows for a full day plus a margin)
+        return dt.datetime.fromisoformat(s).replace(tzinfo=dt.timezone.utc)
     return dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
