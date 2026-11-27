@@ -82,12 +82,26 @@ class CompanyTests(unittest.TestCase):
         path = os.path.join(tempfile.mkdtemp(), "agreements.json")
         json.dump({"agreements": {"Hostland": ["Partnerland"]}}, open(path, "w"))
         common.AGREEMENTS_FILE = path
-        self.assertEqual(common.tax_agreements(db), {"c1": {"x9"}})
+        self.assertEqual(common.tax_agreements(db), {"c1": {"x9": None}})
         f = Fake()
         EC.collect_company_index(f, db, Scope())
         EC.collect_companies(f, db, Scope())
         rows = {r["id"]: r["owner_country"] for r in db.execute("SELECT id, owner_country FROM companies")}
         self.assertEqual(rows, {"k2": "x9"})   # only the agreed country's citizens' company in the host
+
+    def test_agreement_region_scope(self):
+        import json, os, tempfile
+        from wartrack.stages import common
+        db = dbm.connect(":memory:")
+        db.execute("INSERT INTO region_now(region,name,country,core) VALUES('r1','Home','c1','c1'),('r2','Taken','c1','u'),('r9','Away','c9','c9')")
+        db.execute("INSERT INTO country_tax(country,name) VALUES('c1','Hostland'),('m','Mexland'),('u','Ukland')")
+        path = os.path.join(tempfile.mkdtemp(), "agreements.json")
+        json.dump({"agreements": {"Hostland": [{"country": "Mexland", "regions": "core"}, {"country": "Ukland", "regions": ["Taken"]}]}}, open(path, "w"))
+        common.AGREEMENTS_FILE = path
+        ag = common.tax_agreements(db)
+        self.assertEqual(ag, {"c1": {"m": {"r1"}, "u": {"r2"}}})
+        cov = lambda o, r: common.agreement_covers(ag, "c1", o, r)
+        self.assertEqual([cov("m", "r1"), cov("m", "r2"), cov("u", "r1"), cov("u", "r2"), cov("x", "r1")], [True, False, False, True, False])
 
 
 if __name__ == "__main__":

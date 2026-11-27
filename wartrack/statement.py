@@ -25,7 +25,9 @@ def _step(ts, rows, t):
 
 
 def compute(db, host, month, now_ms=None):
-    """{owner country: [tax owed, passed to core countries]} for one host and month (as far as tracked)."""
+    """{owner (partner) country: [tax generated, passed to core countries by the game]} for one host and month (as far as
+    tracked). With tax agreements, only partner countries count, and only in the regions their agreement covers (history is
+    split by the regions' original country; rows from before that split, 27 Nov 2026, count whole)."""
     from .stages.economy import core_tax_pct
     lo, hi = _month_bounds(month)
     now_ms = now_ms or int(dt.datetime.now(dt.timezone.utc).timestamp() * 1000)
@@ -51,6 +53,29 @@ def compute(db, host, month, now_ms=None):
     sts = {k: [x[0] for x in s] for k, s in series.items()}
     cur = db.execute("SELECT income, manager FROM country_tax WHERE country=?", (host,)).fetchone()
     runs = [r["t"] for r in db.execute("SELECT t FROM run_log ORDER BY t")]
+    from .stages.common import tax_agreements
+    ag = tax_agreements(db)
+    cover = ag.get(host, {}) if ag is not None else None
+    core_of = {r[0]: (r[1] or host) for r in db.execute("SELECT region, core FROM region_now")}
+    allowed = {o: (None if regs is None else {core_of.get(x, host) for x in regs}) for o, regs in (cover or {}).items()}
+    # rows from before the split count with each owner's split at the first split check (pay share per original country)
+    first = {}
+    if split_t is not None:
+        for (owner, core), s in series.items():
+            if core is None:
+                continue
+            x = _step(sts[(owner, core)], s, split_t + 60_000)
+            if x:
+                first.setdefault(owner, {})[core] = first.get(owner, {}).get(core, 0) + x[1] + x[2]
+    def legacy_shares(owner):
+        """(share of the owner's pay that counts, share of it passed on by the game) for rows without the core split"""
+        fc = first.get(owner)
+        tot = sum(fc.values()) if fc else 0
+        if not tot:
+            return 1.0, conq_share.get(owner, 0)
+        ok = [c for c in fc if cover is None or owner not in allowed or allowed[owner] is None or c in allowed[owner]]
+        inc = sum(fc[c] for c in ok)
+        return inc / tot, (sum(fc[c] for c in ok if c != host) / inc if inc else 0)
     out = {}
     for i, t0 in enumerate(runs):
         nxt = runs[i + 1] if i + 1 < len(runs) else now_ms
@@ -64,18 +89,21 @@ def compute(db, host, month, now_ms=None):
         for (owner, core), s in series.items():
             if core is None and split_t is not None and t0 >= split_t:
                 continue
+            if cover is not None and (owner not in cover or (core is not None and allowed[owner] is not None and core not in allowed[owner])):
+                continue
             x = _step(sts[(owner, core)], s, t0)
             if not x:
                 continue
             tax = (x[1] * ri / 100 + x[2] * rm / 100) * hrs
-            share = conq_share.get(owner, 0) if core is None else (1 if core != host else 0)
+            if core is None:
+                f, share = legacy_shares(owner)
+                tax *= f
+            else:
+                share = 1 if core != host else 0
             o = out.setdefault(owner, [0.0, 0.0])
             o[0] += tax
             o[1] += tax * share * pct
-    from .stages.common import tax_agreements
-    ag = tax_agreements(db)
-    agreed = ag.get(host, set()) if ag is not None else None   # with agreements, only agreed countries are billed
-    return {k: [round(v[0], 4), round(v[1], 4)] for k, v in out.items() if v[0] > 0.00005 and (agreed is None or k in agreed)}
+    return {k: [round(v[0], 4), round(v[1], 4)] for k, v in out.items() if v[0] > 0.00005}
 
 
 def previous_month(now=None):
@@ -114,14 +142,26 @@ def preview_text(db, host, month=None):
 
 
 def text(db, month, host, top=12):
-    """A Discord-ready statement for one host and month, from the frozen rows."""
+    """A Discord-ready statement for one host and month, from the frozen rows. With tax agreements it is what the host
+    sends each partner: the tax it collected on their citizens' companies in the covered regions (after the game's own
+    share to a conquered region's original country)."""
+    from .stages.common import tax_agreements
     name = lambda c: (db.execute("SELECT name FROM country_tax WHERE country=?", (c,)).fetchone() or [c])[0]
     rows = db.execute("SELECT owner_country o, owed, passed FROM statements WHERE month=? AND host=? ORDER BY owed DESC", (month, host)).fetchall()
     if not rows:
         return None
+    label = dt.datetime.strptime(month, "%Y-%m").strftime("%B %Y")
+    hn = name(host)
+    if tax_agreements(db) is not None:
+        lines = [f"🧾 **{hn}: tax agreement payments, {label}** (final)"]
+        for r in rows:
+            pay = r["owed"] - r["passed"]
+            lines.append(f"• {hn} pays **{name(r['o'])}: {pay:,.2f}**" + (f" (tax generated {r['owed']:,.2f}; the game already sent {r['passed']:,.2f} of it to the region's original country)" if r["passed"] >= 0.005 else f" (tax generated {r['owed']:,.2f})"))
+        lines.append(f"**Total {hn} pays: {sum(r['owed'] - r['passed'] for r in rows):,.2f}**")
+        lines.append("Employee and manager income tax on the partners' citizens' companies in the regions each agreement covers, every hour of the month (UTC).")
+        return "\n".join(lines)
     tot = sum(r["owed"] for r in rows)
     pas = sum(r["passed"] for r in rows)
-    label = dt.datetime.strptime(month, "%Y-%m").strftime("%B %Y")
     lines = [f"🧾 **{name(host)}: company tax statement, {label}** (final)"]
     for r in rows[:top]:
         lines.append(f"• {name(r['o'])}: {r['owed']:,.2f}" + (f" (to core {r['passed']:,.2f})" if r["passed"] >= 0.005 else ""))

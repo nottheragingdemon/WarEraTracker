@@ -2,7 +2,7 @@
 import os
 import json
 
-from .common import alliance_countries, company_hosts, tax_agreements, log, now_iso
+from .common import agreement_covers, alliance_countries, company_hosts, tax_agreements, log, now_iso
 
 
 def collect_regions(c, db):
@@ -255,11 +255,12 @@ def collect_companies(c, db, scope):
     def wanted(cid, owner, region=None):
         if agreed is None:
             return True
-        h = region_host.get(region or loc_region.get(cid))
-        return h is not None and owner_country.get(owner) in agreed.get(h, ())
+        reg = region or loc_region.get(cid)
+        h = region_host.get(reg)
+        return h is not None and agreement_covers(agreed, h, owner_country.get(owner), reg)
     if agreed is not None:
         cand = {cid: o for cid, o in cand.items() if wanted(cid, o)}
-        log(f"companies: tax agreements in force, following {len(cand)} companies owned by agreed countries")
+        log(f"companies: tax agreements in force, following {len(cand)} companies they cover")
     t0, rows = _t.monotonic(), []
     BUDGET = float(os.environ.get("WARTRACK_COMPANY_BUDGET", "480"))
     log(f"companies: {len(ids)} in {len(hosts)} alliance countries, fetching details")

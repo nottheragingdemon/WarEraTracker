@@ -128,8 +128,9 @@ def settings():
     import base64
     st.title("⚙️ Settings")
     st.subheader("Tax agreements")
-    st.caption("For each host country (where the companies stand), the countries whose citizens' companies it bills. "
-               "Only those companies are collected, shown and billed; the change applies from the next hourly refresh.")
+    st.caption("For each host country (where the companies stand): the partner countries whose citizens' companies are covered, and which "
+               "regions each agreement covers. The host pays each partner the tax it collects on those companies. Only these companies "
+               "are collected; changes apply from the next hourly refresh.")
     data = json.loads((HERE / "site" / "data.json").read_text(encoding="utf-8"))
     ents = data.get("ents", [])
     names = sorted({e[2] for e in ents if e[0] == "country" and e[2]})
@@ -148,22 +149,46 @@ def settings():
                 st.error(f"Couldn't read the saved agreements: {e}")
     elif (HERE / AGREEMENTS_PATH).exists():
         current = json.loads((HERE / AGREEMENTS_PATH).read_text(encoding="utf-8")).get("agreements") or {}
-    chosen = {}
+    regions_of = {}
+    for _rid, r in (data.get("regionsNow") or {}).items():
+        host_name = ents[r[1]][2] if r[1] is not None and r[1] >= 0 else None
+        if host_name:
+            regions_of.setdefault(host_name, []).append(r[0])
+    def norm(items):   # [{"country", "regions"}], also accepting bare names
+        return [{"country": x, "regions": "all"} if isinstance(x, str) else {"country": x.get("country"), "regions": x.get("regions", "all")} for x in items or []]
+    current = {h: norm(v) for h, v in current.items()}
+    SCOPES = {"Core regions only (not conquered ones)": "core", "All regions": "all", "Chosen regions": "list"}
+    new = {}
     for h in sorted(set(hosts) | set(current)):
-        chosen[h] = st.multiselect(f"{h} bills companies owned by citizens of", names, default=[c for c in current.get(h, []) if c in names],
-                                   key=f"ag_{h}", placeholder="no agreement")
-    new = {h: sorted(v) for h, v in chosen.items() if v}
+        cur = {x["country"]: x["regions"] for x in current.get(h, []) if x["country"]}
+        picked = st.multiselect(f"{h}: partner countries (whose citizens' companies are covered)", names,
+                                default=[c for c in cur if c in names], key=f"ag_{h}", placeholder="no agreement")
+        items = []
+        for c in picked:
+            was = cur.get(c, "all")
+            kind = "list" if isinstance(was, list) else was
+            label = st.selectbox(f"{h} ↔ {c}: regions covered", list(SCOPES), key=f"sc_{h}_{c}",
+                                 index=list(SCOPES.values()).index(kind if kind in SCOPES.values() else "all"))
+            scope = SCOPES[label]
+            if scope == "list":
+                opts = sorted(regions_of.get(h, []))
+                scope = st.multiselect(f"{h} ↔ {c}: which regions", opts, default=[r for r in (was if isinstance(was, list) else []) if r in opts], key=f"rg_{h}_{c}")
+            items.append({"country": c, "regions": scope})
+        if items:
+            new[h] = items
     if not new:
         st.warning("With no agreements at all, no company data is collected.")
-    body = {"about": "Tax agreements: for each host country (where the companies stand), the source countries (the owners' citizenship) "
-                     "it has a tax agreement with. Only these companies are collected and billed. Edited from the Streamlit Settings page.",
+    body = {"about": "Tax agreements. For each host country (where the companies stand): the partner countries whose citizens' companies are "
+                     "covered, and which of the host's regions each agreement covers: \"all\", \"core\" (the host's own original regions, not "
+                     "conquered ones) or a list of region names. The host sends the partner the tax it collects on those companies' employee "
+                     "and manager wages. Only these companies are collected. Edited from the Streamlit Settings page.",
             "agreements": new}
     if not _has_token():
         st.info("Saving needs a GITHUB_TOKEN in this app's Secrets (a fine-grained token for this repository with Contents: read and write). "
                 "Until then, copy this into agreements.json in the repository:")
         st.code(json.dumps(body, indent=2), language="json")
         return
-    if new == {h: sorted(v) for h, v in current.items() if v}:
+    if new == {h: v for h, v in current.items() if v}:
         st.caption("No changes.")
         return
     if st.button("Save agreements", type="primary"):

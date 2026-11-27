@@ -62,8 +62,11 @@ AGREEMENTS_FILE = os.path.join(os.path.dirname(SCOPE_FILE), "agreements.json")  
 
 
 def tax_agreements(db, path=None):
-    """{host country id: set of source (owner) country ids} from agreements.json ({"Ireland": ["United Kingdom"], ...}, by
-    country name). None when the file doesn't exist (then every alliance country is a host and every owner is tracked)."""
+    """{host country id: {partner country id: set of covered region ids, or None for all the host's regions}} from
+    agreements.json, by name: {"Ireland": [{"country": "Mexico", "regions": "core"}, {"country": "United Kingdom",
+    "regions": ["Northern Ireland"]}]}. "regions" is "all" (the default; a bare country name means that too), "core" (the
+    host's own original regions, not conquered ones) or a list of region names. None when the file doesn't exist (then every
+    alliance country is a host and every owner is tracked)."""
     path = path or AGREEMENTS_FILE
     if not os.path.exists(path):
         return None
@@ -72,11 +75,36 @@ def tax_agreements(db, path=None):
     except (ValueError, OSError):
         return None
     ids = {r[1]: r[0] for r in db.execute("SELECT country, name FROM country_tax")}
+    regs = db.execute("SELECT region, name, country, core FROM region_now").fetchall()
     out = {}
-    for host, srcs in cfg.items():
-        if host in ids:
-            out[ids[host]] = {ids[s] for s in srcs or [] if s in ids}
+    for host, items in cfg.items():
+        h = ids.get(host)
+        if not h:
+            continue
+        out[h] = {}
+        for it in items or []:
+            name, scope = (it, "all") if isinstance(it, str) else (it.get("country"), it.get("regions", "all"))
+            if name not in ids:
+                continue
+            if scope in (None, "all"):
+                cover = None
+            elif scope == "core":
+                cover = {r[0] for r in regs if r[2] == h and (r[3] or r[2]) == h}
+            else:
+                want = set(scope) if isinstance(scope, list) else {scope}
+                cover = {r[0] for r in regs if r[2] == h and r[1] in want}
+            out[h][ids[name]] = cover
     return out
+
+
+def agreement_covers(ag, host, owner_country, region):
+    """Whether a company (its host, owner's country and region) falls under a tax agreement; True when there are no agreements."""
+    if ag is None:
+        return True
+    cover = ag.get(host, {})
+    if owner_country not in cover:
+        return False
+    return cover[owner_country] is None or region in cover[owner_country]
 
 
 def company_hosts(db, scope=None):

@@ -1,9 +1,9 @@
 {
-  "about": "Tax agreements: for each host country (where the companies stand), the source countries (the owners' citizenship) it has a tax agreement with. Only these companies are collected and billed. Edited from the Streamlit Settings page.",
+  "about": "Tax agreements. For each host country (where the companies stand): the partner countries whose citizens' companies are covered, and which of the host's regions each agreement covers: \"all\", \"core\" (the host's own original regions, not conquered ones) or a list of region names. The host sends the partner the tax it collects on those companies' employee and manager wages. Only these companies are collected. Edited from the Streamlit Settings page.",
   "agreements": {
     "Ireland": [
-      "Mexico",
-      "United Kingdom"
+      {"country": "Mexico", "regions": "core"},
+      {"country": "United Kingdom", "regions": ["Northern Ireland"]}
     ]
   }
 }

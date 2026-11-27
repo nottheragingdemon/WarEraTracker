@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.14.0 — 2026-11-27
+- **Tax agreements by region:** each agreement now says which of the host's regions it covers: `all`, `core` (the host's original regions) or a list of regions. Ireland ↔ Mexico covers Ireland's core regions; Ireland ↔ United Kingdom covers Northern Ireland only. The collector follows only the companies an agreement covers.
+- **Payments, not bills:** with agreements, the month statement is *what Ireland pays each partner*: the tax generated on the partner's citizens' companies in the covered regions, less the 10% the game already sends a conquered region's original country (so the UK gets 90% from Ireland on top of the game's 10%). The page shows the collector's own figures, so the page, the frozen statement and the Discord post agree.
+- **Settings page:** per partner, pick the regions covered (core regions, all regions, or chosen regions).
+- *Leave out Northern Ireland* only appears when the source country has companies there.
+
 ## 1.13.0 — 2026-11-27
 - **Company tax tracker:** *Leave out Northern Ireland* option, shown when a single source country other than the United Kingdom is picked with all regions (generally: the host's conquered regions whose original country isn't the source). The figures, history, hour-by-hour and day-by-day tables then cover the rest of the host; the month statement still bills every agreed country in full.
 
