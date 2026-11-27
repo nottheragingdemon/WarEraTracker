@@ -107,6 +107,11 @@ var DOC={
  player_wealth:"richest players of the tracked alliance's countries (game userWealth ranking, top ~200 per country, latest snapshot): wealth, country, mu. The game does not say whether this counts companies"};
 
 /* ---------- query tool ---------- */
+/* the company list and wage history come from company-data.json, fetched the first time a question queries them */
+var LAZY={companies:1,wage_history:1},companyLoaded=false;
+async function loadCompanyData(){if(companyLoaded)return;
+  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.companies=cx.companies||[];D.wageHist=cx.wageHist||[]}catch(e){D.companies=D.companies||[];D.wageHist=D.wageHist||[]}
+  companyLoaded=true;build()}
 function runQuery(q){
   var t=T[q.table];if(!t)throw new Error("unknown table "+q.table+". Tables: "+Object.keys(T).join(", "));
   var ci={};t.cols.forEach(function(c,i){ci[c]=i});
@@ -169,7 +174,9 @@ async function ask(){
   var q=$("q").value.trim();if(!q||busy||!sample)return;busy=true;$("go").disabled=true;$("ans").textContent="";$("tables").textContent="";logLines=[];$("log").hidden=true;results={};seq=0;
   $("status").textContent="Thinking…";var shown=0;
   var today=new Date().toISOString().slice(0,10);
-  var schema=Object.keys(T).map(function(k){return"- "+k+" ("+T[k].rows.length+" rows): "+DOC[k]+"\n  columns: "+T[k].cols.join(", ")}).join("\n");
+  var ncomp=((D.status||{}).coverage||[]).reduce(function(a,r){return a+r[1]},0);
+  var schema=Object.keys(T).map(function(k){var n=LAZY[k]&&!companyLoaded?(k==="companies"&&ncomp?"about "+ncomp:"many")+" rows, loaded on first query":T[k].rows.length+" rows";
+    return"- "+k+" ("+n+"): "+DOC[k]+"\n  columns: "+T[k].cols.join(", ")}).join("\n");
   var prompt="You answer questions about the WarEra game by querying data with tools, and you present the answer as a table.\n"+
    "Today is "+today+" (UTC). Snapshot generated "+D.generated+"; battle data collected since "+D.since+" and only for battles involving a country of the tracked alliance; player rows cover the top ~100 damage dealers per side per battle.\n\n"+
    "Tables available to the `query` tool:\n"+schema+"\n\n"+
@@ -181,7 +188,7 @@ async function ask(){
    "- If the request cannot be answered with this data, say exactly what is missing.\n\nQuestion: "+q;
   var tools=[
    {name:"query",description:"Query a snapshot table. Returns a result_id, columns, total_rows and a 25-row preview.",inputSchema:{type:"object",properties:{table:{type:"string"},filters:{type:"array",items:{type:"object",properties:{column:{type:"string"},op:{type:"string",enum:["=","!=",">",">=","<","<=","contains","in"]},value:{}},required:["column","value"]}},select:{type:"array",items:{type:"string"}},group_by:{type:"array",items:{type:"string"}},aggregates:{type:"array",items:{type:"object",properties:{fn:{type:"string",enum:["count","sum","avg","min","max","count_distinct"]},column:{type:"string"},as:{type:"string"}},required:["fn"]}},order_by:{type:"array",items:{type:"object",properties:{column:{type:"string"},desc:{type:"boolean"}},required:["column"]}},limit:{type:"number"}},required:["table"]},
-    execute:async function(a){var r=runQuery(a);logLines.push("query "+JSON.stringify(a)+" -> "+r.total_rows+" rows");return r}},
+    execute:async function(a){if(LAZY[a.table]&&!companyLoaded){$("status").textContent="Loading company data…";await loadCompanyData()}var r=runQuery(a);logLines.push("query "+JSON.stringify(a)+" -> "+r.total_rows+" rows");return r}},
    {name:"warera_api",description:"Read-only live WarEra API call (GET). procedure from the allow-list, input is the JSON input object.",inputSchema:{type:"object",properties:{procedure:{type:"string",enum:ALLOW},input:{type:"object"}},required:["procedure"]},
     execute:async function(a){logLines.push("api "+a.procedure+" "+JSON.stringify(a.input||{}));return await callApi(a)}},
    {name:"show_table",description:"Show a table to the user. Either result_id (from query) or columns+rows.",inputSchema:{type:"object",properties:{title:{type:"string"},result_id:{type:"string"},columns:{type:"array",items:{type:"string"}},rows:{type:"array",items:{type:"array"}},note:{type:"string"}}},
@@ -200,7 +207,7 @@ $("go").onclick=ask;$("q").addEventListener("keydown",function(e){if(e.key==="En
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   try{var x=await fetch("ask-data.json").then(function(r){return r.json()});d.bounty=x.bounty||[];d.contracts=x.contracts||[]}catch(e){d.bounty=d.bounty||[];d.contracts=d.contracts||[]}
-  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});d.companies=cx.companies||[];d.wageHist=cx.wageHist||[]}catch(e){d.companies=d.companies||[];d.wageHist=d.wageHist||[]}
+  d.companies=d.companies||[];d.wageHist=d.wageHist||[];   // company data (about 1 MB) loads on the first question that needs it
   D=d;D.stats=weStats(D);build();stale();
   $("meta").textContent="Data updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+T.battles.rows.length+" battles · ask in plain English, Claude returns a table";
   sample=await window.claude.use("sample");

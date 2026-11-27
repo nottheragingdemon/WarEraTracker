@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.5.0 — 2026-11-27
+- **Company tax tracker:** tax what-if: type other employee or manager income tax rates and see the change per day and month, for the companies shown, all wage tax in the host (the game's figure rescaled) and the host's whole income.
+- **Status:** coverage trend: each host's tax coverage over the last 7 days and the overall coverage by day (recorded hourly, kept 90 days).
+- **Ask WarEra:** the company data (about 1 MB) loads only when a question needs the companies or wage history table.
+- **Fix:** since 1.2.2 the collector couldn't find `scope.json` from its new folder, so the hourly country income history wasn't recorded (other stages fell back to the alliance scope). Fixed, with a test.
+
 ## 1.4.1 — 2026-11-27
 - **Status:** company coverage per alliance host (staffed companies, workers and wage tax per hour, tracker against the game), the company index's progress, and two health checks for them.
 - **Company index:** re-checks only companies outside alliance countries (those inside are re-checked hourly), a thirtieth a day, which cuts the daily lookups from about 43,000 to about 7,600.

@@ -63,12 +63,18 @@ function render(){
   // company coverage: the tracker against the game's own figures, per alliance host country (all owners)
   if(CV.length){var pct=function(a,b){return b?(100*a/b).toFixed(0)+"%":"–"};
     var rows=CV.slice().sort(function(a,b){return b[7]-a[7]});
-    var tb3=el("tbody");rows.forEach(function(r){var tr=el("tr");[[nm(r[0]),""],[r[2]+" / "+r[5],"n"],[r[3]+" / "+r[6],"n"],[r[4].toFixed(2)+" / "+r[7].toFixed(2),"n"],[pct(r[4],r[7]),"n"]].forEach(function(c,i){
-      tr.appendChild(el("td",{class:(c[1]+(i?"":" lead")).trim(),"data-label":["Host","Staffed companies","Workers","Tax /h","Covered"][i],text:c[0]}))});tb3.appendChild(tr)});
-    var h3=el("tr");["Host country","Companies with staff","Workers","Wage tax /h","Tax covered"].forEach(function(x,i){h3.appendChild(el("th",{class:i?"n":"",text:x+(i&&i<4?" (tracker / game)":"")}))});
+    var CH=S.coverageHist||[],wk=new Date(Date.now()-7*864e5).toISOString().slice(0,10),trend=function(h){
+      var pts=CH.filter(function(x){return x[1]===h&&x[0]>=wk&&x[2]!=null});if(pts.length<2)return"from today";
+      var a=pts[0][2],b=pts[pts.length-1][2];return Math.round(a)+"% → "+Math.round(b)+"%"+(Math.abs(b-a)<1?"":b>a?" ↑":" ↓")};
+    var tb3=el("tbody");rows.forEach(function(r){var tr=el("tr");[[nm(r[0]),""],[r[2]+" / "+r[5],"n"],[r[3]+" / "+r[6],"n"],[r[4].toFixed(2)+" / "+r[7].toFixed(2),"n"],[pct(r[4],r[7]),"n"],[trend(r[0]),"n"]].forEach(function(c,i){
+      tr.appendChild(el("td",{class:(c[1]+(i?"":" lead")).trim(),"data-label":["Host","Staffed companies","Workers","Tax /h","Covered","Last 7 days"][i],text:c[0]}))});tb3.appendChild(tr)});
+    var h3=el("tr");["Host country","Companies with staff","Workers","Wage tax /h","Tax covered","Last 7 days"].forEach(function(x,i){h3.appendChild(el("th",{class:i?"n":"",text:x+(i&&i<4?" (tracker / game)":"")}))});
+    // overall coverage per day: tracked tax / game tax, summed over hosts
+    var byDay={};CH.forEach(function(x){if(x[2]==null)return;var c=CV.filter(function(r){return r[0]===x[1]})[0];var g=c?c[7]:0;var d=byDay[x[0]]=byDay[x[0]]||{t:0,g:0};d.t+=x[2]/100*g;d.g+=g});
+    var dl=Object.keys(byDay).sort().slice(-14).map(function(k){return k.slice(5)+" "+Math.round(100*byDay[k].t/byDay[k].g)+"%"});
     var ixl=IX&&IX.known?"Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located"+(IX.passDone?(IX.fullAt?"; last full pass "+when(IX.fullAt):""):"; full list pass "+IX.pass+" in progress ("+IX.passListed.toLocaleString()+" listed so far)")+". ":"";
     v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Each pair is tracker / game."}),weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack compact"},[el("thead",null,[h3]),tb3])])),
-      el("div",{class:"note",text:ixl+"The tracker follows every company standing in an alliance country, whoever owns it, and compares it with the game’s own region totals. The game counts only companies with staff. Below 100%: companies not located yet, or ones that moved in recently; above: wage estimates taken a little later than the game’s figures."})]))}
+      el("div",{class:"note",text:"Overall tax covered by day: "+(dl.length?dl.join(" · "):"recorded from today")+"."}),el("div",{class:"note",text:ixl+"The tracker follows every company standing in an alliance country, whoever owns it, and compares it with the game’s own region totals. The game counts only companies with staff. Below 100%: companies not located yet, or ones that moved in recently; above: wage estimates taken a little later than the game’s figures."})]))}
   // stage timings of the last full refresh
   if(lf){var t=lf[6]||[],mx=Math.max.apply(null,t.map(function(x){return x[1]}).concat([1])),box=el("div",{class:"hbars"});
     t.slice().sort(function(a,b){return b[1]-a[1]}).forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";

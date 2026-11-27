@@ -55,9 +55,12 @@ class Scope:
         return (" AND ".join(conds) or "1=1"), args
 
 
+SCOPE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "scope.json")   # repo root
+
+
 def alliance_countries(db):
     """member countries of the alliance named in scope.json (empty if none)"""
-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scope.json")
+    path = SCOPE_FILE
     name = json.load(open(path)).get("alliance") if os.path.exists(path) else None
     if not name:
         return set()

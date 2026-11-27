@@ -177,6 +177,19 @@ def _store_owners(c, db, owners):
         db.execute("INSERT OR REPLACE INTO names VALUES('user',?,?,NULL)", (u, d.get("username")))
 
 
+def coverage_rows(db, hosts):
+    """Per host country: [host, companies tracked, staffed, workers, wage tax/h (all owners), game companies, game workers, game tax/h]."""
+    rate = {r["country"]: (r["income"] or 0, r["manager"] or 0) for r in db.execute("SELECT country, income, manager FROM country_tax")}
+    out = []
+    for h in sorted(hosts):
+        g = db.execute("SELECT COALESCE(SUM(companies),0) co, COALESCE(SUM(employees),0) em, COALESCE(SUM(emp),0)+COALESCE(SUM(mgr),0) tax FROM region_now WHERE country=?", (h,)).fetchone()
+        t = db.execute("""SELECT COUNT(*) n, COALESCE(SUM(c.workers>0),0) staffed, COALESCE(SUM(c.workers),0) w, COALESCE(SUM(c.wages),0) wg, COALESCE(SUM(c.mgr),0) mg
+            FROM companies c JOIN region_now r ON r.region=c.region WHERE r.country=?""", (h,)).fetchone()
+        ri, rm = rate.get(h, (0, 0))
+        out.append([h, t["n"], t["staffed"], t["w"], round(t["wg"] * ri / 100 + t["mg"] * rm / 100, 3), g["co"], g["em"], round(g["tax"], 3)])
+    return out
+
+
 def collect_companies(c, db, scope):
     """Every company standing in an alliance country (the hosts), whoever owns it: details, the live wage estimate and the
     employee list. Located by the daily company index; stalest first within a time budget."""
@@ -230,5 +243,8 @@ def collect_companies(c, db, scope):
     db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
     allrows = [tuple(r) for r in db.execute("SELECT id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr FROM companies")]
     snapshot_wages(db, allrows)
+    day = ts[:10]   # coverage against the game's own figures, the latest check of each day (Status page trend)
+    for r in coverage_rows(db, hosts):
+        db.execute("INSERT OR REPLACE INTO coverage_hist VALUES(?,?,?,?,?,?,?,?)", (day, r[0], r[2], r[5], r[3], r[6], r[4], r[7]))
     db.commit()
     log(f"companies: {len(rows)} refreshed this run, {len(allrows)} stored")

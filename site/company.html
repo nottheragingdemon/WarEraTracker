@@ -116,6 +116,7 @@ function render(){
      ["Total","","",m4(M.hour)]]),
     note(M.hour.toFixed(4)+" /h × 24 = "+(M.hour*24).toFixed(2)+" /day. "+M.ncomp+" active "+sn+" companies across "+M.regs.length+" region(s) of "+hn+". Employee tax = the wages those companies pay their employees each hour × "+hn+"’s income tax rate; manager tax = the managers’ hourly pay × "+hn+"’s manager tax rate"+(M.mrate===0?" (0%, so no manager tax is due)":"")+". Pay figures are the game’s live hourly wage and manager costs for each company (employee.getCompanyEstimate).")]);
   v.appendChild(c1);
+  v.appendChild(whatIf(M,hn,sn));
   /* 2: cross check */
   var c2=card("Cross-check against the game’s own region figures",[]);
   if(!M.staff&&!M.wages)c2.appendChild(note("Staff and wages have not been collected yet; they appear after the next refresh."));
@@ -148,6 +149,29 @@ function render(){
   if(cs.length>lim){var b=el("button",{class:"chip",text:"Show more ("+(cs.length-lim)+" left)"});b.onclick=function(){st.limit=lim+200;render()};c5.appendChild(b)}
   v.appendChild(c5);
   v.appendChild(incomeCard(hn))}
+/* tax what-if: the same wages at other tax rates, for the selected companies and for the whole host country */
+function whatIf(M,hn,sn){
+  var cur=[+(M.rate||0),+(M.mrate||0)],inc=((D.countryNow||{})[String(st.host)]||[])[5]||{};
+  if(!st.wi||st.wi.host!==st.host)st.wi={host:st.host,e:cur[0],m:cur[1]};
+  var out=el("div"),card_=card("What if "+hn+" changed its tax rates?",[]);
+  var mkIn=function(lbl,key){var i=el("input",{type:"number",min:"0",max:"100",step:"0.5",inputmode:"decimal"});i.value=String(st.wi[key]);
+    i.oninput=function(){var x=parseFloat(this.value);if(!isNaN(x)&&x>=0&&x<=100){st.wi[key]=x;draw()}};return el("label",{},[lbl,i])};
+  var reset=el("button",{class:"chip",type:"button",text:"Back to today’s rates ("+cur[0]+"% / "+cur[1]+"%)"});reset.onclick=function(){st.wi.e=cur[0];st.wi.m=cur[1];render()};
+  card_.appendChild(el("div",{class:"filters"},[mkIn("Employee income tax %","e"),mkIn("Manager income tax %","m")]));card_.appendChild(reset);card_.appendChild(out);
+  // the whole country: all owners' wages tracked here, scaled to the game's own total so untracked companies count too
+  var all=0,allM=0,R=D.regionsNow||{};D.companies.forEach(function(c){var r=R[c[4]];if(r&&r[1]===st.host){all+=c[7]||0;allM+=c[8]||0}});
+  var gameE=+inc.employeeIncomeTax||0,gameM=+inc.managerIncomeTax||0,scaleE=cur[0]&&all?gameE/(all*cur[0]/100):1;
+  function row(name,ne,nm_){var d=ne+nm_;return[name,ne,nm_,d]}
+  function draw(){
+    var e=st.wi.e/100,mg=st.wi.m/100;
+    var selNow=M.wages*cur[0]/100+M.mpay*cur[1]/100,selNew=M.wages*e+M.mpay*mg;
+    var ctyNow=gameE+gameM,ctyNew=all*e*scaleE+(allM*mg);
+    var tot=(+inc.total||0),rows=[[st.src===ALL_OWNERS?"All companies shown above":"The "+sn+"-owned companies shown above",selNow,selNew],["All wage tax in "+hn+" (game total, rescaled)",ctyNow,ctyNew],["All of "+hn+"’s income (every stream)",tot,tot-ctyNow+ctyNew]];
+    out.textContent="";
+    out.appendChild(tbl([["",function(r){return r[0]}],["Now /day",function(r){return m0(r[1]*24)},1],["What-if /day",function(r){return m0(r[2]*24)},1],["Change /day",function(r){var d=(r[2]-r[1])*24;return(d>0?"+":"")+m0(d)},1],
+      ["Change /month",function(r){var d=(r[2]-r[1])*24*30;return(d>0?"+":"")+m0(d)},1]],rows));
+    out.appendChild(note("Same wages, new rates: "+st.wi.e+"% on employee wages, "+st.wi.m+"% on manager pay. The whole-country line rescales the game’s own wage-tax figure, so companies the tracker doesn’t see are included. It assumes owners and workers stay put: a big rise could push companies to move to a cheaper country, which this can’t predict. A month is taken as 30 days."))}
+  draw();return card_}
 /* 7: the host country's whole income right now, per day, by stream (the game reports hourly figures; per day = 24 x) */
 var STREAMS=[["employeeIncomeTax","Employee income tax"],["managerIncomeTax","Manager income tax"],["development","Development"],["strategicResourcesBonus","Strategic resources bonus"],["govType","Government type bonus"]];
 /* market tax estimate: the country's market tax rate x the value of market trades linked to it (the buyer's country), as a 7-day daily average */

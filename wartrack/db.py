@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS coverage_hist(day TEXT, host TEXT, staffed INTEGER, game_companies INTEGER, workers INTEGER, game_workers INTEGER, tax REAL, game_tax REAL, PRIMARY KEY(day, host));
 CREATE TABLE IF NOT EXISTS company_loc(id TEXT PRIMARY KEY, region TEXT, owner TEXT, disabled INTEGER, checked TEXT, listed INTEGER);
 CREATE TABLE IF NOT EXISTS wage_snap2(host TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, owner_country, t));
 CREATE TABLE IF NOT EXISTS trades(id TEXT, ts TEXT, country TEXT, buyer_country TEXT, money REAL, item TEXT, quantity REAL, PRIMARY KEY(id, country));

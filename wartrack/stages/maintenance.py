@@ -29,6 +29,7 @@ def prune(db, days=None):
         db.execute(f"DELETE FROM {t} WHERE t<?", (cut_ms,))
     db.execute("DELETE FROM company_skip WHERE checked<?", (iso(7),))
     db.execute("DELETE FROM player_snap WHERE day<?", (cut[:10],))
+    db.execute("DELETE FROM coverage_hist WHERE day<?", (cut[:10],))
     db.execute("DELETE FROM player_skill_hist WHERE checked<?", (cut,))
     db.execute("DELETE FROM run_stats WHERE ts<?", (iso(14),))
     db.commit()
