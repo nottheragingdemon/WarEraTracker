@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.2.2 — 2026-11-27
+- **Code health (no visible change):** the collector is split into `wartrack/stages/` (one module per area), with `wartrack/collect.py` re-exporting every stage; a direct test of the exporter's output (shape, packed stats round trip, file split, day aggregates).
+
 ## 1.2.1 — 2026-11-27
 - **Market tax estimate fix:** the game lists a trade under more than the buyer's country (most likely the seller's too), so trades are now kept per alliance country they are listed under, instead of being filed under the buyer's country (which put many under non-alliance countries). The trades table is rebuilt and backfilled once.
 

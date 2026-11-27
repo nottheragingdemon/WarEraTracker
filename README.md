@@ -32,7 +32,7 @@ The API key is never stored in the repo. The repo is public, so the `state` bran
 Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run streamlit_app.py`.
 
 ## Data
-- `wartrack/` is the collector and exporter: Python standard library plus `AsyncHTTPClient` from [async-http-kit](https://github.com/nottheragingdemon/async-http-kit) (`asynchttp.aio`, on aiohttp) for many requests at once; urllib is the fallback. Collector dependencies are pinned in `requirements-collector.txt`. `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
+- `wartrack/` is the collector and exporter. The collector stages live in `wartrack/stages/`, one module per area (battles, people, money, economy, efficiency, maintenance; shared helpers in `common`); `wartrack/collect.py` re-exports them. It uses Python standard library plus `AsyncHTTPClient` from [async-http-kit](https://github.com/nottheragingdemon/async-http-kit) (`asynchttp.aio`, on aiohttp) for many requests at once; urllib is the fallback. Collector dependencies are pinned in `requirements-collector.txt`. `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
 - History lives in a SQLite database kept on the `state` branch (one force-pushed commit). Data older than 90 days is pruned (`WARTRACK_KEEP_DAYS`); bounty snapshots older than a week keep one per day.
 - `site/data.json` is the core data (per-battle stats packed, about 2 MB); `site/ask-data.json` (bounty history, contracts) is loaded by Ask WarEra only.
 - Transfers and donations are kept for 90 days. Player efficiency takes one snapshot of wealth and total damage per player per UTC day, for each nation's top 100 players by this week's damage, and refreshes skills daily or after a reset (a level-L skill costs 1+2+…+L points).
@@ -63,4 +63,4 @@ The first run of each alert type only records a baseline.
 to store a damaged or emptied database; `sh state.sh backup` makes a dated copy. A released version can be checked out by its tag (see `CHANGELOG.md`).
 
 ## Tests
-`python -m unittest discover -s tests` (offline: API client against a fake server, digest, pruning, donations backfill, player efficiency, artifact sync) and `python3 scripts/smoke_pages.py`.
+`python -m unittest discover -s tests` (offline: API client against a fake server, exporter output, digest, money alerts, pruning, donations and trades backfill, player efficiency, artifact sync) and `python3 scripts/smoke_pages.py`.
