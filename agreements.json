@@ -1,6 +1,9 @@
 {
   "about": "Tax agreements: for each host country (where the companies stand), the source countries (the owners' citizenship) it has a tax agreement with. Only these companies are collected and billed. Edited from the Streamlit Settings page.",
   "agreements": {
-    "Ireland": ["United Kingdom"]
+    "Ireland": [
+      "Mexico",
+      "United Kingdom"
+    ]
   }
 }
