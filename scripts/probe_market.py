@@ -1,25 +1,21 @@
-"""One-off probe: which transaction types exist and what a market sale looks like (prints structure, never the key)."""
-import json, os, urllib.request, urllib.parse
+"""One-off probe: daily volume of market trades per alliance country (prints counts only, never the key)."""
+import json, os, urllib.request, urllib.parse, datetime as dt
 KEY = os.environ["WARERA_API_KEY"]
 B = "https://api2.warera.io/trpc/"
 def call(proc, inp):
     r = urllib.request.Request(B + proc + "?input=" + urllib.parse.quote(json.dumps(inp)), headers={"X-API-Key": KEY, "User-Agent": "wartrack-probe"})
-    try:
-        return json.load(urllib.request.urlopen(r, timeout=30))
-    except urllib.error.HTTPError as e:
-        return json.loads(e.read() or b"{}")
-IE = "6813b6d446e731854c7ac7fe"   # Ireland
-bad = call("transaction.getPaginatedTransactions", {"countryId": IE, "transactionType": "zzz", "limit": 1})
-print("INVALID TYPE ERROR:", json.dumps(bad)[:1500])
-seen = set()
-all_ = call("transaction.getPaginatedTransactions", {"countryId": IE, "limit": 100})
-items = (all_.get("result") or {}).get("data", {}).get("items", [])
-print("ANY TYPE: got", len(items), "error" if "error" in all_ else "")
-for t in items:
-    ty = t.get("transactionType")
-    if ty not in seen:
-        seen.add(ty)
-        print("TYPE", ty, "->", json.dumps({k: (v if not isinstance(v, (dict, list)) else "<%s>" % type(v).__name__) for k, v in t.items()})[:700])
-for ty in ("itemMarket", "trading", "market", "marketSale", "itemTrading", "tradeOrder"):
-    r = call("transaction.getPaginatedTransactions", {"countryId": IE, "transactionType": ty, "limit": 3})
-    print("TRY", ty, json.dumps(r)[:600])
+    return json.load(urllib.request.urlopen(r, timeout=30))["result"]["data"]
+cut = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=24)).isoformat().replace("+00:00", "Z")
+for name, cid in (("Ireland", "6813b6d446e731854c7ac7fe"), ("Mexico", "6813b6d446e731854c7ac7f8")):
+    n = money = pages = 0; cur = None; other = 0
+    while pages < 40:
+        d = call("transaction.getPaginatedTransactions", {"countryId": cid, "transactionType": "trading", "limit": 100, **({"cursor": cur} if cur else {})})
+        pages += 1
+        stop = False
+        for t in d["items"]:
+            if t["createdAt"] < cut: stop = True; break
+            n += 1; money += t.get("money") or 0
+            if t.get("buyerCountryId") != cid: other += 1
+        cur = d.get("nextCursor")
+        if stop or not cur or not d["items"]: break
+    print(f"VOLUME {name}: {n} trades in 24h, value {money:.0f}, pages {pages}, buyer elsewhere {other}")
