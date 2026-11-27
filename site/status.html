@@ -70,7 +70,7 @@ function render(){
   if(!runs.length)kids.push(el("div",{class:"note",text:"No runs recorded yet: they appear from the next refresh."}));
   v.appendChild(card("Recent runs",kids));
   // stored data
-  var R=S.rows||{},names={battles:"Battles",battle_stat:"Battle ranking rows",bounty_snap:"Bounty snapshots",contracts:"Mercenary contracts",companies:"Companies (Ireland)",transfers:"Money transfers",donations:"Citizen donations",player_snap:"Player daily snapshots",player_skill:"Player skill sets"};
+  var R=S.rows||{},names={battles:"Battles",battle_stat:"Battle ranking rows",bounty_snap:"Bounty snapshots",contracts:"Mercenary contracts",companies:"Companies (Ireland)",transfers:"Money transfers",donations:"Citizen donations",player_snap:"Player daily snapshots",player_skill:"Player skill sets",country_income:"Country income (hourly)"};
   var tb2=el("tbody");Object.keys(names).forEach(function(k){var tr=el("tr");tr.appendChild(el("td",{"data-label":"Data",text:names[k]}));tr.appendChild(el("td",{class:"n","data-label":"Rows",text:(R[k]||0).toLocaleString()}));tb2.appendChild(tr)});
   v.appendChild(card("Stored history",[el("div",{class:"tw"},[el("table",{class:"stack"},[el("thead",null,[el("tr",null,[el("th",{text:"Data"}),el("th",{class:"n",text:"Rows"})])]),tb2])]),
     el("div",{class:"note",text:"Kept for 90 days (bounty snapshots older than a week: one per day). Transfers from "+(S.transfersSince||"–").slice(0,10)+", donations from "+(S.donationsSince||"–").slice(0,10)+"."})]))}

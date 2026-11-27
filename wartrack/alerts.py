@@ -58,6 +58,65 @@ def skipped(db, stages):
         _set(db, "skipped_at", now.isoformat(timespec="seconds")); db.commit()
 
 
+def _num(name, default):
+    try:
+        return float(os.environ.get(name) or default)
+    except ValueError:
+        return float(default)
+
+
+def money_lines(db, members, now=None):
+    """Alerts about money: transfers between member nations of at least ALERT_TRANSFER_MIN (default 5,000); a citizen giving
+    their own nation at least ALERT_DONATION_DAY_MIN in one UTC day (default 5,000; single donations are capped at 200);
+    a member treasury falling by at least ALERT_TREASURY_DROP_MIN (default 5,000) and by half within 24 hours.
+    Each kind records a baseline the first time, so old events are never posted."""
+    import datetime as dt
+    if not members:
+        return []
+    now = now or dt.datetime.now(dt.timezone.utc)
+    mem = ",".join("?" * len(members))
+    out = []
+    # transfers
+    tmin = _num("ALERT_TRANSFER_MIN", 5000)
+    newest = db.execute(f"SELECT MAX(ts) FROM transfers WHERE sender IN ({mem}) AND receiver IN ({mem})", (*members, *members)).fetchone()[0]
+    last = _state(db, "transfer_ts")
+    if last is not None:
+        for r in db.execute(f"""SELECT * FROM transfers WHERE ts>? AND money>=? AND sender IN ({mem}) AND receiver IN ({mem}) ORDER BY ts""",
+                            (last, tmin, *members, *members)):
+            out.append(f"💸 Large transfer: {_name(db, 'country', r['sender'])} → {_name(db, 'country', r['receiver'])} **{_fmt(r['money'])}** ({r['ts'][:16].replace('T', ' ')} UTC)")
+    if newest and (last is None or newest > last):
+        _set(db, "transfer_ts", newest)
+    # donations: per citizen, per own nation, per UTC day (today and yesterday)
+    dmin = _num("ALERT_DONATION_DAY_MIN", 5000)
+    first = _state(db, "donation_alerts_on") is None
+    since = (now.date() - dt.timedelta(days=1)).isoformat()
+    for r in db.execute(f"""SELECT donor, country, substr(ts,1,10) day, SUM(money) total, COUNT(*) n FROM donations
+            WHERE ts>=? AND country IN ({mem}) AND donor_country=country GROUP BY donor, country, day HAVING total>=?""", (since, *members, dmin)):
+        key = f"don:{r['donor']}:{r['country']}:{r['day']}"
+        if _state(db, key) is None:
+            if not first:
+                out.append(f"🎁 Big donation day: {_esc(_name(db, 'user', r['donor']))} gave {_name(db, 'country', r['country'])} **{_fmt(r['total'])}** in {r['n']} donations on {r['day']}")
+            _set(db, key, now.isoformat(timespec="seconds"))
+    if first:
+        _set(db, "donation_alerts_on", now.isoformat(timespec="seconds"))
+    db.execute("DELETE FROM alert_state WHERE k LIKE 'don:%' AND substr(k, -10) < ?", ((now.date() - dt.timedelta(days=3)).isoformat(),))
+    # treasuries: now against the highest value in the last 24 hours (hourly history)
+    drop_min = _num("ALERT_TREASURY_DROP_MIN", 5000)
+    t24 = int((now - dt.timedelta(hours=24)).timestamp() * 1000)
+    for c in members:
+        rows = db.execute("SELECT t, money FROM country_income WHERE country=? AND t>=? ORDER BY t", (c, t24)).fetchall()
+        if len(rows) < 2:
+            continue
+        peak, cur = max(r["money"] or 0 for r in rows), rows[-1]["money"] or 0
+        key = f"treasury:{c}"
+        lastt = _state(db, key)
+        recent = lastt and now - dt.datetime.fromisoformat(lastt) < dt.timedelta(hours=12)
+        if peak - cur >= drop_min and cur <= peak / 2 and not recent:
+            out.append(f"🏦 Treasury drop: {_name(db, 'country', c)} fell from **{_fmt(peak)}** to **{_fmt(cur)}** in the last 24 hours")
+            _set(db, key, now.isoformat(timespec="seconds"))
+    return out
+
+
 def _ended_line(db, b, members):
     att, dfn = _name(db, "country", b["att_country"]), _name(db, "country", b["def_country"])
     won = b["won_by"]
@@ -108,6 +167,9 @@ def run(db, scope):
         for b in sorted((x for x in battles.values() if x["ended_at"]), key=lambda x: x["ended_at"]):
             if b["ended_at"] > last["battle_ended"]:
                 lines.append(_ended_line(db, b, members))
+
+    # 3) money: large transfers, a citizen's big donation day, sharp treasury drops
+    lines += money_lines(db, members)
 
     if lines:
         extra = len(lines) - MAX_LINES

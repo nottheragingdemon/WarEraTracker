@@ -1,0 +1,5 @@
+# Collector dependencies for the GitHub Actions workflows (the Streamlit app needs only streamlit, see pyproject.toml).
+# Pinned so an upstream release can't break a run; update deliberately.
+aiohttp==3.14.5
+# HTTP client: AsyncHTTPClient from nottheragingdemon/async-http-kit 0.4.0 (pinned to its commit until a v0.4.0 tag exists)
+asynchttp[aiohttp] @ git+https://github.com/nottheragingdemon/async-http-kit@97d28fea16f1c775dc2772b7dbfa6b3eb22f0c07

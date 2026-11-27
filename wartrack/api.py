@@ -2,8 +2,8 @@
 import json, os, time, threading, urllib.parse, urllib.request, urllib.error, collections
 from concurrent.futures import ThreadPoolExecutor
 
-try:   # the project's own aiohttp client (wartrack/async_requests.py); plain urllib is the fallback if aiohttp is missing
-    from .async_requests import AsyncHTTPClient
+try:   # AsyncHTTPClient from the async-http-kit package (asynchttp.aio, aiohttp); plain urllib is the fallback if it isn't installed
+    from asynchttp.aio import AsyncHTTPClient
 except ImportError:   # pragma: no cover
     AsyncHTTPClient = None
 

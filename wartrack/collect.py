@@ -373,6 +373,15 @@ def collect_alliances(c, db):
     log(f"alliances: {len(items)} stored")
 
 
+def alliance_countries(db):
+    """member countries of the alliance named in scope.json (empty if none)"""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scope.json")
+    name = json.load(open(path)).get("alliance") if os.path.exists(path) else None
+    if not name:
+        return set()
+    return {r[0] for r in db.execute("SELECT am.country FROM alliance_members am JOIN alliances a ON a.id=am.alliance WHERE a.name=?", (name,))}
+
+
 def collect_regions(c, db):
     """Region names (one public call) so battles can show where they are fought."""
     d = c.call("region.getRegionsObject")
@@ -399,6 +408,7 @@ def collect_regions(c, db):
     try:
         lastr = {r["country"]: (r["income"], r["manager"]) for r in db.execute(
             "SELECT country,income,manager FROM rate_hist WHERE (country,t) IN (SELECT country,MAX(t) FROM rate_hist GROUP BY country)")}
+        tracked = alliance_countries(db)
         for ct in c.call("country.getAllCountries"):
             tx = ct.get("taxes") or {}
             cur = (tx.get("income"), tx.get("manager"))
@@ -407,6 +417,9 @@ def collect_regions(c, db):
             db.execute("INSERT OR REPLACE INTO country_tax VALUES(?,?,?,?,?)",
                        (ct["_id"], ct.get("name"), tx.get("income"), tx.get("manager"), tx.get("market")))
             cw = (ct.get("rankings") or {}).get("countryWealth") or {}
+            if ct["_id"] in tracked and isinstance(ct.get("income"), dict):   # hourly history for the alliance's countries
+                db.execute("INSERT OR REPLACE INTO country_income VALUES(?,?,?,?)",
+                           (ct["_id"], now - now % 3_600_000, ct.get("money"), json.dumps(ct["income"], separators=(",", ":"))))
             db.execute("""INSERT OR REPLACE INTO country_now(country,name,money,wealth,wealth_rank,population,development,updated,income)
                           VALUES(?,?,?,?,?,?,?,?,?)""",
                        (ct["_id"], ct.get("name"), ct.get("money"), cw.get("value"), cw.get("rank"),
@@ -545,7 +558,7 @@ def prune(db, days=None):
         SELECT MAX(ts) FROM bounty_snap WHERE ts<? GROUP BY substr(ts,1,10))""", (iso(7), iso(7)))
     for t, col in (("transfers", "ts"), ("donations", "ts")):
         db.execute(f"DELETE FROM {t} WHERE {col}<?", (cut,))
-    for t in ("region_rate", "wage_snap", "run_log"):
+    for t in ("region_rate", "wage_snap", "run_log", "country_income"):
         db.execute(f"DELETE FROM {t} WHERE t<?", (cut_ms,))
     db.execute("DELETE FROM company_skip WHERE checked<?", (iso(7),))
     db.execute("DELETE FROM player_snap WHERE day<?", (cut[:10],))

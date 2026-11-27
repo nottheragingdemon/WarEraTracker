@@ -166,6 +166,15 @@ function incomeCard(hn){
   var kids=[el("div",{class:"kpis"},[el("div",{class:"kpi"},[el("b",{text:String(m0(total))}),el("span",{text:"Total income per day"})]),el("div",{class:"kpi"},[el("b",{text:String(m2(total/24))}),el("span",{text:"Per hour"})]),
       el("div",{class:"kpi"},[el("b",{text:String(m0(row[0]))}),el("span",{text:"Treasury now"})])]),box,t,
     note("The game’s current income rate for "+hn+", per hour × 24. Employee income tax here is the whole country’s, from every company in it, not only the ones tracked above. Market tax on sales isn’t reported per hour by the game, so it isn’t included.")];
+  // day by day: the average hourly rate that day x 24 (sampled every 15 minutes to an hour)
+  var hist=(D.countryIncomeDays||[]).filter(function(r){return r[0]===st.host}).slice(-30);
+  if(hist.length){kids.push(el("h3",{text:"Income per day, last "+hist.length+" days"}));
+    var hm=Math.max.apply(null,hist.map(function(r){return +r[4].total||0}).concat([1])),hb=el("div",{class:"hbars"});
+    hist.slice().reverse().forEach(function(r){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*(+r[4].total||0)/hm)+"%";
+      hb.appendChild(el("div",{class:"hrow",title:r[2]+" samples that day"},[el("span",{class:"hname",text:r[1]+(r[2]<12?" (partial)":"")}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:String(m0(+r[4].total||0))})]))});
+    kids.push(hb);
+    kids.push(tbl([["Day",function(r){return r[1]}],["Total",function(r){return m0(+r[4].total||0)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0(+r[4][x[0]]||0)},1]})).concat([["Treasury (end of day)",function(r){return m0(r[3])},1]]),hist.slice().reverse()));
+    kids.push(note("Each day is the average hourly rate across that day’s checks × 24. “Partial” marks days with fewer than 12 checks (for example today, or when tracking started)."))}
   if(ea){var er=ea.map(function(c){var r=(D.countryNow||{})[String(c)],i=r&&r[5];return i?{c:c,i:i,t:(i.total!=null?+i.total:0)*24}:null}).filter(Boolean).sort(function(a,b){return b.t-a.t});
     if(er.length){kids.push(el("h3",{text:"All Emerald Accord nations, per day"}));
       kids.push(tbl([["Nation",function(r){return nm(r.c)+(r.c===st.host?" ●":"")}],["Total",function(r){return m0(r.t)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0((+r.i[x[0]]||0)*24)},1]})),er))}}

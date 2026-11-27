@@ -27,12 +27,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install aiohttp
+        run: pip install -r requirements-collector.txt
       - name: Simulated failure (test)
         if: ${{ inputs.test_failure }}
         run: |
@@ -53,6 +53,9 @@ jobs:
       - name: Battle alerts
         env:
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          ALERT_TRANSFER_MIN: ${{ vars.ALERT_TRANSFER_MIN }}
+          ALERT_DONATION_DAY_MIN: ${{ vars.ALERT_DONATION_DAY_MIN }}
+          ALERT_TREASURY_DROP_MIN: ${{ vars.ALERT_TREASURY_DROP_MIN }}
         run: python3 -m wartrack alerts
       - name: Save history to the state branch
         run: |

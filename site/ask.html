@@ -74,6 +74,13 @@ function build(){
   T.players={cols:["player","country","mu","build","eco_share_pct","skill_points","wealth","wealth_week_ago","wealth_change","damage_7d","weekly_damage_game","compared_with_day","skills_reset_at"].concat(SKO.map(function(k){return"skill_"+k})),
    rows:(D.players||[]).map(function(r){var eco=r[9]?r[10]/r[9]:null,b=eco==null?null:eco<=0.2?"War":eco>0.5?"Eco":"Hybrid",hist=!!r[6],dmg=hist?Math.max(0,r[4]-r[8]):r[5];
      return[ent(r[0]),ent(r[1]),ent(r[2]),b,eco==null?null:Math.round(eco*1000)/10,r[9],r[3],hist?r[7]:null,hist?Math.round((r[3]-r[7])*100)/100:null,dmg,r[5],r[6],r[12]||null].concat(SKO.map(function(k,i){return r[11]?r[11][i]:null}))})};
+  var STR=["employeeIncomeTax","managerIncomeTax","development","strategicResourcesBonus","govType"];
+  T.country_income_now={cols:["country","treasury","total_per_day"].concat(STR.map(function(k){return k+"_per_day"})),
+   rows:Object.keys(D.countryNow||{}).filter(function(k){return D.countryNow[k][5]}).map(function(k){var i=D.countryNow[k][5];return[ent(+k),Math.round(D.countryNow[k][0]*100)/100,Math.round((+i.total||0)*2400)/100].concat(STR.map(function(s){return Math.round((+i[s]||0)*2400)/100}))})};
+  T.country_income_days={cols:["country","day","checks","treasury_end_of_day","total"].concat(STR),
+   rows:(D.countryIncomeDays||[]).map(function(r){return[ent(r[0]),r[1],r[2],r[3],r[4].total].concat(STR.map(function(s){return r[4][s]==null?null:r[4][s]}))})};
+  T.collector_runs={cols:["time","kind","seconds","api_calls","gateway_calls","skipped_stages"],
+   rows:((D.status||{}).runs||[]).map(function(r){return[r[0],r[1],r[2],r[3],r[4],r[5]||null]})};
   var am=[];Object.keys(D.alliances||{}).forEach(function(a){D.alliances[a].forEach(function(c){am.push([ent(+a),ent(c)])})});
   T.alliance_members={cols:["alliance","country"],rows:am};
 }
@@ -89,6 +96,9 @@ var DOC={
  country_tax_history:"employee and manager income tax rate (%) per country each time the rate was sampled or changed",
  region_tax_days:"integrated region tax (employee+manager income tax) per region and UTC day since tracking began; hours_tracked = hours covered that day",
  alliance_members:"alliance to member country",
+ country_income_now:"every country's income right now from the game, per day (hourly rate x 24) and by stream: employee and manager income tax, development, strategic resources bonus, government type; plus treasury. Market tax is not included",
+ country_income_days:"the alliance's countries, income per UTC day (average hourly rate that day x 24) by stream, how many checks that day, treasury at the end of the day; last 60 days",
+ collector_runs:"recent collector runs: time, kind (full = hourly refresh, sample = 15-minute check), seconds, API calls, stages skipped after API errors",
  players:"player efficiency: players of the alliance's countries with the most damage this week (top ~100 per country), one row each: build (War = 20% or less of skill points in companies, energy, management, production; Eco = over 50%; Hybrid between), eco_share_pct, skill_points spent, current wealth, wealth on compared_with_day (the oldest daily snapshot in the last 7 days; null until one exists) and wealth_change, damage_7d (from daily snapshots, or the game's weekly figure before there is history), skill levels (skill_*: a level-L skill costs 1+2+...+L points)",
  country_now:"current state of every country: treasury (money), country_wealth (game wealth ranking value and rank), population, development",
  player_wealth:"richest players of the tracked alliance's countries (game userWealth ranking, top ~200 per country, latest snapshot): wealth, country, mu. The game does not say whether this counts companies"};

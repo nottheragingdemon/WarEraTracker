@@ -32,10 +32,11 @@ The API key is never stored in the repo. The repo is public, so the `state` bran
 Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run streamlit_app.py`.
 
 ## Data
-- `wartrack/` is the collector and exporter: Python standard library plus `aiohttp` (requests go through `wartrack/async_requests.py`, several at once; urllib is the fallback). `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
+- `wartrack/` is the collector and exporter: Python standard library plus `AsyncHTTPClient` from [async-http-kit](https://github.com/nottheragingdemon/async-http-kit) (`asynchttp.aio`, on aiohttp) for many requests at once; urllib is the fallback. Collector dependencies are pinned in `requirements-collector.txt`. `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
 - History lives in a SQLite database kept on the `state` branch (one force-pushed commit). Data older than 90 days is pruned (`WARTRACK_KEEP_DAYS`); bounty snapshots older than a week keep one per day.
 - `site/data.json` is the core data (per-battle stats packed, about 2 MB); `site/ask-data.json` (bounty history, contracts) is loaded by Ask WarEra only.
 - Transfers and donations are kept for 90 days. Player efficiency takes one snapshot of wealth and total damage per player per UTC day, for each nation's top 100 players by this week's damage, and refreshes skills daily or after a reset (a level-L skill costs 1+2+…+L points).
+- Country income (treasury and income by stream) is stored hourly for the alliance's countries; the Company tax tracker shows it day by day.
 - The MU list is refreshed every 6 hours (`WARTRACK_PEOPLE_EVERY_H`) and closed mercenary contracts every 3 hours (`WARTRACK_CONTRACTS_FULL_H`).
 - The community cache `gateway.warerastats.io` can be used first by setting the repository variable `WARERA_GATEWAY=1` (or the *gateway* switch on a manual run). It is off by default: in November 2026 it was slower than the official API and returned backend errors in every run.
 
@@ -53,6 +54,7 @@ Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run stre
 With `ALERT_WEBHOOK_URL` set: new battles involving the alliance, battles that ended (won or lost, damage per side, link), the weekly digest
 (this week against last week, top countries and players, bounty per 1M damage, player efficiency, transfers and donations),
 a warning with a link when a workflow run fails, and a note when collector stages are skipped after API errors (at most every 6 hours).
+Money alerts: a transfer between alliance nations of at least `ALERT_TRANSFER_MIN` (default 5,000), a citizen giving their own nation at least `ALERT_DONATION_DAY_MIN` in one day (default 5,000; single donations are capped at 200), and a treasury falling by at least `ALERT_TREASURY_DROP_MIN` (default 5,000) and by half within 24 hours. Change the defaults with repository variables of the same names.
 The first run of each alert type only records a baseline.
 
 ## Backups and recovery

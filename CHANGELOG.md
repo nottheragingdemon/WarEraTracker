@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.1.0 — 2026-11-27
+- **Company tax tracker:** country income per day, day by day for the last 30 days (by stream, with the treasury at the end of each day), from new hourly income history.
+- **Alerts:** large transfers between alliance nations, a citizen's big donation day, sharp treasury drops (thresholds as repository variables).
+- **Ask WarEra:** tables for country income (now and by day) and collector runs.
+- **Maintenance:** GitHub Actions on `checkout@v5` and `setup-python@v6` (Node 24); collector dependencies pinned in `requirements-collector.txt`; the HTTP client now comes from async-http-kit 0.4.0 (`asynchttp.aio`) instead of a copy in this repo.
+
 ## 1.0.0 — 2026-11-27
 First tagged version.
 - **Apps:** WarEra Tracker (damage, bounty per 1M damage with daily chart, player card and battle drill-down, player comparison, per-country bar chart, Open-battle links); Company tax tracker (now visible to everyone, with country income per day by stream); EA Money Transfers (transfers tab with sortable list, citizen donations tab with totals, filters and sortable tables); Player efficiency (War / Hybrid / Eco builds, weekly wealth against damage, trend charts, military unit filter, skill-reset markers); Status page; Ask WarEra (testing mode).
