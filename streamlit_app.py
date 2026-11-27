@@ -127,6 +127,25 @@ def _gh(method, path, body=None):
         return json.loads(r.read().decode())
 
 
+def explain_save_error(e):
+    """A plain-language reason for a failed save (GitHub's raw error text means little on a phone)."""
+    import urllib.error
+    code = e.code if isinstance(e, urllib.error.HTTPError) else None
+    if code == 401:
+        return "GitHub didn't accept the token (it may have expired). Make a new fine-grained token and put it in this app's Secrets as GITHUB_TOKEN."
+    if code == 403:
+        return "The token isn't allowed to write to the back-end repository. It needs Contents: read and write on that repo (or GitHub is rate-limiting; try again in a minute)."
+    if code == 404:
+        return "GitHub can't find agreements.json or the repository for this token. Check GITHUB_REPO and that the token covers the back-end repo."
+    if code in (409, 422):
+        return "Someone saved a change while this page was open. Reload the page to get the latest list, then make your change again."
+    if code and code >= 500:
+        return "GitHub is having problems. Nothing was saved; try again shortly."
+    if isinstance(e, (urllib.error.URLError, TimeoutError)):
+        return "Couldn't reach GitHub. Nothing was saved; check the connection and try again."
+    return f"{e}"
+
+
 def token_status():
     """('ok'|'warn'|'bad', message) for the Settings token: GitHub reports a fine-grained token's expiry in a response header."""
     import datetime as dt, urllib.error, urllib.request
@@ -202,6 +221,14 @@ def settings():
         if ents[int(a)][2] == ALLIANCE:
             hosts = sorted(ents[c][2] for c in members if ents[c][2])
     sha, current, cur_ratio = None, {}, float(data.get("paperRatio") or 0.5)
+
+    def published():   # the agreements as published in data.json (ids turned back into names); core regions show as the list of regions
+        out = {}
+        rn = {k: r[0] for k, r in (data.get("regionsNow") or {}).items()}
+        for h, items in (data.get("agreements") or {}).items():
+            out[ents[int(h)][2]] = [{"country": ents[x[0]][2], "regions": "all" if x[1] is None else [rn.get(r, r) for r in x[1]],
+                                     "pay_percent": x[2] if len(x) > 2 else 90, "payments_since": x[3] if len(x) > 3 else "2026-11-01"} for x in items]
+        return out
     if _has_token():
         try:
             got = _gh("GET", AGREEMENTS_PATH)
@@ -209,14 +236,13 @@ def settings():
             _file = json.loads(base64.b64decode(got["content"]).decode())
             current = _file.get("agreements") or {}
             cur_ratio = float(_file.get("paper_ratio", 0.5))
-        except Exception as e:   # no file yet, or the token can't read it
-            if "404" not in str(e):
-                st.error(f"Couldn't read the saved agreements: {e}")
-    else:   # no token: show the agreements as published in data.json (ids turned back into names)
-        rn = {k: r[0] for k, r in (data.get("regionsNow") or {}).items()}
-        for h, items in (data.get("agreements") or {}).items():
-            current[ents[int(h)][2]] = [{"country": ents[x[0]][2], "regions": "all" if x[1] is None else [rn.get(r, r) for r in x[1]],
-                                         "pay_percent": x[2] if len(x) > 2 else 90, "payments_since": x[3] if len(x) > 3 else "2026-11-01"} for x in items]
+        except Exception as e:   # the token can't read the file (GitHub answers 404 when a token has no access to a private repository)
+            current = published()
+            st.warning(f"Couldn't read agreements.json with this app's GitHub token. {explain_save_error(e)} The agreements shown are the ones published "
+                       "on the pages. Saving is off until the token can read the file.")
+            sha = "unreadable"
+    else:
+        current = published()
     regions_of = {}
     for _rid, r in (data.get("regionsNow") or {}).items():
         host_name = ents[r[1]][2] if r[1] is not None and r[1] >= 0 else None
@@ -229,7 +255,7 @@ def settings():
     current = {h: norm(v) for h, v in current.items()}
     SCOPES = {"Core regions only (not conquered ones)": "core", "All regions": "all", "Chosen regions": "list"}
     new = {}
-    for h in sorted(set(hosts) | set(current)):
+    for h in sorted(set(hosts) | set(current), key=lambda h: (not current.get(h), h)):   # countries with an agreement first
         cur = {x["country"]: x["regions"] for x in current.get(h, []) if x["country"]}
         cur_pay = {x["country"]: x["pay_percent"] for x in current.get(h, []) if x["country"]}
         cur_since = {x["country"]: x["payments_since"] for x in current.get(h, []) if x["country"]}
@@ -287,6 +313,8 @@ def settings():
         st.write(f"• Paper per unit of tax {cur_ratio:g} → {ratio:g}. Applies to every month's paper figures at the next refresh.")
     for line in preview_changes(data, current, new):
         st.write("• " + line)
+    if sha == "unreadable":
+        return
     if st.button("Save agreements", type="primary"):
         try:
             payload = {"message": "Settings: tax agreements (from the Streamlit app)",
@@ -296,7 +324,7 @@ def settings():
             _gh("PUT", AGREEMENTS_PATH, payload)
             st.success("Saved. The collector uses it from the next hourly refresh; the pages follow after that refresh.")
         except Exception as e:
-            st.error(f"Couldn't save: {e}")
+            st.error(f"Couldn't save. {explain_save_error(e)} What you typed is still here; nothing was changed.")
 
 
 # Temporarily hidden while testing. Open the app with ?key=<DEV_KEY> (DEV_KEY is set in the app's Secrets, never in the repo)

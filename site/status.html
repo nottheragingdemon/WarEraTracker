@@ -120,6 +120,12 @@ function render(){
     var kp=[[wk.length,"Full refreshes, last 7 days","expected about 168"],[bad,"With a skipped stage",bad?"see Recent runs":"none"],[Math.round(avg)+" s","Average duration","slowest "+Math.round(mx)+" s"]];
     if(slow)kp.push([slow.k,"Slowest stage (avg "+slow.n.toFixed(1)+" s)",slow.o!=null&&older.length?(slow.n>slow.o*1.5&&slow.n-slow.o>2?"getting slower: "+slow.o.toFixed(1)+" s earlier this week":"steady"):""]);
     v.appendChild(card("Last 7 days",[kpis(kp)]))})();
+  // saved month statements (each is also kept as a CSV in the private repo after the refresh that saves it)
+  (function(){var sm=Object.keys(D.statements||{}).sort(),ag=D.statementsLive&&Object.keys(D.statementsLive).length;
+    if(!sm.length&&!ag)return;
+    var now=new Date(),nxt=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1)).toISOString().slice(0,10);
+    v.appendChild(card("Saved month statements",[kpis([[sm.length,"Months saved",sm.length?"latest "+sm[sm.length-1]:"none yet"],[nxt,"Next month ends","its statement is saved at the first refresh after"]]),
+      el("div",{class:"note",text:sm.length?"Each saved month is also kept as a CSV file (statements/"+sm[sm.length-1]+".csv) in the private back-end repository.":"The first month's statement is saved when it ends; it is then also written as a CSV file in the private back-end repository."})]))})();
   // recent runs
   var shown=runs.filter(function(r){return st.kind==="all"||r[1]===st.kind}).slice(0,st.limit);
   var tb=el("tbody");shown.forEach(function(r){var tr=el("tr");[[when(r[0]),""],[r[1]==="full"?"Full refresh":"15-minute check",""],[Math.round(r[2])+" s","n"],[String(r[3]),"n"],[r[5]?"skipped: "+r[5]:"ok",""]].forEach(function(c,i){

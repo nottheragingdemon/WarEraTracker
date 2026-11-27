@@ -58,6 +58,47 @@ class PreviewChanges(unittest.TestCase):
         self.assertTrue(any("removed" in l for l in ns["preview_changes"](data, cur, {})))
 
 
+@unittest.skipUnless(AppTest, "needs streamlit")
+class SettingsAgreements(unittest.TestCase):
+    def run_settings(self, tweak):
+        src = open(os.path.join(ROOT, "streamlit_app.py")).read()
+        src = src[:src.index("# Temporarily hidden")].replace("HERE = Path(__file__).parent", f"HERE = Path({ROOT!r})") + tweak + "\nsettings()\n"
+        at = AppTest.from_string(src, default_timeout=60)
+        at.run()
+        self.assertFalse(at.exception, [e.message for e in at.exception])
+        return at
+
+    def test_agreements_show_first_without_token(self):
+        at = self.run_settings("")
+        labels = [m.label for m in at.multiselect]
+        self.assertTrue(labels[0].startswith("Ireland:"), labels[:3])
+        self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
+
+    def test_unreadable_file_falls_back_and_blocks_saving(self):
+        at = self.run_settings("import urllib.error\n_has_token = lambda: True\n"
+                               "def _gh(*a, **k): raise urllib.error.HTTPError('u', 404, 'nf', {}, None)\n")
+        self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
+        self.assertTrue(any("Couldn't read agreements.json" in w.value for w in at.warning))
+        self.assertEqual([b.label for b in at.button if b.label == "Save agreements"], [])
+
+
+class SaveErrors(unittest.TestCase):
+    def test_plain_reasons(self):
+        import urllib.error
+        src = open(os.path.join(os.path.dirname(__file__), "..", "streamlit_app.py")).read()
+        ns = {}
+        exec(src[src.index("def explain_save_error"):src.index("def token_status")], ns)
+        f = ns["explain_save_error"]
+        mk = lambda c: urllib.error.HTTPError("u", c, "x", {}, None)
+        self.assertIn("expired", f(mk(401)))
+        self.assertIn("Contents", f(mk(403)))
+        self.assertIn("Reload", f(mk(409)))
+        self.assertIn("Reload", f(mk(422)))
+        self.assertIn("GitHub is having problems", f(mk(502)))
+        self.assertIn("Couldn't reach", f(urllib.error.URLError("down")))
+        self.assertEqual(f(ValueError("odd")), "odd")
+
+
 class PageInlining(unittest.TestCase):
     """The Streamlit app inlines the data files into each page (a page run from a string can't fetch them)."""
 
