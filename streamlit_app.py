@@ -9,20 +9,20 @@ import streamlit.components.v1 as components
 
 HERE = Path(__file__).parent
 st.set_page_config(page_title="WarEra", page_icon="⚔️", layout="wide")
-# No Streamlit top bar or sidebar: each page has its own content, and a fixed menu at the bottom switches apps.
+# No Streamlit top bar or sidebar: a fixed menu at the top switches apps.
 st.markdown("""<style>
 header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{display:none !important}
-[data-testid="stMainBlockContainer"],.block-container{padding:0.5rem 0.5rem 5.5rem !important}
+[data-testid="stMainBlockContainer"],.block-container{padding:3.4rem 0.5rem 0.5rem !important}
 [data-testid="stElementContainer"]:has(>[data-testid="stMarkdown"] style),[data-testid="stElementContainer"]:has(style:only-child){display:none}
-[data-testid="stLayoutWrapper"]:has(>.st-key-bottomnav){display:contents}
-.st-key-bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:1000;background:#14181d;border-top:1px solid #2a313a;padding:6px 6px calc(6px + env(safe-area-inset-bottom));
+[data-testid="stLayoutWrapper"]:has(>.st-key-appnav){display:contents}
+.st-key-appnav{position:fixed;left:0;right:0;top:0;z-index:1000;background:#14181d;border-bottom:1px solid #2a313a;padding:calc(6px + env(safe-area-inset-top)) 6px 6px;
   display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;gap:2px !important;overflow-x:auto;justify-content:safe center;scrollbar-width:none}
-.st-key-bottomnav::-webkit-scrollbar{display:none}
-.st-key-bottomnav>div{flex:0 0 auto !important;width:auto !important;min-width:0 !important}
-.st-key-bottomnav a{display:flex !important;flex-direction:column;align-items:center;gap:1px;padding:4px 10px !important;border-radius:10px;text-decoration:none !important;min-width:58px}
-.st-key-bottomnav a p{font-size:11px !important;line-height:1.2;margin:0;white-space:nowrap}
-.st-key-bottomnav a span[data-testid="stIconEmoji"],.st-key-bottomnav a span:first-child{font-size:20px !important;line-height:1.1;margin:0 !important}
-.st-key-bottomnav a[aria-current="page"],.st-key-bottomnav a[data-testid*="Active"],.st-key-bottomnav a.active{background:rgba(74,222,128,0.14)}
+.st-key-appnav::-webkit-scrollbar{display:none}
+.st-key-appnav>div{flex:0 0 auto !important;width:auto !important;min-width:0 !important}
+.st-key-appnav a{display:flex !important;flex-direction:column;align-items:center;gap:1px;padding:4px 10px !important;border-radius:10px;text-decoration:none !important;min-width:58px}
+.st-key-appnav a p{font-size:11px !important;line-height:1.2;margin:0;white-space:nowrap}
+.st-key-appnav a span[data-testid="stIconEmoji"],.st-key-appnav a span:first-child{font-size:20px !important;line-height:1.1;margin:0 !important}
+.st-key-appnav a[aria-current="page"],.st-key-appnav a[data-testid*="Active"],.st-key-appnav a.active{background:rgba(74,222,128,0.14)}
 </style>""", unsafe_allow_html=True)
 
 
@@ -130,7 +130,7 @@ SHORT = {"tracker": "Tracker", "company-tax": "Taxes", "transfers": "Transfers",
          "status": "Status", "guide": "Guide", "ask": "Ask"}
 _shown = [(key, pg) for key, pg in _pages.items() if _dev or key not in HIDDEN]
 nav = st.navigation([pg for _, pg in _shown], position="hidden")
-with st.container(key="bottomnav"):   # the bottom menu: one button per app (styled fixed at the bottom above)
+with st.container(key="appnav"):   # the app menu: one button per app (styled fixed at the top above)
     for key, pg in _shown:
         st.page_link(pg, label=SHORT[key], icon=pg.icon)
     st.page_link("https://we.hawtre.net/", label="we.hawtre", icon="↗️")
