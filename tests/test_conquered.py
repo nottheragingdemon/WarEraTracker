@@ -53,3 +53,18 @@ class PackAndFullTests(unittest.TestCase):
         d.execute("INSERT INTO companies(id,region,workers,wages,mgr,full) VALUES('a','r1',3,6.0,0,0),('b','r1',2,4.0,0,1)")
         r = coverage_rows(d, {"h"})[0]
         self.assertEqual((r[2], r[4], r[8], r[9]), (2, 1.0, 1, 0.6))   # 2 staffed, tax 10% of 10; 1 full; 10% of 6 without it
+
+
+class ThinTests(unittest.TestCase):
+    def test_tiers(self):
+        H, D = 3_600_000, 86_400_000
+        now = 100 * D
+        evs = [(now - h * H, [h]) for h in range(0, 60 * 24, 1)]   # hourly for 60 days
+        out = X._thin(evs, now - 48 * H, 6 * H, now - 35 * D)
+        recent = [t for t, _ in out if t >= now - 48 * H]
+        mid = [t for t, _ in out if now - 35 * D <= t < now - 48 * H]
+        old = [t for t, _ in out if t < now - 35 * D]
+        self.assertEqual(len(recent), 48)
+        self.assertLessEqual(len(mid), 33 * 4 + 2)
+        self.assertLessEqual(len(old), 26)
+        self.assertEqual([t for t, _ in out], sorted(t for t, _ in out))

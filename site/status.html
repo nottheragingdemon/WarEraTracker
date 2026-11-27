@@ -31,10 +31,10 @@
 "use strict";
 var D=null,st={kind:"all",limit:30};
 var $=function(i){return document.getElementById(i)};
-function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
+var el=window.weEl;
 function nm(i){var e=D&&D.ents&&D.ents[i];return e?(e[2]||("…"+String(e[1]).slice(-6))):"–"}
-function card(t,kids){return el("div",{class:"card"},[el("h2",{text:t})].concat(kids||[]))}
-function kpis(list){return el("div",{class:"kpis"},list.map(function(x){return el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})])}))}
+var card=window.weCard;
+var kpis=window.weKpis;
 function ago(iso){if(!iso)return"never";var h=(Date.now()-Date.parse(iso))/36e5;return h<1?Math.max(1,Math.round(h*60))+" min ago":h<48?Math.round(h)+" h ago":Math.round(h/24)+" days ago"}
 function hrs(iso){return iso?(Date.now()-Date.parse(iso))/36e5:Infinity}
 function when(iso){return iso?String(iso).slice(0,16).replace("T"," ")+" UTC":"–"}

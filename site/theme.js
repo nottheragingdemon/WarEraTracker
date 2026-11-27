@@ -83,3 +83,13 @@ document.addEventListener("DOMContentLoaded",function(){var n=document.getElemen
 window.weUnpackCompanies=function(cx){if(!cx||cx.__unpacked)return cx;var rk=cx.regionKeys,ik=cx.items;
   if(rk||ik)(cx.companies||[]).forEach(function(c){if(ik&&typeof c[2]==="number")c[2]=ik[c[2]];if(rk&&typeof c[4]==="number")c[4]=rk[c[4]]});
   if(rk)(cx.wageHistReg||[]).forEach(function(r){if(typeof r[0]==="number")r[0]=rk[r[0]]});cx.__unpacked=true;return cx};
+
+/* shared page helpers (each page used to carry its own copy) */
+window.weEl=function(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}
+  (kids||[]).forEach(function(c){if(c==null||c===false||c==="")return;e.appendChild(typeof c==="object"?c:document.createTextNode(String(c)))});return e};
+window.weCard=function(title,kids){return weEl("div",{class:"card"},[weEl("h2",{text:title})].concat(kids||[]))};
+/* KPI tiles from [value, label, optional note] */
+window.weKpis=function(list){return weEl("div",{class:"kpis"},list.map(function(x){return weEl("div",{class:"kpi"},[weEl("b",{text:String(x[0])}),weEl("span",{text:x[1]}),x[2]?weEl("small",{text:x[2],style:"display:block;color:var(--muted);margin-top:2px"}):null])}))};
+/* a formatted number that also carries its raw value (for sorting and CSV) */
+window.weNum=function(n,d){var o=new String(n==null||isNaN(n)?"–":Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}));o.raw=n==null||isNaN(n)?"":Math.round(n*1e4)/1e4;return o};
+window.weFmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};

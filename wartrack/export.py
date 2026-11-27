@@ -1,5 +1,5 @@
 """Export the database to a compact data.json for the dashboard page (no network access needed)."""
-import json, os, datetime as dt
+import json, os, time, datetime as dt
 
 from .stages.health import freshness
 
@@ -45,9 +45,9 @@ SKILLS = ["companies", "energy", "management", "production", "attack", "precisio
           "health", "hunger", "stamina", "lootChance"]   # the first four are the economy skills
 
 
-def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
+def company_history(db, E, days=92, full_hours=48, bucket_hours=6):
     """Wage history per (host country, region's core country, owner country) for the Company tax tracker: every snapshot from
-    the last 48 hours, the last one in each 6-hour block before that, for 35 days.
+    the last 48 hours, the last one in each 6-hour block before that up to 35 days, then one per day, for 92 days.
     Rows: [host, owner country, t, companies, workers, wages/h, manager pay/h, core country].
     The core country differs from the host only for conquered regions (it gets a share of their tax). Older snapshots
     (wage_snap per region, wage_snap2 per host, before 27 Nov 2026) did not split by core: their rows have no 8th field."""
@@ -80,7 +80,7 @@ def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
             (r["t"], [r["companies"], r["workers"], r["wages"], r["mgr"] or 0]))
     rows = []
     for (h, core, o), evs in series.items():
-        for t, v in _thin(evs, full_from, bucket):
+        for t, v in _thin(evs, full_from, bucket, now - DAILY_AFTER_DAYS * 864e5):
             rows.append([E("country", h), E("country", o), t, v[0], v[1], round(v[2], 4), round(v[3], 4)] + ([E("country", core)] if core else []))
     rows.sort(key=lambda r: r[2])
     return rows
@@ -103,19 +103,24 @@ def pack_companies(cx):
     return dict(cx, companies=comps, wageHistReg=hreg, regionKeys=rk, items=ik)
 
 
-def _thin(evs, full_from, bucket):
-    """Every snapshot from full_from on; before that, the last one in each block."""
+DAILY_AFTER_DAYS = 35   # older wage history keeps one snapshot per day instead of one per 6 hours
+
+
+def _thin(evs, full_from, bucket, daily_before=None):
+    """Every snapshot from full_from on; before that, the last one in each block (one per day before daily_before)."""
     evs = sorted(evs, key=lambda x: x[0])
     keep, last_bucket = [], {}
     for t, v in evs:
         if t >= full_from:
             keep.append((t, v))
+        elif daily_before is not None and t < daily_before:
+            last_bucket[("d", t // 86_400_000)] = (t, v)
         else:
-            last_bucket[t // bucket] = (t, v)   # the last snapshot in each block wins
-    return sorted(last_bucket.values()) + keep
+            last_bucket[("b", t // bucket)] = (t, v)   # the last snapshot in each block wins
+    return sorted(last_bucket.values(), key=lambda x: x[0]) + keep
 
 
-def region_history(db, E, days=35, full_hours=48, bucket_hours=6):
+def region_history(db, E, days=92, full_hours=48, bucket_hours=6):
     """Wage history per conquered region and owner country (recorded from 27 Nov 2026), thinned like company_history.
     Rows: [region id, owner country, t, companies, workers, wages/h, manager pay/h]."""
     import time
@@ -125,7 +130,7 @@ def region_history(db, E, days=35, full_hours=48, bucket_hours=6):
     for r in db.execute("SELECT * FROM wage_snap_reg WHERE t>=? ORDER BY t", (lo,)):
         series.setdefault((r["region"], r["owner_country"]), []).append((r["t"], [r["companies"], r["workers"], r["wages"], r["mgr"] or 0]))
     rows = [[reg, E("country", o), t, v[0], v[1], round(v[2], 4), round(v[3], 4)]
-            for (reg, o), evs in series.items() for t, v in _thin(evs, full_from, bucket)]
+            for (reg, o), evs in series.items() for t, v in _thin(evs, full_from, bucket, now - DAILY_AFTER_DAYS * 864e5)]
     rows.sort(key=lambda r: r[2])
     return rows
 
@@ -278,7 +283,7 @@ def export(db, out, since, scope=None):
     rate_hist = {}
     for r in db.execute("SELECT * FROM rate_hist ORDER BY t"):
         rate_hist.setdefault(str(E("country", r["country"])), []).append([r["t"], r["income"], r["manager"]])
-    runs = [r["t"] for r in db.execute("SELECT t FROM run_log ORDER BY t DESC LIMIT 1500")][::-1]
+    runs = [r["t"] for r in db.execute("SELECT t FROM run_log WHERE t>=? ORDER BY t", (int(time.time() * 1000) - 92 * 864e5,))]   # the same 92 days as the wage history
     for e in ents:
         r = db.execute("SELECT name FROM names WHERE etype=? AND eid=?", (e[0], e[1])).fetchone()
         e[2] = r["name"] if r else None

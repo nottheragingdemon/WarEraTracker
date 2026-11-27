@@ -95,6 +95,21 @@ def freeze(db, hosts, now=None, log=print):
     return month
 
 
+def preview_text(db, host, month=None):
+    """The statement text for a month (default: this one) as it stands now, without saving anything; uses the frozen rows
+    when the month is already saved."""
+    month = month or dt.datetime.now(dt.timezone.utc).strftime("%Y-%m")
+    if db.execute("SELECT 1 FROM statements WHERE month=? AND host=?", (month, host)).fetchone():
+        return text(db, month, host)
+    rows = compute(db, host, month)
+    db.executemany("INSERT OR REPLACE INTO statements VALUES(?,?,?,?,?)", [(month, host, o, v[0], v[1]) for o, v in rows.items()])
+    try:
+        t = text(db, month, host)
+    finally:
+        db.rollback()
+    return t.replace("(final)", "(so far — preview, not final)") if t else None
+
+
 def text(db, month, host, top=12):
     """A Discord-ready statement for one host and month, from the frozen rows."""
     name = lambda c: (db.execute("SELECT name FROM country_tax WHERE country=?", (c,)).fetchone() or [c])[0]

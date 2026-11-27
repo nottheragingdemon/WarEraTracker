@@ -3,6 +3,13 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.11.0 — 2026-11-27
+- **Statement preview:** a manual *Statement preview* workflow (and `python -m wartrack alerts --statement-preview Ireland`) posts this month's statement so far to Discord, marked as a preview.
+- **Company tax tracker:** *Month by month* (each month's tax owed, core-country share and what the host keeps; final where saved, otherwise worked out from history) and *Tax rate history* (every change to the host's employee and manager tax, how long each rate held).
+- **Longer history:** the page's wage history now covers 92 days (every check for 48 hours, one per 6 hours to 35 days, then one per day), so earlier months can be looked at.
+- **Player efficiency:** *Week before* columns (the same measure and damage for the previous 7 days) and each player's rank change within the nation (↑/↓, or *new*). They fill in once two weeks of daily snapshots exist.
+- **Code health:** the pages share one set of helpers in theme.js (elements, cards, KPI tiles, numbers, dates) instead of seven copies.
+
 ## 1.10.0 — 2026-11-27
 - **Month statements frozen:** on the 1st, the first full refresh saves last month's statement for every alliance host (`statements`, kept permanently), worked out exactly as the page does (checked: same total to the cent). The tax tracker then shows that month as *(final)*. Preview any time with `python -m wartrack statement --host Ireland [--month YYYY-MM]`.
 - **Statement on Discord:** the refresh's alert step posts last month's final statement once (hosts by name in `STATEMENT_HOSTS`, default Ireland).

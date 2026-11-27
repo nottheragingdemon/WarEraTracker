@@ -43,10 +43,10 @@
 "use strict";
 var D=null,st={tab:"damage",by:"auto",sort:"date",from:"",to:"",alliance:-1,country:-1,mu:-1,user:-1,limit:50,bview:"country",cscope:"any",metric:0,loc:-1,bsel:null,cmp:["","",""],pbat:false,psort:"date"};
 var $=function(i){return document.getElementById(i)};
-function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
+var el=window.weEl;
 var fmt=function(n){var o=new String(fmt0(n));o.raw=n==null?"":Math.round(n*100)/100;return o};
 var fmt0=function(n){if(n==null)return"–";var a=Math.abs(n);if(a>=1e9)return(n/1e9).toFixed(2)+"B";if(a>=1e6)return(n/1e6).toFixed(2)+"M";if(a>=1e4)return(n/1e3).toFixed(1)+"k";return Number(n).toLocaleString(undefined,{maximumFractionDigits:2})};
-var fmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};
+var fmtD=window.weFmtD;
 var TYPE={user:"Player",mu:"MU",country:"Country",alliance:"Alliance"};
 function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||(e[0]==="country"?e[1].slice(-6):TYPE[e[0]]+" …"+e[1].slice(-6))}
 function tip(e,t){var x=$("tip");x.textContent=t;x.style.display="block";x.style.left=Math.min(e.clientX+12,innerWidth-230)+"px";x.style.top=(e.clientY+12)+"px"}

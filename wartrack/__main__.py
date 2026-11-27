@@ -31,6 +31,7 @@ def main():
     al.add_argument("--force", action="store_true", help="with --digest: send even if one was sent recently")
     al.add_argument("--print-digest", action="store_true", help="print the digest text instead of sending it")
     al.add_argument("--failure", metavar="TEXT", help="send a failure notice to the webhook and exit")
+    al.add_argument("--statement-preview", metavar="COUNTRY", help="post this month's company tax statement so far for COUNTRY (a preview)")
 
     x = sub.add_parser("export", help="write data.json for the dashboard")
     x.add_argument("--since", default=cfg.get("since", "7d")); x.add_argument("--alliance", default=cfg.get("alliance")); x.add_argument("--out", default="site/data.json")
@@ -114,13 +115,7 @@ def main():
         if not h:
             raise SystemExit(f"unknown country {a.host}")
         month = a.month or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m")
-        if not db.execute("SELECT 1 FROM statements WHERE month=? AND host=?", (month, h[0])).fetchone():
-            rows = STM.compute(db, h[0], month)
-            db.executemany("INSERT OR REPLACE INTO statements VALUES(?,?,?,?,?)", [(month, h[0], o, v[0], v[1]) for o, v in rows.items()])
-            print(STM.text(db, month, h[0]).replace("(final)", "(so far, not saved)"))
-            db.rollback()
-        else:
-            print(STM.text(db, month, h[0]))
+        print(STM.preview_text(db, h[0], month) or "nothing tracked for that month")
         return
     if a.cmd == "alerts":
         from . import alerts as AL
@@ -133,6 +128,16 @@ def main():
             AL.digest(db, sc, force=a.force); return
         if a.test:
             AL.test(); return
+        if a.statement_preview:
+            from . import statement as STM
+            h = db.execute("SELECT country FROM country_tax WHERE name=?", (a.statement_preview,)).fetchone()
+            txt = STM.preview_text(db, h[0]) if h else None
+            if not txt:
+                raise SystemExit(f"no statement for {a.statement_preview}")
+            url = os.environ.get("ALERT_WEBHOOK_URL")
+            if not url:
+                print(txt); return
+            AL.post(url, txt); print("posted:\n" + txt); return
         AL.run(db, C.Scope(db, cfg.get("alliance"), C.parse_when(cfg.get("since", "7d")))); return
     R.load_countries(cl, db)
     if a.cmd == "export":

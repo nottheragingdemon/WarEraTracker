@@ -35,7 +35,7 @@
 (function(){
 "use strict";
 var $=function(i){return document.getElementById(i)};
-function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
+var el=window.weEl;
 var D=null,T={},sample=null,results={},seq=0,logLines=[],busy=false;
 
 /* ---------- flatten data.json into tables Claude can query ---------- */
@@ -99,7 +99,7 @@ var DOC={
  companies:"every company standing in an Emerald Accord country (the host), whoever owns it: name, owner, item, value, region, owner_country (the owner's citizenship, any country), workers, and the current hourly money cost of wages and of the manager. Join region to regions_now for the host country",
  regions_now:"every region now: held_by_country (who holds it and collects its tax), core_country (its original country), conquered (true when another country holds it: the game then hands the core country 10% of its tax, core_country_share_per_hour), hourly_employee_tax and hourly_manager_tax (the game's tax amounts per hour, not rates), and the game's own company and employee counts",
  region_wage_history:"wage cost snapshots per conquered region in an alliance country and owner country (from 27 Nov 2026): companies, workers, hourly_wages, hourly_manager_cost",
- wage_history:"wage cost snapshots per host country (an alliance country) and owner country: companies, workers, hourly_wages, hourly_manager_cost, region_core_country (original country of the regions counted: differs from the host for conquered regions, which hand it 10% of their tax; null before 27 Nov 2026); every change in the last 48 hours, one per 6 hours before that, 35 days",
+ wage_history:"wage cost snapshots per host country (an alliance country) and owner country: companies, workers, hourly_wages, hourly_manager_cost, region_core_country (original country of the regions counted: differs from the host for conquered regions, which hand it 10% of their tax; null before 27 Nov 2026); every change in the last 48 hours, one per 6 hours before that up to 35 days, then one per day, 92 days",
  country_tax_history:"employee and manager income tax rate (%) per country each time the rate was sampled or changed",
  region_tax_days:"integrated region tax (employee+manager income tax) per region and UTC day since tracking began; hours_tracked = hours covered that day",
  alliance_members:"alliance to member country",

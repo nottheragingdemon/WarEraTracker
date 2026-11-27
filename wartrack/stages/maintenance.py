@@ -29,8 +29,8 @@ def prune(db, days=None):
     for t in ("region_rate", "wage_snap", "wage_snap2", "wage_snap3", "wage_snap_reg", "full_hist", "run_log", "country_income"):
         if t in tables:
             db.execute(f"DELETE FROM {t} WHERE t<?", (cut_ms,))
-    for t in ("wage_snap", "wage_snap2"):   # retired formats: drop once nothing in them is inside the 35-day company history
-        if t in tables and not db.execute(f"SELECT 1 FROM {t} WHERE t>=? LIMIT 1", (ms(35),)).fetchone():
+    for t in ("wage_snap", "wage_snap2"):   # retired formats: drop once nothing in them is inside the 92-day company history
+        if t in tables and not db.execute(f"SELECT 1 FROM {t} WHERE t>=? LIMIT 1", (ms(92),)).fetchone():
             db.execute(f"DROP TABLE {t}"); log(f"prune: retired table {t} dropped")
     db.execute("DELETE FROM company_skip WHERE checked<?", (iso(7),))
     db.execute("DELETE FROM player_snap WHERE day<?", (cut[:10],))

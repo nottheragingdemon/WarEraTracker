@@ -37,7 +37,7 @@
 var D=null,st={nation:-1,mu:-1,metric:null,build:"all",name:"",open:{}},HIST={},HDAYS=[];
 var WAR=0.20,ECO=0.50,MIN=1e6,TOP=20;   // build thresholds (share of skill points in the four economy skills) and the damage floor
 var $=function(i){return document.getElementById(i)};
-function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c)e.appendChild(c)});return e}
+var el=window.weEl;
 function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||("…"+e[1].slice(-6))}
 function big(n){if(n==null||isNaN(n))return"–";var a=Math.abs(n);return a>=1e9?(n/1e9).toFixed(2)+"B":a>=1e6?(n/1e6).toFixed(2)+"M":a>=1e4?(n/1e3).toFixed(1)+"k":Math.round(n).toLocaleString()}
 function sgn(n){return n==null?"–":(n>0?"+":"")+big(n)}
@@ -48,9 +48,15 @@ function rows(){
   return D.players.map(function(r){var p={u:r[0],c:r[1],mu:r[2],wealth:r[3],dTot:r[4],dWeek:r[5],day:r[6],wThen:r[7],dThen:r[8],spent:r[9],eco:r[10],lv:r[11],reset:r[12],prev:r[13]};
     p.hist=!!p.day;p.dmg=p.hist?Math.max(0,p.dTot-p.dThen):p.dWeek;p.gain=p.hist?p.wealth-p.wThen:null;p.b=build(p);
     p.pb=p.prev?build({spent:p.prev[0],eco:p.prev[1]}):null;p.recent=p.reset&&(Date.now()-Date.parse(p.reset))<7*864e5;
-    p.perGain=p.gain!=null&&p.dmg>0?p.gain/(p.dmg/1e6):null;p.perWealth=p.dmg>0?p.wealth/(p.dmg/1e6):null;return p})}
-function card(t,kids){return el("div",{class:"card"},[el("h2",{text:t})].concat(kids||[]))}
-function kpis(list){return el("div",{class:"kpis"},list.map(function(x){return el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})])}))}
+    p.perGain=p.gain!=null&&p.dmg>0?p.gain/(p.dmg/1e6):null;p.perWealth=p.dmg>0?p.wealth/(p.dmg/1e6):null;
+    var lw=weekAgo(p.u);p.lw=lw;if(lw){lw.perGain=lw.dmg>0?lw.gain/(lw.dmg/1e6):null;lw.perWealth=lw.dmg>0?lw.wealth/(lw.dmg/1e6):null}return p})}
+/* the week before this one, from the daily snapshots: wealth gained and damage dealt between 14 and 7 days before the latest day */
+function weekAgo(u){var h=HIST[u];if(!h||!HDAYS.length)return null;
+  var at=function(off){var lim=new Date(Date.parse(HDAYS[HDAYS.length-1])-off*864e5).toISOString().slice(0,10);for(var i=HDAYS.length-1;i>=0;i--)if(HDAYS[i]<=lim&&h[0][i]!=null&&h[1][i]!=null)return i;return -1};
+  var b=at(7),a=at(14);if(a<0||b<0||a===b||Date.parse(HDAYS[b])-Date.parse(HDAYS[a])<5*864e5)return null;
+  return{gain:h[0][b]-h[0][a],dmg:Math.max(0,h[1][b]-h[1][a]),wealth:h[0][b],from:HDAYS[a],to:HDAYS[b]}}
+var card=window.weCard;
+var kpis=window.weKpis;
 function chips(opts,key){var seg=el("div",{class:"seg"});opts.forEach(function(o){var b=el("button",{class:"chip",text:o[1],"aria-pressed":String(st[key]===o[0])});b.onclick=function(){st[key]=o[0];render()};seg.appendChild(b)});return seg}
 function badge(b,p){if(!b)return el("span",{class:"muted",text:"–"});
   var w=el("span",{class:"bwrap"},[el("span",{class:"build b-"+b.kind.toLowerCase(),text:b.kind+" · "+Math.round(100*b.share)+"% eco",title:"Share of skill points in companies, energy, management and production"})]);
@@ -58,11 +64,12 @@ function badge(b,p){if(!b)return el("span",{class:"muted",text:"–"});
   return w}
 function skillLine(p){if(!p.lv)return"Skills not loaded yet.";return SK.map(function(k,i){return k+" "+p.lv[i]}).filter(function(x){return !/ 0$/.test(x)}).join(" · ")+" ("+p.spent+" points, "+p.eco+" in economy skills)"}
 function table(list,metric){
-  var t=el("table",{class:"stack compact"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage"];
+  var t=el("table",{class:"stack compact"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage","Week before","Damage week before"];
   var h=el("tr");cols.forEach(function(c,i){h.appendChild(el("th",{class:i>=3||i===0?"n":"",text:c}))});t.appendChild(el("thead",null,[h]));
   var tb=el("tbody");
   list.forEach(function(p,i){var v=metric==="gain"?p.perGain:p.perWealth;
-    var cells=[raw(String(i+1),i+1),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v)];
+    var lv=p.lw?(metric==="gain"?p.lw.perGain:p.lw.perWealth):null,mv=p.prevRank==null?(p.lw?" new":""):p.prevRank>i+1?" ↑"+(p.prevRank-i-1):p.prevRank<i+1?" ↓"+(i+1-p.prevRank):" =";
+    var cells=[raw(String(i+1)+mv,i+1),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v),raw(lv==null?"–":big(lv),lv),raw(p.lw?big(p.lw.dmg):"–",p.lw?p.lw.dmg:null)];
     var tr=el("tr",{class:st.open[p.u]?"sel":""});tr.style.cursor="pointer";
     cells.forEach(function(c,j){var td=el("td",{class:(j>=3||j===0?"n":"")+(j===1?"lead":""),"data-label":cols[j]});if(j===2)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
     tr.onclick=function(){st.open[p.u]=!st.open[p.u];render()};tb.appendChild(tr);
@@ -102,14 +109,19 @@ function render(){
   var mix={War:0,Hybrid:0,Eco:0};qual.forEach(function(p){if(p.b)mix[p.b.kind]++});
   v.appendChild(kpis([[qual.length,"Players with 1M+ damage"],[mix.War,"War builds"],[mix.Hybrid,"Hybrid builds"],[mix.Eco,"Eco builds"]]));
   var ctl=card("How players are ranked",[chips([["gain","Wealth gained per 1M damage"],["wealth","Wealth per 1M damage"]],"metric"),chips([["all","All builds"],["War","War"],["Hybrid","Hybrid"],["Eco","Eco"]],"build"),
-    el("div",{class:"note",text:"Each nation lists its top "+TOP+" players with at least 1M damage over the last 7 days, ranked by "+(metric==="gain"?"how much wealth they gained for every 1M damage dealt":"their wealth for every 1M damage dealt")+". Build: War = "+Math.round(WAR*100)+"% or less of skill points in companies, energy, management and production; Eco = more than "+Math.round(ECO*100)+"%; Hybrid in between. Tap a player for their skills."}),
+    el("div",{class:"note",text:"Each nation lists its top "+TOP+" players with at least 1M damage over the last 7 days, ranked by "+(metric==="gain"?"how much wealth they gained for every 1M damage dealt":"their wealth for every 1M damage dealt")+". Build: War = "+Math.round(WAR*100)+"% or less of skill points in companies, energy, management and production; Eco = more than "+Math.round(ECO*100)+"%; Hybrid in between. Tap a player for their skills. Week before: the same measure for the 7 days before that, with ↑/↓ for the change in rank within the nation (new = not ranked the week before)."}),
     hist?null:el("div",{class:"note",text:"Weekly wealth change needs a snapshot from an earlier day: the first one was taken today, so changes appear from tomorrow and cover a full week after 7 days. Until then, damage is the game's weekly ranking (since its weekly reset)."})]);
   v.appendChild(ctl);
   var by={};qual.forEach(function(p){(by[p.c]=by[p.c]||[]).push(p)});
   var key=function(p){var x=metric==="gain"?p.perGain:p.perWealth;return x==null?-Infinity:x};
   var nations=Object.keys(by).map(Number).sort(function(a,b){return by[b].length-by[a].length||nm(a).localeCompare(nm(b))});
   if(!nations.length){v.appendChild(card("No players",[el("div",{class:"note",text:"No tracked player matches these filters with 1M+ damage in the last 7 days."})]));return}
-  nations.forEach(function(c){var l=by[c].sort(function(a,b){return key(b)-key(a)}).slice(0,TOP);
+  var lkey=function(p){var x=p.lw?(metric==="gain"?p.lw.perGain:p.lw.perWealth):null;return x==null?-Infinity:x};
+  nations.forEach(function(c){
+    // last week's rank in this nation: same rule (1M+ damage that week), same measure
+    var prevL=pool.filter(function(p){return p.c===c&&p.lw&&p.lw.dmg>=MIN}).sort(function(a,b){return lkey(b)-lkey(a)});
+    var pr={};prevL.forEach(function(p,i){pr[p.u]=i+1});by[c].forEach(function(p){p.prevRank=pr[p.u]==null?null:pr[p.u]});
+    var l=by[c].sort(function(a,b){return key(b)-key(a)}).slice(0,TOP);
     var m={War:0,Hybrid:0,Eco:0};by[c].forEach(function(p){if(p.b)m[p.b.kind]++});
     v.appendChild(card(nm(c)+" · top "+l.length+" of "+by[c].length,[el("div",{class:"note",text:"Builds among its 1M+ damage players: War "+m.War+" · Hybrid "+m.Hybrid+" · Eco "+m.Eco}),table(l,metric)]))})}
 function stale(){window.weStale(D.generated)}
