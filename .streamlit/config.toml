@@ -4,3 +4,7 @@ primaryColor = "#4ade80"
 backgroundColor = "#0b0d10"
 secondaryBackgroundColor = "#14181d"
 textColor = "#e6e9ee"
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false

@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.6.0 — 2026-11-27
+- **Streamlit:** a fixed menu at the bottom with one button per app (icon and short name; the current app is highlighted) replaces Streamlit's top or side navigation, and Streamlit's own top bar is hidden, so the pages use the whole screen.
+
 ## 1.5.2 — 2026-11-27
 - **Fix:** a batch request where some entries failed (HTTP 207, e.g. a company that closed) failed the whole companies stage; now the entries that worked are kept and the failed ones count as missing. This skipped the companies stage at 09:17 once the index had located 19,416 companies in alliance countries.
 - **Freshness:** the 15-minute check may be up to 2 hours old before it counts as stale, because GitHub often runs it only hourly at busy times.
