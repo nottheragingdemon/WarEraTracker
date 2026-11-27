@@ -45,6 +45,10 @@ def show(name: str):
         st.error("site/data.json not found yet. Run the “Refresh data” workflow once.")
 
 
+def guide():
+    show("guide.html")
+
+
 def status():
     show("status.html")
 
@@ -103,6 +107,7 @@ _pages = {
     "transfers": st.Page(transfers, title="EA Money Transfers", icon="💸", url_path="transfers"),
     "efficiency": st.Page(efficiency, title="Player efficiency", icon="⚖️", url_path="efficiency"),
     "status": st.Page(status, title="Status", icon="🩺", url_path="status"),
+    "guide": st.Page(guide, title="Guide", icon="📖", url_path="guide"),
     "ask": st.Page(ask_warera, title="Ask WarEra", icon="💬", url_path="ask"),
 }
 _dev = _unlocked()

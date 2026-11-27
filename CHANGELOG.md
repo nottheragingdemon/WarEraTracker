@@ -3,6 +3,10 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.3.0 — 2026-11-27
+- **Guide:** a new page for alliance members explaining every app, how figures such as bounty per 1M damage, builds and the market tax estimate are worked out, the data's limits, the Discord alerts and a glossary.
+- **Collector dependencies** install async-http-kit by its `v0.4.0` tag; the Tests workflow also runs when they change.
+
 ## 1.2.2 — 2026-11-27
 - **Code health (no visible change):** the collector is split into `wartrack/stages/` (one module per area), with `wartrack/collect.py` re-exporting every stage; a direct test of the exporter's output (shape, packed stats round trip, file split, day aggregates).
 

@@ -165,3 +165,6 @@ tr.detail td{background:var(--panel-2)}
  html:not(.plain-tables) table.stack.compact td.lead::before{content:none}
  html:not(.plain-tables) table.stack.compact tr.detail td{flex-basis:100%;display:block}
 }
+.guide p,.guide li,.guide dd{line-height:1.5}.guide ul{padding-left:20px;margin:6px 0}.guide li{margin:4px 0}.guide h3{margin:14px 0 4px;font-size:15px}
+.toc{columns:2;column-gap:24px}@media (max-width:640px){.toc{columns:1}}.gloss dt{font-weight:600;margin-top:8px}.gloss dd{margin:2px 0 0}
+.guide .card{scroll-margin-top:12px}

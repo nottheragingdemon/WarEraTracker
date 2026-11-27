@@ -13,6 +13,7 @@ player efficiency, and plain-English questions over the data. A collector on Git
 | `site/transfers.html` **EA Money Transfers** | Tab 1: country money transfers between alliance nations (totals, battles per nation, sortable list). Tab 2: citizens' donations to their own nation (totals, nation, citizen and amount filters, sortable tables, donations per day). |
 | `site/efficiency.html` **Player efficiency** | Per nation, the top 20 players with 1M+ damage in the last 7 days, ranked by wealth gained (or wealth) per 1M damage, with their build: War (20% or less of skill points in companies, energy, management and production), Eco (over 50%) or Hybrid. Tap a player for skills and daily trend charts. |
 | `site/status.html` **Status** | Health checks, the last refresh and its stage timings, recent runs, last backup and digest, stored history. |
+| `site/guide.html` **Guide** | For alliance members: what each app shows, how its figures are worked out, data limits, alerts, glossary. |
 | `site/ask.html` **Ask WarEra** | Questions in plain English answered as tables; runs inside Claude (artifact runtime). Hidden outside testing mode. |
 
 Every page shows an amber banner when its data is more than 2 hours old. Tables have a CSV download and, on phones, a cards or table layout.

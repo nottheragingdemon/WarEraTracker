@@ -32,7 +32,7 @@ def build(out):
     for d in (tracker, ask):
         shutil.rmtree(d, ignore_errors=True)
     link = '<a href="ask.html">Ask WarEra</a>'
-    for name in ("index.html", "company.html", "transfers.html", "efficiency.html", "status.html"):
+    for name in ("index.html", "company.html", "transfers.html", "efficiency.html", "status.html", "guide.html"):
         html = read(name)
         if link not in html:
             raise SystemExit(f"{name}: the Ask link in the navigation was not found")
