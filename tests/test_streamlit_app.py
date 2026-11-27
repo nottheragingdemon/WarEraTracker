@@ -56,3 +56,24 @@ class PreviewChanges(unittest.TestCase):
         self.assertTrue(any("Chile: new agreement" in l for l in out))
         self.assertEqual(ns["preview_changes"](data, cur, cur), [])
         self.assertTrue(any("removed" in l for l in ns["preview_changes"](data, cur, {})))
+
+
+class PageInlining(unittest.TestCase):
+    """The Streamlit app inlines the data files into each page (a page run from a string can't fetch them)."""
+
+    def load_page(self):
+        import json, pathlib, re, types
+        src = open(os.path.join(ROOT, "streamlit_app.py"), encoding="utf-8").read()
+        start = src.index("@st.cache_data(ttl=300)\ndef page"); end = src.index("def show(")
+        st = types.SimpleNamespace(cache_data=lambda **kw: (lambda f: f))
+        ns = {"st": st, "json": json, "re": re, "HERE": pathlib.Path(ROOT)}
+        exec(src[start:end], ns)
+        return ns["page"]
+
+    def test_battle_and_transfer_parts_are_inlined(self):
+        page = self.load_page()
+        index = page("index.html")
+        self.assertIn("window.WE_FILES=", index)
+        self.assertIn('"statsP"', index.split("window.WE_FILES=", 1)[1][:200])   # the battle data is there
+        self.assertIn('"donors"', page("transfers.html").split("window.WE_FILES=", 1)[1][:200])
+        self.assertNotIn("window.WE_FILES=", page("status.html"))   # pages that don't use them don't carry them

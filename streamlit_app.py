@@ -49,6 +49,16 @@ def page(name: str) -> str:
             extra = (HERE / "site" / extra_name).read_text(encoding="utf-8")
             json.loads(extra)
             html = html.replace(extra_fetch, "Promise.resolve(" + extra.replace("</", "<\\/") + ")", 1)
+    # pages that load an optional part of the data with weLoad(d, "file.json", [...]) get it inlined: the page runs from a string, so it can't fetch it
+    parts = {}
+    for part_name in ("battle-data.json", "transfer-data.json"):
+        if 'weLoad(d,"' + part_name + '"' in html:
+            part = (HERE / "site" / part_name).read_text(encoding="utf-8")
+            json.loads(part)
+            parts[part_name] = part
+    if parts:
+        files = "{" + ",".join(json.dumps(k) + ":" + v.replace("</", "<\\/") for k, v in parts.items()) + "}"
+        html = html.replace("<script>" + js + "</script>", "<script>window.WE_FILES=" + files + ";</script><script>" + js + "</script>", 1)
     return html
 
 

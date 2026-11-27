@@ -109,7 +109,7 @@ window.weSchema=function(d){
 /* Parts of the data only some pages need live in their own files (battle-data.json: statsP; transfer-data.json: donors), so the
    others download about a third of the size. Merges the named keys into d; if the file isn't there yet, d keeps what it has. */
 window.weLoad=async function(d,file,keys){
-  try{var x=await fetch(file).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()});keys.forEach(function(k){if(x[k]!=null)d[k]=x[k]})}catch(e){}
+  try{var x=(window.WE_FILES&&window.WE_FILES[file])||await fetch(file).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()});keys.forEach(function(k){if(x[k]!=null)d[k]=x[k]})}catch(e){}
   return d};
 
 /* a closed-by-default section for long explanations */

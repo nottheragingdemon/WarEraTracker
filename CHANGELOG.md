@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.6.1 — 2026-11-27
+- **Fix: Damage tab empty (and donors missing) in the Streamlit app since 2.2.0.** The app inlines the data into each page, but not the new `battle-data.json` / `transfer-data.json`, which the pages then couldn't fetch. The app now inlines them for the pages that use them; a test covers it.
+
 ## 2.6.0 — 2026-11-27
 - **Balance removed from the tax tracker.** In-game transfers are not always tax payments, so the tracker no longer shows Sent, Balance, Last payment, "still to pay" or OVERDUE. The agreements summary now shows what is owed: this month so far, last month, the total for completed months, and the paper cost. (The back end still records treasury transfers; nothing reads them.)
 
