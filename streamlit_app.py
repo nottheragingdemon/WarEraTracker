@@ -11,10 +11,11 @@ HERE = Path(__file__).parent
 st.set_page_config(page_title="WarEra", page_icon="⚔️", layout="wide")
 # No Streamlit top bar or sidebar: a fixed menu at the top switches apps.
 st.markdown("""<style>
-header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecoration"],[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{display:none !important}
+header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stToolbarActions"],[data-testid="stAppDeployButton"],[data-testid="stMainMenu"],[class*="viewerBadge"],[class*="profileContainer"],[class*="profilePreview"],[data-testid="appCreatorAvatar"],a[href*="github.com"],.st-key-ghhide,[data-testid="stDecoration"],[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{display:none !important}
 [data-testid="stMainBlockContainer"],.block-container{padding:3.4rem 0.5rem 0.5rem !important}
 [data-testid="stElementContainer"]:has(>[data-testid="stMarkdown"] style),[data-testid="stElementContainer"]:has(style:only-child){display:none}
 [data-testid="stLayoutWrapper"]:has(>.st-key-appnav){display:contents}
+[data-testid="stLayoutWrapper"]:has(>.st-key-ghhide),[data-testid="stElementContainer"]:has(>.st-key-ghhide){display:none !important}
 .st-key-appnav{position:fixed;left:0;right:0;top:0;z-index:1000;background:#14181d;border-bottom:1px solid #2a313a;padding:calc(6px + env(safe-area-inset-top)) 6px 6px;
   display:flex !important;flex-direction:row !important;flex-wrap:nowrap !important;gap:2px !important;overflow-x:auto;justify-content:safe center;scrollbar-width:none}
 .st-key-appnav::-webkit-scrollbar{display:none}
@@ -139,4 +140,12 @@ with st.container(key="appnav"):   # the app menu: one button per app (styled fi
     st.markdown('<span class="wenavsec">Games</span>', unsafe_allow_html=True)   # the Games section: links to web games
     st.page_link("https://maptap.gg/", label="MapTap", icon="🎮")
     st.page_link("https://boreen.ie/", label="Boreen", icon="🎮")
+# Streamlit Community Cloud adds GitHub links (Fork / GitHub buttons, the creator's GitHub avatar badge) to the page around
+# the app. That page is on the same origin, so a tiny script hides them there too; the CSS above covers the app's own copy.
+_HIDE_GH = """<script>(function(){var css='a[href*="github.com"],[class*="viewerBadge"],[class*="profileContainer"],[class*="profilePreview"],'+
+'[data-testid="appCreatorAvatar"],[data-testid="stToolbarActions"],[data-testid="stAppDeployButton"]{display:none !important}';
+var w=window;for(var i=0;i<4&&w;i++){try{var d=w.document;if(!d.getElementById('we-hide-gh')){var s=d.createElement('style');s.id='we-hide-gh';
+s.textContent=css;d.head.appendChild(s)}}catch(e){}if(w===w.parent)break;w=w.parent}})();</script>"""
+with st.container(key="ghhide"):
+    components.html(_HIDE_GH, height=0)
 nav.run()
