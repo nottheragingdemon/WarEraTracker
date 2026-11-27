@@ -32,6 +32,7 @@
     <label>Month<input type="month" id="f-month"></label>
   </div>
   <div id="view"></div>
+  <div id="events"></div>
 <div id="tip"></div>
 </div>
 <script>
@@ -424,16 +425,27 @@ function fillSelects(){
     // the opening view's Northern Ireland only suits the UK: another source shows all of Ireland unless a region was picked by hand
     if(st.regionByDefault){st.regionByDefault=false;st.region=ALL_REGIONS;fillReg();var keep=st.src;fillSrc();st.src=keep;$("f-src").value=String(keep)}
     render()}}
+function drawEvents(){
+  var h=$("events");if(!h)return;h.textContent="";var ev=D.events||[];
+  var wrap=el("details",{class:"more"},[el("summary",{text:"Companies destroyed or downgraded (last 30 days)"+(ev.length?" · "+ev.length+" events":"")})]);
+  if(!ev.length){wrap.appendChild(note("None seen yet. The collector compares each company with its last refresh: one that is closed, disabled or gone from the game's list counts as destroyed, and one whose estimated value fell by 15% or more as downgraded. Only companies in the alliance's countries are followed, so the first events appear after the next refreshes."));h.appendChild(wrap);return}
+  var by={};ev.forEach(function(e){var k=e[3]+"|"+(e[4]||""),o=by[k]||(by[k]={n:e[3],c:e[4]||"–",d:0,g:0,lost:0,last:e[0]});if(e[1]==="destroyed")o.d++;else o.g++;o.lost+=Math.max(0,e[6]-e[7]);if(e[0]>o.last)o.last=e[0]});
+  var who=Object.keys(by).map(function(k){return by[k]}).sort(function(a,b){return b.lost-a.lost});
+  wrap.appendChild(note("Inferred from the company lists (the game records no destroy or downgrade). The game refunds about 80% of the cost, so the value lost here is roughly what the owner got back as cash, divided by 0.8. A value drop can also come from price moves; a destroyed company is one that closed or was disabled."));
+  wrap.appendChild(tbl([["Player",function(r){return r.n}],["Country",function(r){return r.c}],["Destroyed",function(r){return r.d},1],["Downgraded",function(r){return r.g},1],["Value lost",function(r){return m0(r.lost)},1],["Last",function(r){return fmtD(r.last)}]],who));
+  var rec=el("details",{class:"fold"},[el("summary",{text:"Every event"})]);
+  rec.appendChild(tbl([["Time (UTC)",function(r){return fmtD(r[0])}],["What",function(r){return r[1]}],["Company",function(r){return r[2]||"–"}],["Owner",function(r){return r[3]}],["Region",function(r){return r[5]||"–"}],["Value before",function(r){return m0(r[6])},1],["After",function(r){return m0(r[7])},1]],ev));
+  wrap.appendChild(rec);h.appendChild(wrap)}
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){window.weSchema(d);
   D=d;stale();D.companies=D.companies||[];
-  try{var cx=window.weUnpackCompanies(await fetch("company-data.json").then(function(r){return r.json()}));D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[];D.companies=cx.companies||D.companies||[]}catch(e){D.wageHist=D.wageHist||[];D.companies=D.companies||[]}
+  try{var cx=window.weUnpackCompanies(await fetch("company-data.json").then(function(r){return r.json()}));D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[];D.companies=cx.companies||D.companies||[];D.events=cx.events||[]}catch(e){D.wageHist=D.wageHist||[];D.companies=D.companies||[]}
   var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
   st.month=(days.length?days[days.length-1]:new Date().toISOString().slice(0,10)).slice(0,7);
   $("f-month").value=st.month;$("f-month").onchange=function(){if(this.value){st.month=this.value;render()}};
   fillSelects();
   $("meta").textContent="Updated "+fmtD(D.generated)+" UTC"+(D.companiesAt?" · companies collected "+fmtD(D.companiesAt)+" UTC":"")+" · data from api2.warera.io";
-  render();
+  render();drawEvents();
 }).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
 })();
 </script>
