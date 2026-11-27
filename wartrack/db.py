@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS company_loc(id TEXT PRIMARY KEY, region TEXT, owner TEXT, disabled INTEGER, checked TEXT);
+CREATE TABLE IF NOT EXISTS company_loc(id TEXT PRIMARY KEY, region TEXT, owner TEXT, disabled INTEGER, checked TEXT, listed INTEGER);
 CREATE TABLE IF NOT EXISTS wage_snap2(host TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, owner_country, t));
 CREATE TABLE IF NOT EXISTS trades(id TEXT, ts TEXT, country TEXT, buyer_country TEXT, money REAL, item TEXT, quantity REAL, PRIMARY KEY(id, country));
 CREATE TABLE IF NOT EXISTS country_income(country TEXT, t INTEGER, money REAL, income TEXT, PRIMARY KEY(country, t));
@@ -72,6 +72,9 @@ def connect(path):
     wcols = [r[1] for r in db.execute("PRAGMA table_info(wage_snap)")]
     if wcols and "mgr" not in wcols:
         db.execute("ALTER TABLE wage_snap ADD COLUMN mgr REAL")
+    lcols = [r[1] for r in db.execute("PRAGMA table_info(company_loc)")]
+    if lcols and "listed" not in lcols:
+        db.execute("ALTER TABLE company_loc ADD COLUMN listed INTEGER")   # the full-list pass the company was last seen in
     tcols = [r[1] for r in db.execute("PRAGMA table_info(trades)")]
     if tcols and "buyer_country" not in tcols:   # first version attributed trades to the buyer's country: rebuild and backfill again
         db.execute("DROP TABLE trades")

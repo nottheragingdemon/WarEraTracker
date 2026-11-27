@@ -13,9 +13,10 @@ class Fake:
     n = 0
     ALL = {"k1": ("r1", "u1"), "k2": ("r1", "u2"), "k3": ("r9", "u1"), "k4": ("r1", "u3")}
 
-    def pages(self, proc, **kw):
-        assert proc == "company.getCompanies" and "userId" not in kw   # the global list
-        yield from self.ALL
+    def call(self, proc, perPage=100, cursor=None):
+        assert proc == "company.getCompanies"   # the global list, two ids per page here
+        ids, i = list(self.ALL), int(cursor or 0)
+        return {"items": ids[i:i + 2], "nextCursor": str(i + 2) if i + 2 < len(ids) else None}
 
     def map(self, fn, xs, workers=None):
         return [fn(x) for x in xs]
