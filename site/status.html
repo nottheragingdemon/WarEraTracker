@@ -134,6 +134,23 @@ function render(){
     var now=new Date(),nxt=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()+1,1)).toISOString().slice(0,10);
     v.appendChild(card("Saved month statements",[kpis([[sm.length,"Months saved",sm.length?"latest "+sm[sm.length-1]:"none yet"],[nxt,"Next month ends","its statement is saved at the first refresh after"]]),
       el("div",{class:"note",text:sm.length?"Each saved month is also kept as a CSV file (statements/"+sm[sm.length-1]+".csv) in the private back-end repository.":"The first month's statement is saved when it ends; it is then also written as a CSV file in the private back-end repository."})]))})();
+  // refresh reliability over the last 30 days (a tally kept apart from the run records, which only reach back 14 days)
+  (function(){var rd=D.runDays||[];if(rd.length<2)return;
+    var full=rd.reduce(function(p,x){return p+x[1]},0),sk=rd.reduce(function(p,x){return p+x[2]},0),today=new Date().toISOString().slice(0,10),
+        past=rd.filter(function(x){return x[0]!==today}),weak=past.filter(function(x){return x[1]<20||x[2]>2}).sort(function(a,b){return a[1]-b[1]||b[2]-a[2]}),
+        rate=full?Math.round(1000*(1-sk/full))/10:0;
+    var box=el("div",{class:"hbars"});
+    rd.slice(-14).reverse().forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*Math.min(x[1],24)/24)+"%";
+      box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0].slice(5)}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:x[1]+(x[2]?" · "+x[2]+" skipped":"")})]))});
+    v.appendChild(card("Refresh reliability, last "+rd.length+" days",[kpis([[rate+"%","Full refreshes without a skipped stage",full+" refreshes"],[weak.length,"Days that fell short","under 20 refreshes, or 3+ with a skipped stage"]]),box,
+      el("div",{class:"note",text:"A full day is 24 hourly refreshes (the bar is out of 24)."+(weak.length?" Weakest days: "+weak.slice(0,3).map(function(x){return x[0]+" ("+x[1]+" refreshes, "+x[2]+" with a skipped stage)"}).join("; ")+".":" Every earlier day was complete.")})]))})();
+  // the history database: size and growth (it is saved compressed on a branch; GitHub refuses files over 100 MB)
+  (function(){var z=D.dbSize;if(!z)return;var h=z.hist||[],gr=null;
+    if(h.length>=7){var d0=Date.parse(h[0][0]),d1=Date.parse(h[h.length-1][0]),days=Math.max(1,(d1-d0)/864e5);gr=(h[h.length-1][1]-h[0][1])/days}
+    var left=gr&&gr>0.05?Math.round((80-z.estState)/(gr/7)):null;
+    v.appendChild(card("History size",[kpis([[z.mb.toFixed(0)+" MB","Database","before compression"],[z.estState.toFixed(0)+" MB","Saved size, estimated","limit is 100 MB; a warning is posted at 60"],
+      [gr==null?"–":(gr>=0?"+":"")+gr.toFixed(1)+" MB","Growth per day","over "+h.length+" days"]]),
+      el("div",{class:"note",text:left!=null?"At this rate the saved history reaches 80 MB in about "+left+" days.":"Growth is flat or too short a record to project."})]))})();
   // recent runs
   var shown=runs.filter(function(r){return st.kind==="all"||r[1]===st.kind}).slice(0,st.limit);
   var tb=el("tbody");shown.forEach(function(r){var tr=el("tr");[[when(r[0]),""],[r[1]==="full"?"Full refresh":"15-minute check",""],[Math.round(r[2])+" s","n"],[String(r[3]),"n"],[r[5]?"skipped: "+r[5]:"ok",""]].forEach(function(c,i){

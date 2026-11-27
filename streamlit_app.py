@@ -33,7 +33,9 @@ header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stToolbar
 def page(name: str, stamp: float = 0.0) -> str:   # stamp: the data file's modification time, so a new data commit gets fresh pages at once
     html = (HERE / "site" / name).read_text(encoding="utf-8")
     data = (HERE / "site" / "data.json").read_text(encoding="utf-8")
-    json.loads(data)  # fail early if the file is damaged
+    loaded = json.loads(data)  # fail early if the file is damaged
+    if name == "guide.html":   # the guide only shows the "Updated" stamp and the version check: it needn't carry the whole data file
+        data = json.dumps({"schema": loaded.get("schema"), "generated": loaded.get("generated")})
     old = 'fetch("data.json").then(function(r){return r.json()})'
     if old not in html:
         raise RuntimeError(f"{name} no longer loads data.json the expected way")
@@ -177,6 +179,7 @@ def history_panel(current_sha):
 
 def dryrun_panel():
     """Latest month-end dry run, and a button to start one (the check runs on GitHub against a copy of the history; nothing real changes)."""
+    import base64
     with st.expander("Month-end check: will next month's statement come out right?"):
         st.caption("Saves this month's statement on a copy of the history, as if the month had just ended, and checks the figures, the paper price "
                    "and the CSV. It also runs by itself on 30 November. Nothing real is changed.")
@@ -191,6 +194,16 @@ def dryrun_panel():
                 st.caption("No check has run yet.")
         except Exception as e:   # noqa: BLE001
             st.caption("Couldn't read the latest check. " + explain_actions_error(e))
+        try:   # what the last check looked at, in plain words (the workflow saves it as dryrun-result.json in the back-end repo)
+            got = _gh("GET", "dryrun-result.json")
+            res = json.loads(base64.b64decode(got["content"]).decode())
+            st.write(f"**Last result ({res.get('at', '?')}):** " + ("nothing wrong found." if res.get("ok") else "a problem was found."))
+            for line in res.get("checked") or []:
+                st.write("• " + line)
+            for line in res.get("problems") or []:
+                st.error(line)
+        except Exception:   # noqa: BLE001  no result saved yet
+            pass
         if st.button("Run the check now", key="dryrun_go"):
             try:
                 _gh_actions("POST", "workflows/month-dryrun.yml/dispatches", {"ref": "main"})

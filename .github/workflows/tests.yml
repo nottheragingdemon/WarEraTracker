@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - run: pip install "streamlit>=1.61.1"
+      - run: pip install "streamlit==1.67.0"
       - name: Unit tests (pages, Streamlit app, artifact copies)
         run: python -m unittest discover -s tests -v
       - name: The battle check script compiles
@@ -26,5 +26,5 @@ jobs:
         run: python scripts/smoke_pages.py --streamlit
       - name: Accessibility (contrast, names for buttons, links and fields) in the light and dark theme
         run: |
-          npm install --prefix /tmp/axe axe-core --silent
+          npm install --prefix /tmp/axe axe-core@4.14.1 --silent
           AXE=/tmp/axe/node_modules/axe-core/axe.min.js python scripts/a11y_pages.py

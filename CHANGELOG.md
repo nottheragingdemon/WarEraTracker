@@ -3,6 +3,13 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.13.0 — 2026-11-27
+- **Status:** "Refresh reliability" (the last 30 days: refreshes without a skipped stage, the weakest days) and "History size" (database size, estimated saved size, growth per day and a projection).
+- **Settings:** the month-end check shows what it looked at in plain words.
+- **Guide:** loads in a third of the data (it only needs the "Updated" stamp).
+- **Checks:** a secret scan in the tests (GitHub tokens, webhook URLs, long keys in code, links with `?key=`). Versions pinned in the workflows.
+- Back end: the refresh is asked three times an hour (GitHub drops many scheduled runs; only 3 of the first scheduled runs fired in the new repository) and a gate skips the extras when the data is under 40 minutes old; Discord gets a month-end heads-up on the last two days of the month and a weekly warning if the saved history nears GitHub's file limit.
+
 ## 2.12.0 — 2026-11-27
 - **Tax tracker:** "On course for" shows where the month is heading (the month so far scaled to the whole month, after 2 days of tracking) with the paper cost at the month's low and high price.
 - **Settings:** "Earlier versions" lists the last saves of the agreements and restores any of them (a restore is itself a save). The token check also names a missing permission (Contents or Actions).

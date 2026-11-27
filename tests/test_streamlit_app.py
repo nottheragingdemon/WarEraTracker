@@ -78,8 +78,10 @@ class SettingsAgreements(unittest.TestCase):
         at = self.run_settings("_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
                                "import json as _j, base64 as _b\n"
                                "_f = {'paper_ratio': 0.5, 'agreements': {'Ireland': [{'country': 'Mexico', 'regions': 'core', 'pay_percent': 100, 'payments_since': '2026-11-01'}]}}\n"
-                               "def _gh(m, p, body=None): return {'sha': 's', 'content': _b.b64encode(_j.dumps(_f).encode()).decode()}\n"
+                               "_res = {'at': '2026-11-27 10:00 UTC', 'ok': True, 'checked': ['Ireland: 2 partner countries, 846.85 owed so far'], 'problems': []}\n"
+                               "def _gh(m, p, body=None): return {'sha': 's', 'content': _b.b64encode(_j.dumps(_res if 'dryrun' in p else _f).encode()).decode()}\n"
                                "def _gh_actions(m, p, body=None): return {'workflow_runs': [{'conclusion': 'success', 'status': 'completed', 'created_at': '2026-11-27T10:00:00Z', 'html_url': 'https://x'}]}\n")
+        self.assertTrue(any("846.85 owed so far" in m.value for m in at.markdown))
         self.assertTrue(any("Token works" in s.value for s in at.success))
         self.assertTrue(any("Latest check: success" in s.value for s in at.success))
         self.assertIn("Core regions only (not conquered ones)", [x.value for x in at.selectbox])
@@ -163,6 +165,11 @@ class PageInlining(unittest.TestCase):
         ns = {"st": st, "json": json, "re": re, "HERE": pathlib.Path(ROOT)}
         exec(src[start:end], ns)
         return ns["page"]
+
+    def test_guide_carries_only_the_stamp(self):
+        page = self.load_page()
+        self.assertLess(len(page("guide.html")), 450_000)   # not the whole data file (0.7 MB) on top of the screenshots
+        self.assertIn('"generated"', page("guide.html"))
 
     def test_battle_and_transfer_parts_are_inlined(self):
         page = self.load_page()
