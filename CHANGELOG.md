@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.15.5 — 2026-11-27
+- **Efficiency:** the damage floor is now 5M in the last 7 days (was 1M); the page, guide and the Monday digest use it. The "per 1M damage" measure is unchanged.
+
 ## 2.15.4 — 2026-11-27
 - **Efficiency:** the ranking table sorts by clicking a column heading (click again to reverse, a third click restores the ranking order). Ranks and ↑↓ moves still show the ranking position.
 
