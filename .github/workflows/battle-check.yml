@@ -1,6 +1,8 @@
-name: Quick sample
+name: Battle check
 
-# Every 15 minutes: records region tax rates and checks for new battles, then sends battle alerts (the hourly refresh can start late or be skipped).
+# Every 15 minutes: posts new and ended battles involving the alliance to the alert webhook (Discord). Which battles were
+# already announced is kept in state.json on the battlecheck-state branch. Everything else (the hourly collector, tax data,
+# history) runs in the private back-end repo, which publishes site/*.json here every hour.
 on:
   schedule:
     - cron: "*/15 * * * *"   # GitHub may start runs late or skip one
@@ -16,23 +18,18 @@ on:
         default: false
 
 concurrency:
-  group: refresh
+  group: battlecheck
   cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
-  sample:
+  check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-      - name: Install dependencies
-        run: pip install -r requirements-collector.txt
       - name: Simulated failure (test)
         if: ${{ inputs.test_failure }}
         run: |
@@ -42,30 +39,27 @@ jobs:
         if: ${{ inputs.test_alert }}
         env:
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
-        run: python3 -m wartrack alerts --test
-      - name: Restore history from the state branch
-        run: sh state.sh restore
-      - name: Record tax rates and new battles
+        run: python3 scripts/battlecheck.py state.json --test
+      - name: Restore what was already announced
+        run: |
+          if git fetch -q --depth=1 origin battlecheck-state 2>/dev/null; then git show FETCH_HEAD:state.json > state.json; else echo '{}' > state.json; fi
+          cat state.json
+      - name: Check battles and post alerts
         env:
           WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
-          WARERA_GATEWAY: ${{ vars.WARERA_GATEWAY || '0' }}
-        run: WARTRACK_DB=wartrack.sqlite python3 -m wartrack collect --what regions,alliances,battles
-      - name: Battle alerts
-        env:
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
-          ALERT_TRANSFER_MIN: ${{ vars.ALERT_TRANSFER_MIN }}
-          ALERT_DONATION_DAY_MIN: ${{ vars.ALERT_DONATION_DAY_MIN }}
-          ALERT_TREASURY_DROP_MIN: ${{ vars.ALERT_TREASURY_DROP_MIN }}
-        run: python3 -m wartrack alerts
-      - name: Save history to the state branch
+        run: python3 scripts/battlecheck.py state.json
+      - name: Save what was announced
         run: |
           git config user.name "warera-tracker"; git config user.email "warera-tracker@users.noreply.github.com"
-          sh state.sh save
+          BLOB=$(git hash-object -w state.json)
+          TREE=$(printf '100644 blob %s\tstate.json\n' "$BLOB" | git mktree)
+          COMMIT=$(git commit-tree "$TREE" -m "battle check $(date -u +%FT%TZ)")
+          git push -q --force origin "$COMMIT:refs/heads/battlecheck-state"
       - name: Failure alert
         if: failure()
         env:
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW: ${{ github.workflow }}
-        run: |
-          python3 -m wartrack alerts --failure "WarEra Ireland tools: the $WORKFLOW run failed. $RUN_URL"
+        run: python3 scripts/battlecheck.py --failure "WarEra Ireland tools: the $WORKFLOW run failed. $RUN_URL"

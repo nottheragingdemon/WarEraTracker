@@ -1,8 +1,8 @@
 # WarEra Ireland tools
 
 WarEra Ireland tools for The Emerald Accord alliance in WarEra: battle damage and bounty, company taxes, money transfers and donations,
-player efficiency, and plain-English questions over the data. A collector on GitHub Actions reads the WarEra API
-(`api2.warera.io`) every hour and writes `site/data.json`; the pages read that file.
+player efficiency, and plain-English questions over the data. A collector in a private repo reads the WarEra API
+(`api2.warera.io`) every hour and publishes `site/data.json` here; the pages read that file.
 
 ## Apps
 
@@ -24,46 +24,42 @@ Testing mode (shows hidden pages): tap the footer line 5 times.
 - **Claude artifacts**: `python3 scripts/sync_artifacts.py OUT_DIR` builds the Tracker artifact (all pages but Ask) and the Ask WarEra artifact from `site/`; hourly scheduled tasks run it and publish, so the copies cannot drift from the repo.
 
 ## Set up
-1. Repo **Settings → Secrets and variables → Actions**: secret `WARERA_API_KEY` (your API key); optional secret `ALERT_WEBHOOK_URL` (a Discord or Slack webhook).
-2. Repo **Settings → Actions → General → Workflow permissions: Read and write**.
-3. **Actions → Refresh data → Run workflow** once.
-4. On https://share.streamlit.io choose **Create app**, this repo, branch `main`, file `streamlit_app.py`.
+1. This repo **Settings → Secrets and variables → Actions**: secrets `WARERA_API_KEY` and `ALERT_WEBHOOK_URL` (for the battle check).
+2. **Settings → Actions → General → Workflow permissions: Read and write** (the battle check saves its state branch).
+3. On https://share.streamlit.io choose **Create app**, this repo, branch `main`, file `streamlit_app.py`. Secrets there: `DEV_KEY`
+   (unlocks Ask and Settings), `GITHUB_TOKEN` (fine-grained, Contents read and write on the private back-end repo, so the Settings
+   page can save the tax agreements).
 
-The API key is never stored in the repo. The repo is public, so the `state` branch (the collected game data) is public too.
-Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run streamlit_app.py`.
+The API key and webhook are GitHub secrets only. Run the Streamlit app locally with `uv run streamlit run streamlit_app.py`.
+
+## How it is split
+This repo is **public**: the pages (`site/`), the Streamlit app, the 15-minute battle check and the data files the pages read.
+The collector, the history database and its backups, the tax agreements and the statements live in the **private** repo
+`nottheragingdemon/WarEraTracker-backend`. Every hour it collects, exports and pushes `site/data.json`, `site/ask-data.json`
+and `site/company-data.json` here (the "data: …" commits); Streamlit redeploys on those pushes.
 
 ## Data
-- `wartrack/` is the collector and exporter. The collector stages live in `wartrack/stages/`, one module per area (battles, people, money, economy, efficiency, maintenance; shared helpers in `common`); `wartrack/collect.py` re-exports them. It uses Python standard library plus `AsyncHTTPClient` from [async-http-kit](https://github.com/nottheragingdemon/async-http-kit) (`asynchttp.aio`, on aiohttp) for many requests at once; urllib is the fallback. Collector dependencies are pinned in `requirements-collector.txt`. `scope.json` limits collection to The Emerald Accord's battles since 2026-11-10.
-- History lives in a SQLite database kept on the `state` branch (one force-pushed commit). Data older than 90 days is pruned (`WARTRACK_KEEP_DAYS`); bounty snapshots older than a week keep one per day.
-- `site/data.json` is the core data (per-battle stats packed, about 2 MB); `site/ask-data.json` (bounty history, contracts) is loaded by Ask WarEra only.
-- Transfers and donations are kept for 90 days. Player efficiency takes one snapshot of wealth and total damage per player per UTC day, for each nation's top 100 players by this week's damage, and refreshes skills daily or after a reset (a level-L skill costs 1+2+…+L points).
-- Companies: the API can only list all companies together, so the daily *Company index* workflow records where every company stands (new ones looked up, a seventh of the rest re-checked each day); the hourly refresh then follows every company standing in an alliance country, whoever owns it. Wage history is stored per host and owner country and loaded by the Company page only (`site/company-data.json`).
-- Market trades (`trading` transactions) the game lists under each alliance country (its citizens buying or selling) are kept 30 days to estimate market tax: the country's market tax rate × the average daily value of those trades over the last 7 full days. The game doesn't report market tax, and which side's country collects it isn't published.
-- Country income (treasury and income by stream) is stored hourly for the alliance's countries; the Company tax tracker shows it day by day.
-- The MU list is refreshed every 6 hours (`WARTRACK_PEOPLE_EVERY_H`) and closed mercenary contracts every 3 hours (`WARTRACK_CONTRACTS_FULL_H`).
-- The community cache `gateway.warerastats.io` can be used first by setting the repository variable `WARERA_GATEWAY=1` (or the *gateway* switch on a manual run). It is off by default: in November 2026 it was slower than the official API and returned backend errors in every run.
+- `site/data.json` is the core data (per-battle stats packed); `site/ask-data.json` (bounty history, contracts) is loaded by Ask WarEra only; `site/company-data.json` (tracked companies and wage history) by the Company page and Ask.
+- History is kept for 90 days in the back end (frozen tax statements permanently). The Company tax tracker covers the companies under Ireland's tax agreements (Mexico in Ireland's core regions, the United Kingdom in Northern Ireland).
 
-## Workflows
+## Workflows (this repo)
 | Workflow | When | What |
 |---|---|---|
-| Refresh data | hourly at :17 | collect, export `data.json`, battle alerts, save the database |
-| Quick sample | every 15 minutes | region tax rates and new or ended battles, then battle alerts (switches: test alert, test failure) |
-| Weekly digest | Mondays 08:23 UTC | the week's summary to the webhook (`python -m wartrack alerts --print-digest` shows it without sending) |
-| Company index | daily 04:41 UTC | where every company in the game stands (first run about 10 minutes) |
-| Weekly backup | Sundays 03:07 UTC | copies the database to `backup/state-YYYY-MM-DD`, keeping the newest 4 |
-| Tests | on push | unit tests, then every page in headless Chrome (`scripts/smoke_pages.py`) |
+| Battle check | every 15 minutes | new and ended battles involving the alliance to the webhook (`scripts/battlecheck.py`; already-announced marks on the `battlecheck-state` branch; switches: test alert, test failure) |
+| Tests | on push | page, Streamlit and artifact tests, then every page in headless Chrome (`scripts/smoke_pages.py`) |
 | Release | by hand | tags a version from `CHANGELOG.md` and publishes a GitHub release |
+
+The hourly refresh, company index, backups, weekly digest, statements and their workflows are in the back-end repo.
 
 ## Alerts
 With `ALERT_WEBHOOK_URL` set: new battles involving the alliance, battles that ended (won or lost, damage per side, link), the weekly digest
 (this week against last week, top countries and players, bounty per 1M damage, player efficiency, transfers and donations),
-a warning with a link when a workflow run fails, a note when collector stages are skipped after API errors (at most every 6 hours), and a stale-data warning when any kind of data stops arriving as often as it should (checked every 15 minutes; see `wartrack/stages/health.py`).
+a warning with a link when a workflow run fails, a note when collector stages are skipped after API errors (at most every 6 hours), and a stale-data warning when any kind of data stops arriving as often as it should (checked every hour by the back end). New and ended battles come from the 15-minute battle check in this repo; everything else from the hourly back end.
 Money alerts: a transfer between alliance nations of at least `ALERT_TRANSFER_MIN` (default 5,000), a citizen giving their own nation at least `ALERT_DONATION_DAY_MIN` in one day (default 5,000; single donations are capped at 200), and a treasury falling by at least `ALERT_TREASURY_DROP_MIN` (default 5,000) and by half within 24 hours. Change the defaults with repository variables of the same names.
 The first run of each alert type only records a baseline.
 
 ## Backups and recovery
-`sh state.sh restore` takes the `state` branch, or the newest backup if `state` is missing or damaged; `sh state.sh save` refuses
-to store a damaged or emptied database; `sh state.sh backup` makes a dated copy. A released version can be checked out by its tag (see `CHANGELOG.md`).
+The history database and its weekly backups are in the back-end repo (`state` and `backup/state-*` branches there). A released version of the pages can be checked out by its tag (see `CHANGELOG.md`).
 
 ## Tests
-`python -m unittest discover -s tests` (offline: API client against a fake server, exporter output, digest, money alerts, pruning, donations and trades backfill, player efficiency, artifact sync) and `python3 scripts/smoke_pages.py`.
+`python -m unittest discover -s tests` (the Company page in headless Chrome, the Streamlit app, the artifact copies) and `python3 scripts/smoke_pages.py`. The collector's tests are in the back-end repo.

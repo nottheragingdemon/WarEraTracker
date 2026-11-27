@@ -100,7 +100,7 @@ def ask_warera():
     st.link_button("Open Ask WarEra", ASK_URL.rstrip("/"), type="primary")
 
 
-REPO = "nottheragingdemon/WarEraTracker"
+REPO = "nottheragingdemon/WarEraTracker-backend"   # the private back end holds agreements.json
 AGREEMENTS_PATH = "agreements.json"
 ALLIANCE = "The Emerald Accord"
 
@@ -147,8 +147,11 @@ def settings():
         except Exception as e:   # no file yet, or the token can't read it
             if "404" not in str(e):
                 st.error(f"Couldn't read the saved agreements: {e}")
-    elif (HERE / AGREEMENTS_PATH).exists():
-        current = json.loads((HERE / AGREEMENTS_PATH).read_text(encoding="utf-8")).get("agreements") or {}
+    else:   # no token: show the agreements as published in data.json (ids turned back into names)
+        rn = {k: r[0] for k, r in (data.get("regionsNow") or {}).items()}
+        for h, items in (data.get("agreements") or {}).items():
+            current[ents[int(h)][2]] = [{"country": ents[x[0]][2], "regions": "all" if x[1] is None else [rn.get(r, r) for r in x[1]],
+                                         "pay_percent": x[2] if len(x) > 2 else 90, "payments_since": x[3] if len(x) > 3 else "2026-11-01"} for x in items]
     regions_of = {}
     for _rid, r in (data.get("regionsNow") or {}).items():
         host_name = ents[r[1]][2] if r[1] is not None and r[1] >= 0 else None
@@ -193,8 +196,8 @@ def settings():
                      "and manager wages (pay_percent of it). Only these companies are collected. Edited from the Streamlit Settings page.",
             "agreements": new}
     if not _has_token():
-        st.info("Saving needs a GITHUB_TOKEN in this app's Secrets (a fine-grained token for this repository with Contents: read and write). "
-                "Until then, copy this into agreements.json in the repository:")
+        st.info("Saving needs a GITHUB_TOKEN in this app's Secrets (a fine-grained token for the private WarEraTracker-backend repository "
+                "with Contents: read and write). Until then, copy this into agreements.json in that repository:")
         st.code(json.dumps(body, indent=2), language="json")
         return
     if new == {h: v for h, v in current.items() if v}:

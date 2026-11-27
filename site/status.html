@@ -44,7 +44,7 @@ function render(){
   var runs=S.runs||[],full=runs.filter(function(r){return r[1]==="full"}),sample=runs.filter(function(r){return r[1]==="sample"});
   var lf=full[0],ls=sample[0],backupIso=S.lastBackup?S.lastBackup+"T03:07:00Z":null;
   v.appendChild(kpis([[ago(D.generated),"Data on this page"],[lf?ago(lf[0]):"–","Last full refresh"],[lf?Math.round(lf[2])+" s":"–","Its duration"],[lf?lf[3]:"–","Its API calls"],
-    [ls?ago(ls[0]):"–","Last 15-minute check"],[S.lastBackup||"none yet","Last backup"],[S.digestAt?ago(S.digestAt):"not sent yet","Last weekly digest"]]));
+    [S.lastBackup||"none yet","Last backup"],[S.digestAt?ago(S.digestAt):"not sent yet","Last weekly digest"]]));
   // health checks: ok, warning or problem, always with words, never colour alone
   var checks=[];
   var add=function(ok,warn,text){checks.push([ok?"ok":warn?"warn":"bad",text])};
@@ -107,7 +107,7 @@ function render(){
   var tb=el("tbody");shown.forEach(function(r){var tr=el("tr");[[when(r[0]),""],[r[1]==="full"?"Full refresh":"15-minute check",""],[Math.round(r[2])+" s","n"],[String(r[3]),"n"],[r[5]?"skipped: "+r[5]:"ok",""]].forEach(function(c,i){
       tr.appendChild(el("td",{class:c[1],"data-label":["Time","Run","Duration","API calls","Result"][i],text:c[0]}))});tb.appendChild(tr)});
   var h=el("tr");["Time","Run","Duration","API calls","Result"].forEach(function(x,i){h.appendChild(el("th",{class:i===2||i===3?"n":"",text:x}))});
-  var kids=[chips([["all","All runs"],["full","Full refreshes"],["sample","15-minute checks"]],"kind"),weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack"},[el("thead",null,[h]),tb])]))];
+  var kids=[chips([["all","All runs"],["full","Full refreshes"],["sample","15-minute checks (before 27 Nov)"]],"kind"),weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack"},[el("thead",null,[h]),tb])]))];
   if(!runs.length)kids.push(el("div",{class:"note",text:"No runs recorded yet: they appear from the next refresh."}));
   v.appendChild(card("Recent runs",kids));
   // stored data

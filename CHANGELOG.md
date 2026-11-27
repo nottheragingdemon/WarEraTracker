@@ -3,6 +3,13 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.0.0 — 2026-11-27
+- **Split into two repos.** The collector, the history database and its backups, the tax agreements, statements, agreement payments and terms moved to the private repo `WarEraTracker-backend`, with the hourly refresh, company index, weekly backup, weekly digest, statement preview and diagnose workflows. Every hour it publishes `site/*.json` to this repo, so the pages, Streamlit and the artifacts carry on as before.
+- **This repo (public)** keeps the pages, the Streamlit app, the artifact sync and a new 15-minute **Battle check** (`scripts/battlecheck.py`, standard library only) that posts new and ended battles to Discord, with its own small state on the `battlecheck-state` branch. The back end no longer posts battle alerts (no duplicates).
+- The 15-minute tax-rate sample is gone; rates are checked hourly by the back end. The Status page no longer shows the 15-minute check.
+- The Streamlit Settings page saves the agreements to the back-end repo (its `GITHUB_TOKEN` needs access to `WarEraTracker-backend`); without a token it shows the agreements published in data.json.
+- **Fix:** since 1.15.0 the main tracker page failed to load ("s.slice is not a function"): the export's start date was overwritten by the agreements' start dates. Fixed in the back end, with a test.
+
 ## 1.15.0 — 2026-11-27
 - **Payments sent:** the collector keeps every treasury transfer from a host to its agreement partners (`agreement_payments`, including partners outside the alliance, read back 90 days on first run). The tax tracker opens with a *Tax agreements* summary per partner: this month so far, last month, owed for completed months since the agreement's start (`payments_since`), sent, balance (still to pay / settled / paid ahead) and the last payment.
 - **Dated terms:** agreement terms are recorded when they change (`agreement_terms`); statements apply the rate and regions in force at each check, so a change doesn't rewrite earlier days.
