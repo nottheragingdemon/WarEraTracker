@@ -28,6 +28,7 @@
     <label>Host country (where the companies stand)<select id="f-host"></select></label>
     <label>Region (in the host country)<select id="f-region"></select></label>
     <label>Source country (whose companies)<select id="f-src"></select></label>
+    <label class="chk" id="f-excl-wrap" hidden><input type="checkbox" id="f-excl"><span id="f-excl-t">Leave out conquered regions</span></label>
     <label>Month<input type="month" id="f-month"></label>
   </div>
   <div id="view"></div>
@@ -67,7 +68,13 @@ function corePct(){return D.coreTaxPct!=null?+D.coreTaxPct:10}
 /* tax agreements (set on the Streamlit Settings page): the source countries a host bills; null = no agreements file, all owners */
 function agreedOf(h){var a=D.agreements;if(!a)return null;return a[String(h)]||[]}
 function isAgreed(h,o){var l=agreedOf(h);return l==null||l.indexOf(+o)>=0}
-function regMatch(reg){return st.region===ALL_REGIONS||reg===st.region}
+/* option: with one source country that isn't a conquered region's original country (e.g. Mexico, not the UK), leave out the
+   host's conquered regions (Ireland: Northern Ireland) when looking at all regions */
+function conqRegs(){var R=D.regionsNow||{};return Object.keys(R).filter(function(k){var c=coreOf(k);return R[k][1]===st.host&&c>=0&&c!==st.host})}
+function exclAllowed(){return st.region===ALL_REGIONS&&st.src!==ALL_OWNERS&&conqRegs().some(function(k){return coreOf(k)!==st.src})}
+function exclOn(){return !!st.excl&&exclAllowed()}
+function excluded(reg){var c=coreOf(reg);return exclOn()&&c>=0&&c!==st.host&&c!==st.src&&(D.regionsNow[reg]||[])[1]===st.host}
+function regMatch(reg){return st.region===ALL_REGIONS?!excluded(reg):reg===st.region}
 function step(arr,t){var lo=0,hi=arr.length-1,k=-1;while(lo<=hi){var m=(lo+hi)>>1;if(arr[m][0]<=t){k=m;lo=m+1}else hi=m-1}return k<0?null:arr[k]}
 function calc(){
   var R=D.regionsNow||{},regs={},comps=[],pct=corePct()/100,ct=(D.countryTax||{})[st.host]||[null,null];
@@ -92,9 +99,10 @@ function calc(){
   var selCore=st.region===ALL_REGIONS?null:coreOf(st.region),selConq=selCore!=null&&selCore!==st.host,per={},splitT=Infinity;
   (D.wageHist||[]).forEach(function(r){if(r[0]!==st.host||!srcMatch(r[1]))return;var legacy=r[7]==null,core=legacy?-9:r[7];
     if(!legacy)splitT=Math.min(splitT,r[2]);if(!legacy&&selCore!=null&&core!==selCore)return;
+    if(!legacy&&exclOn()&&core!==st.host&&core!==st.src)return;   // conquered regions left out
     var k=r[1]+"|"+core;(per[k]=per[k]||{core:core,owner:r[1],legacy:legacy,rows:[]}).rows.push([r[2],r[3],r[4],r[5],r[6]||0])});
   Object.keys(per).forEach(function(k){var s=per[k];
-    if(s.legacy){var tot=ownT[s.owner]||0;s.f=selCore==null?1:(tot?(ownR[s.owner]||0)/tot:0);s.pf=selCore==null?(tot?(ownC[s.owner]||0)/tot:0):(selConq?1:0)}
+    if(s.legacy){var tot=ownT[s.owner]||0;s.f=selCore==null?(exclOn()?(tot?(tot-(ownC[s.owner]||0))/tot:0):1):(tot?(ownR[s.owner]||0)/tot:0);s.pf=selCore==null?(exclOn()?0:(tot?(ownC[s.owner]||0)/tot:0)):(selConq?1:0)}
     else{s.f=selCore==null?1:(grp[k]?(regW[k]||0)/grp[k]:0);s.pf=s.core!==st.host?1:0}});   // one region of a group: its share of the group's pay now
   // a conquered region also has its own exact history (from 27 Nov 2026); it replaces the estimates from its first row
   var regT=Infinity;if(selConq)(D.wageHistReg||[]).forEach(function(r){if(r[0]!==st.region||!srcMatch(r[1]))return;regT=Math.min(regT,r[2]);
@@ -128,10 +136,14 @@ function owedChart(dm,title){
   card.appendChild(el("div",{class:"axis"},[el("span",{text:dm[0].day}),el("span",{text:dm[dm.length-1].day})]));return card}
 function card0(t){return el("div",{class:"card"},[el("h2",{text:t})])}
 /* ---------- view ---------- */
+function syncExcl(){var w=$("f-excl-wrap");if(!w)return;var ok=exclAllowed();w.hidden=!ok;
+  if(ok){var rs=conqRegs().filter(function(k){return coreOf(k)!==st.src});$("f-excl-t").textContent="Leave out "+rs.map(function(k){return D.regionsNow[k][0]}).join(", ");$("f-excl").checked=!!st.excl}}
 function render(){
+  syncExcl();
   var v=$("view");v.textContent="";
   if(st.host<0||(st.src<0&&st.src!==ALL_OWNERS)){v.appendChild(note("No collected companies yet. Company data is collected by the scheduled refresh; check back after the next run."));return}
   var M=calc(),hn=nm(st.host),sn=srcName(),today=new Date().toISOString().slice(0,10),mk=st.month;
+  if(exclOn())v.appendChild(note("Left out: "+conqRegs().filter(function(k){return coreOf(k)!==st.src}).map(function(k){return D.regionsNow[k][0]}).join(", ")+" (conquered from "+conqRegs().map(function(k){return nm(coreOf(k))}).filter(function(x,i,a){return a.indexOf(x)===i}).join(", ")+"). Untick the option above to include it."));
   if(agreedOf(st.host))v.appendChild(note("Tax agreements: "+nm(st.host)+" bills companies owned by citizens of "+(agreedOf(st.host).map(nm).join(", ")||"no country yet")+". Only those companies are tracked; the list is set on the Streamlit app’s Settings page."));
   var rn=st.region===ALL_REGIONS?"":D.regionsNow[st.region][0],where=rn?rn+" ("+hn+")":hn,pctS=M.pct+"%";
   var passNames=Object.keys(M.passTo).map(function(k){return nm(+k)}).join(", ");
@@ -146,7 +158,7 @@ function render(){
     [m2(est),"Estimated bill, full month",monthName(mk)]].concat(M.pass>0?[[m2(M.keep*24),hn+" keeps a day","plus "+m2(M.pass*24)+" a day ("+pctS+") handed to "+passNames+", the original country of "+M.regs.filter(function(g){return g.conq}).map(function(g){return g.name}).join(", ")]]:[])));
   if(!M.ncomp){v.appendChild(card("Nothing to assess",[note("No active "+srcCo()+" stand in "+where+" right now. Pick another combination.")]));return}
   /* 1: per hour now */
-  var c1=card("What "+hn+" collects on "+(st.src===ALL_OWNERS?"all companies":srcCo())+(rn?" in "+rn:"")+", per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
+  var c1=card("What "+hn+" collects on "+(st.src===ALL_OWNERS?"all companies":srcCo())+(rn?" in "+rn:"")+(exclOn()?" outside "+conqRegs().filter(function(k){return coreOf(k)!==st.src}).map(function(k){return D.regionsNow[k][0]}).join(", "):"")+", per hour, right now",[tbl([["",function(r){return r[0]}],["Paid /h (before tax)",function(r){return r[1]},1],["Tax rate",function(r){return r[2]},1],["Tax /h",function(r){return r[3]},1]],
     [["Employees ("+M.staff+" workers)",m4(M.wages),String(M.rate==null?"–":M.rate+"%"),m4(M.empTax)],
      ["Managers ("+M.ncomp+" companies)",m4(M.mpay),String(M.mrate==null?"–":M.mrate+"%"),m4(M.manTax)],
      ["Total","","",m4(M.hour)]].concat(M.pass>0?M.regs.filter(function(g){return g.conq}).map(function(g){return["Passed to "+nm(g.core)+" ("+pctS+" of the tax from "+g.name+")","","",m4(g.pass)]}).concat([[hn+" keeps","","",m4(M.keep)]]):[])),
@@ -330,7 +342,7 @@ function fillSelects(){
     if(st.region!==ALL_REGIONS&&!regN[st.region])st.region=ALL_REGIONS;
     rs.value=st.region}
   function fillSrc(){
-    var srcN={},tot=0;D.companies.forEach(function(c){if(hostOf(c)===st.host&&regMatch(c[4])&&c[5]>=0){srcN[c[5]]=(srcN[c[5]]||0)+1;tot++}});
+    var srcN={},tot=0;D.companies.forEach(function(c){if(hostOf(c)===st.host&&(st.region===ALL_REGIONS||c[4]===st.region)&&c[5]>=0){srcN[c[5]]=(srcN[c[5]]||0)+1;tot++}});
     var ss=$("f-src");ss.textContent="";ss.appendChild(el("option",{value:String(ALL_OWNERS),text:(agreedOf(st.host)?"All agreed countries (":"All owners (")+tot+")"}));
     var keys=Object.keys(srcN).sort(function(a,b){return srcN[b]-srcN[a]||nm(+a).localeCompare(nm(+b))});
     [["Emerald Accord",keys.filter(function(k){return ea&&ea.has(+k)})],["Other countries",keys.filter(function(k){return !(ea&&ea.has(+k))})]].forEach(function(g){
@@ -341,6 +353,7 @@ function fillSelects(){
   fillReg();fillSrc();
   hs.onchange=function(){st.host=+this.value;st.region=ALL_REGIONS;st.regionByDefault=false;st.src=ALL_OWNERS;st.limit=0;fillReg();fillSrc();render()};
   $("f-region").onchange=function(){st.region=this.value;st.regionByDefault=false;st.limit=0;fillSrc();render()};
+  $("f-excl").onchange=function(){st.excl=this.checked;st.limit=0;fillSrc();syncExcl();render()};
   $("f-src").onchange=function(){st.src=+this.value;st.limit=0;
     // the opening view's Northern Ireland only suits the UK: another source shows all of Ireland unless a region was picked by hand
     if(st.regionByDefault){st.regionByDefault=false;st.region=ALL_REGIONS;fillReg();var keep=st.src;fillSrc();st.src=keep;$("f-src").value=String(keep)}

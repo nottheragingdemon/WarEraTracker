@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.13.0 — 2026-11-27
+- **Company tax tracker:** *Leave out Northern Ireland* option, shown when a single source country other than the United Kingdom is picked with all regions (generally: the host's conquered regions whose original country isn't the source). The figures, history, hour-by-hour and day-by-day tables then cover the rest of the host; the month statement still bills every agreed country in full.
+
 ## 1.12.2 — 2026-11-27
 - **Company tax tracker:** picking another source country after opening the page shows all of Ireland (the opening view's Northern Ireland only suits the United Kingdom), unless a region was picked by hand. The "keeps a day" card now says the 10% goes to the region's original country, and which region.
 - **Tax agreements:** Ireland adds Mexico.
