@@ -35,7 +35,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={host:-1,src:-1,month:""};
+var D=null,st={host:-1,src:-2,month:""};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
 function num(n,d){var o=new String(n==null||isNaN(n)?"–":Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}));o.raw=n==null||isNaN(n)?"":Math.round(n*1e4)/1e4;return o}
@@ -195,7 +195,8 @@ function incomeCard(hn){
 function fillSelects(){
   var hostN={};D.companies.forEach(function(c){var h=hostOf(c);if(h>=0)hostN[h]=(hostN[h]||0)+1});
   var ea=null;Object.keys(D.alliances||{}).forEach(function(a){if(nm(+a)==="The Emerald Accord")ea=new Set(D.alliances[a])});
-  if(st.host<0||!hostN[st.host]){st.host=+Object.keys(hostN).sort(function(a,b){return hostN[b]-hostN[a]})[0];if(isNaN(st.host))st.host=-1}
+  if(st.host<0||!hostN[st.host]){var ie=Object.keys(hostN).filter(function(k){return nm(+k)==="Ireland"})[0];   // Ireland first, else the largest host
+    st.host=+(ie||Object.keys(hostN).sort(function(a,b){return hostN[b]-hostN[a]})[0]);if(isNaN(st.host))st.host=-1}
   var hs=$("f-host");hs.textContent="";Object.keys(hostN).sort(function(a,b){return nm(+a).localeCompare(nm(+b))}).forEach(function(k){hs.appendChild(el("option",{value:k,text:nm(+k)+" ("+hostN[k]+")"}))});hs.value=String(st.host);
   function fillSrc(){
     var srcN={},tot=0;D.companies.forEach(function(c){if(hostOf(c)===st.host&&c[5]>=0){srcN[c[5]]=(srcN[c[5]]||0)+1;tot++}});
@@ -203,15 +204,15 @@ function fillSelects(){
     var keys=Object.keys(srcN).sort(function(a,b){return srcN[b]-srcN[a]||nm(+a).localeCompare(nm(+b))});
     [["Emerald Accord",keys.filter(function(k){return ea&&ea.has(+k)})],["Other countries",keys.filter(function(k){return !(ea&&ea.has(+k))})]].forEach(function(g){
       if(!g[1].length)return;var og=el("optgroup",{label:g[0]});g[1].forEach(function(k){og.appendChild(el("option",{value:k,text:nm(+k)+" ("+srcN[k]+")"}))});ss.appendChild(og)});
-    if(st.src!==ALL_OWNERS&&!srcN[st.src]){var other=keys.filter(function(k){return +k!==st.host});st.src=other.length?+other[0]:ALL_OWNERS}
+    if(st.src!==ALL_OWNERS&&!srcN[st.src])st.src=ALL_OWNERS;
     ss.value=String(st.src)}
   fillSrc();
-  hs.onchange=function(){st.host=+this.value;st.limit=0;fillSrc();render()};
+  hs.onchange=function(){st.host=+this.value;st.src=ALL_OWNERS;st.limit=0;fillSrc();render()};
   $("f-src").onchange=function(){st.src=+this.value;st.limit=0;render()}}
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   D=d;stale();D.companies=D.companies||[];
-  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.wageHist=cx.wageHist||[]}catch(e){D.wageHist=D.wageHist||[]}
+  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.wageHist=cx.wageHist||[];D.companies=cx.companies||D.companies||[]}catch(e){D.wageHist=D.wageHist||[];D.companies=D.companies||[]}
   var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
   st.month=(days.length?days[days.length-1]:new Date().toISOString().slice(0,10)).slice(0,7);
   $("f-month").value=st.month;$("f-month").onchange=function(){if(this.value){st.month=this.value;render()}};

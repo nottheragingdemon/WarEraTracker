@@ -252,7 +252,7 @@ def export(db, out, since, scope=None):
             "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
-    company_extra = {"wageHist": data.pop("wageHist")}   # only the Company tax tracker needs the wage history
+    company_extra = {k: data.pop(k) for k in ("wageHist", "companies")}   # only the Company page and Ask WarEra need these
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))
     with open(os.path.join(os.path.dirname(out) or ".", "ask-data.json"), "w") as f:

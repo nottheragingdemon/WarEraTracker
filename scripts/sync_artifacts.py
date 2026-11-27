@@ -43,7 +43,7 @@ def build(out):
     write(ask, "index.html", page)
     for name in ("theme.js", "theme.css", "data.json", "company-data.json"):
         write(tracker, name, read(name))
-    for name in ("theme.js", "theme.css", "data.json", "ask-data.json"):
+    for name in ("theme.js", "theme.css", "data.json", "ask-data.json", "company-data.json"):
         write(ask, name, read(name))
     return {"tracker": sorted(os.listdir(tracker)), "ask": sorted(os.listdir(ask)),
             "generated": json.loads(read("data.json"))["generated"]}

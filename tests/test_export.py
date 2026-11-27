@@ -53,6 +53,8 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(self.ask["generated"], self.data["generated"])
         self.assertNotIn("wageHist", self.data)             # moved to company-data.json
         self.assertIn("wageHist", self.company)
+        self.assertNotIn("companies", self.data)
+        self.assertIn("companies", self.company)
 
     def test_packed_stats_round_trip(self):
         E = self.data["ents"]
