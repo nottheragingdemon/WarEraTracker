@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.5.0 — 2026-11-27
+- **Status:** clearer wording ("Last refresh duration / API calls", "Data is 11 min old", "expected within 2.1 days").
+- **Player efficiency:** the "Week before" columns only show once there is a week of history (they were rows of dashes); the ranking explanation folds away.
+- **Guide:** now covers paper cost, overdue, the Settings preview, the separate collector repo and the data-version banner, and the new problem alerts.
+- **Streamlit Settings:** each host has a heading and each partner's settings sit in their own box.
+
 ## 2.4.0 — 2026-11-27
 - **Tax tracker (with agreements):** a short summary table first (partner, this month, paper cost now, balance); the full partner table and the explanations fold under "How the partner figures are worked out" / "How is this calculated?". The Region and Source filters moved into "More detail", where they apply. A payment ahead of the month is labelled "paid in advance".
 - **Phones:** the app tabs fade at the right edge to show they scroll; battle and transfer lists use the compact card layout (about half the height).

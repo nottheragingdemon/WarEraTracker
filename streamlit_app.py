@@ -219,24 +219,26 @@ def settings():
         cur = {x["country"]: x["regions"] for x in current.get(h, []) if x["country"]}
         cur_pay = {x["country"]: x["pay_percent"] for x in current.get(h, []) if x["country"]}
         cur_since = {x["country"]: x["payments_since"] for x in current.get(h, []) if x["country"]}
+        st.markdown(f"#### {h}")
         picked = st.multiselect(f"{h}: partner countries (whose citizens' companies are covered)", names,
                                 default=[c for c in cur if c in names], key=f"ag_{h}", placeholder="no agreement")
         items = []
         for c in picked:
-            was = cur.get(c, "all")
-            kind = "list" if isinstance(was, list) else was
-            label = st.selectbox(f"{h} ↔ {c}: regions covered", list(SCOPES), key=f"sc_{h}_{c}",
-                                 index=list(SCOPES.values()).index(kind if kind in SCOPES.values() else "all"))
-            scope = SCOPES[label]
-            if scope == "list":
-                opts = sorted(regions_of.get(h, []))
-                scope = st.multiselect(f"{h} ↔ {c}: which regions", opts, default=[r for r in (was if isinstance(was, list) else []) if r in opts], key=f"rg_{h}_{c}")
-            pay = st.number_input(f"{h} ↔ {c}: % of the tax generated that {h} pays {c}", min_value=0.0, max_value=100.0, step=1.0,
-                                  value=float(cur_pay.get(c, 90)), key=f"pp_{h}_{c}")
-            import datetime as _dt
-            since = st.date_input(f"{h} ↔ {c}: agreement start (payments and statements count from)", key=f"sd_{h}_{c}",
-                                  value=_dt.date.fromisoformat(str(cur_since.get(c, "2026-11-01"))))
-            items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay, "payments_since": since.isoformat()})
+            with st.container(border=True):
+                was = cur.get(c, "all")
+                kind = "list" if isinstance(was, list) else was
+                label = st.selectbox(f"{h} ↔ {c}: regions covered", list(SCOPES), key=f"sc_{h}_{c}",
+                                     index=list(SCOPES.values()).index(kind if kind in SCOPES.values() else "all"))
+                scope = SCOPES[label]
+                if scope == "list":
+                    opts = sorted(regions_of.get(h, []))
+                    scope = st.multiselect(f"{h} ↔ {c}: which regions", opts, default=[r for r in (was if isinstance(was, list) else []) if r in opts], key=f"rg_{h}_{c}")
+                pay = st.number_input(f"{h} ↔ {c}: % of the tax generated that {h} pays {c}", min_value=0.0, max_value=100.0, step=1.0,
+                                      value=float(cur_pay.get(c, 90)), key=f"pp_{h}_{c}")
+                import datetime as _dt
+                since = st.date_input(f"{h} ↔ {c}: agreement start (payments and statements count from)", key=f"sd_{h}_{c}",
+                                      value=_dt.date.fromisoformat(str(cur_since.get(c, "2026-11-01"))))
+                items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay, "payments_since": since.isoformat()})
         if items:
             new[h] = items
     if not new:

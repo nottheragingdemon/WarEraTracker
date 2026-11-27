@@ -43,12 +43,12 @@ function render(){
   var S=D.status||{runs:[]},v=$("view");v.textContent="";
   var runs=S.runs||[],full=runs.filter(function(r){return r[1]==="full"}),sample=runs.filter(function(r){return r[1]==="sample"});
   var lf=full[0],ls=sample[0],backupIso=S.lastBackup?S.lastBackup+"T03:07:00Z":null;
-  v.appendChild(kpis([[ago(D.generated),"Data on this page"],[lf?ago(lf[0]):"–","Last full refresh"],[lf?Math.round(lf[2])+" s":"–","Its duration"],[lf?lf[3]:"–","Its API calls"],
+  v.appendChild(kpis([[ago(D.generated),"Data on this page"],[lf?ago(lf[0]):"–","Last full refresh"],[lf?Math.round(lf[2])+" s":"–","Last refresh duration"],[lf?lf[3]:"–","Last refresh API calls"],
     [S.lastBackup||"none yet","Last backup"],[S.digestAt?ago(S.digestAt):"not sent yet","Last weekly digest"]]));
   // health checks: ok, warning or problem, always with words, never colour alone
   var checks=[];
   var add=function(ok,warn,text){checks.push([ok?"ok":warn?"warn":"bad",text])};
-  var age=hrs(D.generated);add(age<=2,age<=6,"Data is "+ago(D.generated)+" old"+(age<=2?"":" — the hourly refresh may have failed or been skipped"));
+  var age=hrs(D.generated);add(age<=2,age<=6,"Data is "+ago(D.generated).replace(/ ago$/,"")+" old"+(age<=2?"":" — the hourly refresh may have failed or been skipped"));
   add(lf&&!lf[5],lf&&lf[5],lf?(lf[5]?"Last full refresh skipped: "+lf[5]+" (API errors)":"Last full refresh collected every stage"):"No full refresh recorded yet");
   if(full.length){var fails=full.slice(0,24).filter(function(r){return r[5]}).length;add(!fails,fails<=3,fails+" of the last "+Math.min(24,full.length)+" full refreshes skipped a stage")}
   add(hrs(backupIso)<=8*24,hrs(backupIso)<=15*24,S.lastBackup?"Newest database backup: "+S.lastBackup:"No database backup yet");
@@ -67,7 +67,7 @@ function render(){
     FR.forEach(function(f){var k=f.state==="ok"?"ok":f.state==="stale"?"bad":"warn";
       var age=f.age_h==null?"no data yet":f.age_h<1?Math.max(1,Math.round(f.age_h*60))+" min ago":f.age_h<48?f.age_h.toFixed(1)+" h ago":Math.round(f.age_h/24)+" days ago";
       fl.appendChild(el("li",{class:"chk-"+k},[el("span",{class:"chk-ico","aria-hidden":"true",text:k==="ok"?"✓":k==="bad"?"✕":"–"}),el("span",{class:"sr",text:k==="ok"?"On time: ":k==="bad"?"Stale: ":"No data yet: "}),
-        f.label+": "+age+" (expected within "+(f.limit_h<48?f.limit_h+" h":f.limit_h/24+" days")+")"]))});
+        f.label+": "+age+" (expected within "+(f.limit_h<48?f.limit_h+" h":(f.limit_h/24).toFixed(1).replace(/\.0$/,"")+" days")+")"]))});
     v.appendChild(card("Data freshness",[fl,el("div",{class:"note",text:"The newest record of each kind of data, checked at every refresh. A stale line means something stopped saving data even though no run failed; it is also posted to Discord. Donations, trades and transfers depend on players, so they get longer limits."})]))}
   // company coverage: the tracker against the game's own figures, per alliance host country (all owners)
   if(D.agreements)v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Tax agreements are in force, so only companies owned by agreed countries are collected ("+Object.keys(D.agreements).map(function(h){return nm(+h)+": "+(D.agreements[h].map(nm).join(", ")||"none")}).join(" · ")+"). Coverage against the game’s country totals isn’t measured while that is the case."+(IX&&IX.known?" Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located.":"")})]));

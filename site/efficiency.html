@@ -64,12 +64,12 @@ function badge(b,p){if(!b)return el("span",{class:"muted",text:"–"});
   return w}
 function skillLine(p){if(!p.lv)return"Skills not loaded yet.";return SK.map(function(k,i){return k+" "+p.lv[i]}).filter(function(x){return !/ 0$/.test(x)}).join(" · ")+" ("+p.spent+" points, "+p.eco+" in economy skills)"}
 function table(list,metric){
-  var t=el("table",{class:"stack compact"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage","Week before","Damage week before"];
+  var t=el("table",{class:"stack compact"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage","Week before","Damage week before"].slice(0,list.some(function(p){return p.lw})?9:7);   // the week-before columns appear once there is a week of history
   var h=el("tr");cols.forEach(function(c,i){h.appendChild(el("th",{class:i>=3||i===0?"n":"",text:c}))});t.appendChild(el("thead",null,[h]));
   var tb=el("tbody");
   list.forEach(function(p,i){var v=metric==="gain"?p.perGain:p.perWealth;
     var rk=p.rank||i+1,lv=p.lw?(metric==="gain"?p.lw.perGain:p.lw.perWealth):null,mv=p.prevRank==null?(p.lw?" new":""):p.prevRank>rk?" ↑"+(p.prevRank-rk):p.prevRank<rk?" ↓"+(rk-p.prevRank):" =";
-    var cells=[raw(String(rk)+mv,rk),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v),raw(lv==null?"–":big(lv),lv),raw(p.lw?big(p.lw.dmg):"–",p.lw?p.lw.dmg:null)];
+    var cells=[raw(String(rk)+mv,rk),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v),raw(lv==null?"–":big(lv),lv),raw(p.lw?big(p.lw.dmg):"–",p.lw?p.lw.dmg:null)].slice(0,cols.length);
     var tr=el("tr",{class:st.open[p.u]?"sel":""});tr.style.cursor="pointer";
     cells.forEach(function(c,j){var td=el("td",{class:(j>=3||j===0?"n":"")+(j===1?"lead":""),"data-label":cols[j]});if(j===2)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
     tr.onclick=function(){st.open[p.u]=!st.open[p.u];render()};tb.appendChild(tr);
@@ -109,7 +109,7 @@ function render(){
   var mix={War:0,Hybrid:0,Eco:0};qual.forEach(function(p){if(p.b)mix[p.b.kind]++});
   v.appendChild(kpis([[qual.length,"Players with 1M+ damage"],[mix.War,"War builds"],[mix.Hybrid,"Hybrid builds"],[mix.Eco,"Eco builds"]]));
   var ctl=card("How players are ranked",[chips([["gain","Wealth gained per 1M damage"],["wealth","Wealth per 1M damage"]],"metric"),chips([["all","All builds"],["War","War"],["Hybrid","Hybrid"],["Eco","Eco"]],"build"),chips([["top","Top "+TOP],["bottom","Bottom "+TOP]],"end"),
-    el("div",{class:"note",text:"Each nation lists its "+(st.end==="bottom"?"bottom "+TOP+" (the least efficient first; # is the rank in the nation)":"top "+TOP)+" players with at least 1M damage over the last 7 days, ranked by "+(metric==="gain"?"how much wealth they gained for every 1M damage dealt":"their wealth for every 1M damage dealt")+". Build: War = "+Math.round(WAR*100)+"% or less of skill points in companies, energy, management and production; Eco = more than "+Math.round(ECO*100)+"%; Hybrid in between. Tap a player for their skills. Week before: the same measure for the 7 days before that, with ↑/↓ for the change in rank within the nation (new = not ranked the week before)."}),
+    weFold("How the ranking works",[    el("div",{class:"note",text:"Each nation lists its "+(st.end==="bottom"?"bottom "+TOP+" (the least efficient first; # is the rank in the nation)":"top "+TOP)+" players with at least 1M damage over the last 7 days, ranked by "+(metric==="gain"?"how much wealth they gained for every 1M damage dealt":"their wealth for every 1M damage dealt")+". Build: War = "+Math.round(WAR*100)+"% or less of skill points in companies, energy, management and production; Eco = more than "+Math.round(ECO*100)+"%; Hybrid in between. Tap a player for their skills. Week before: the same measure for the 7 days before that, with ↑/↓ for the change in rank within the nation (new = not ranked the week before)."})]),
     hist?null:el("div",{class:"note",text:"Weekly wealth change needs a snapshot from an earlier day: the first one was taken today, so changes appear from tomorrow and cover a full week after 7 days. Until then, damage is the game's weekly ranking (since its weekly reset)."})]);
   v.appendChild(ctl);
   var by={};qual.forEach(function(p){(by[p.c]=by[p.c]||[]).push(p)});

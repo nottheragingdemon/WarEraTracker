@@ -111,3 +111,6 @@ window.weSchema=function(d){
 window.weLoad=async function(d,file,keys){
   try{var x=await fetch(file).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()});keys.forEach(function(k){if(x[k]!=null)d[k]=x[k]})}catch(e){}
   return d};
+
+/* a closed-by-default section for long explanations */
+window.weFold=function(title,kids){var d=document.createElement("details");d.className="fold";var s=document.createElement("summary");s.textContent=title;d.appendChild(s);kids.forEach(function(k){if(k)d.appendChild(k)});return d};
