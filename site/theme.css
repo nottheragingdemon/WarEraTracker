@@ -177,3 +177,5 @@ tr.detail td{background:var(--panel-2)}
 details.more{margin:12px 0}details.more>summary{cursor:pointer;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-weight:600;list-style:none}
 details.more>summary::-webkit-details-marker{display:none}details.more>summary::before{content:"▸ ";color:var(--muted)}details.more[open]>summary::before{content:"▾ "}
 details.more[open]>summary{margin-bottom:12px}
+
+@media (max-width:560px){.hrow{grid-template-columns:minmax(120px,38%) 1fr 64px}}

@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.3.2 — 2026-11-27
+- Tax tracker: today's paper price is the headline (the summary shows the cost at today's price, with the month-average cost beneath). The agreement statement hides the "Sent by the game" and "keeps" columns when they are zero, and a note says the source/region selectors only filter the detailed view. Phone: wider country labels in the ranking bars.
+
 ## 2.3.1 — 2026-11-27
 - **Paper price history.** The paper price moves a lot, so the back end now stores samples (at most one per 10 minutes, kept 400 days) and exports each month's average, low and high (`paperMonths`). The statement shows the paper cost at today's price and at the month's average, with the range in the note.
 
