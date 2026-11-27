@@ -96,7 +96,7 @@ def main():
         C.log("timings: " + ", ".join(f"{n} {t:.0f}s/{k} calls" for n, t, k in timings))
         import json as _json
         db.execute("INSERT OR REPLACE INTO run_stats VALUES(?,?,?,?,?,?,?)",   # for the Status page
-                   (C.now_iso(), "full" if what & {"damage", "companies"} else "sample", round(_time.monotonic() - run_t0, 1), cl.n, cl.gw_served,
+                   (C.now_iso(), "full" if what & {"damage", "companies"} else "index" if "companyindex" in what else "sample", round(_time.monotonic() - run_t0, 1), cl.n, cl.gw_served,
                     ",".join(failed), _json.dumps([[n, round(t, 1), k] for n, t, k in timings])))
         db.commit()
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")

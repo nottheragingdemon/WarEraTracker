@@ -65,6 +65,25 @@ def _num(name, default):
         return float(default)
 
 
+def stale_lines(db, now=None):
+    """One line per kind of data that is older than it should be; each kind at most every 6 hours, and once more when it recovers."""
+    import datetime as dt
+    from .stages.health import freshness
+    now = now or dt.datetime.now(dt.timezone.utc)
+    out = []
+    for f in freshness(db, now):
+        key = "stale:" + f["key"]
+        was = _state(db, key)
+        if f["state"] == "stale":
+            if not was or now - dt.datetime.fromisoformat(was) >= dt.timedelta(hours=6):
+                out.append(f"🕒 Stale data: {f['label']}, last {f['age_h']:.1f} h ago (expected within {f['limit_h']:g} h)")
+                _set(db, key, now.isoformat(timespec="seconds"))
+        elif was and f["state"] == "ok":
+            out.append(f"✅ Data flowing again: {f['label']}")
+            db.execute("DELETE FROM alert_state WHERE k=?", (key,))
+    return out
+
+
 def money_lines(db, members, now=None):
     """Alerts about money: transfers between member nations of at least ALERT_TRANSFER_MIN (default 5,000); a citizen giving
     their own nation at least ALERT_DONATION_DAY_MIN in one UTC day (default 5,000; single donations are capped at 200);
@@ -170,6 +189,8 @@ def run(db, scope):
 
     # 3) money: large transfers, a citizen's big donation day, sharp treasury drops
     lines += money_lines(db, members)
+    # 4) data that stopped arriving
+    lines += stale_lines(db)
 
     if lines:
         extra = len(lines) - MAX_LINES
@@ -282,7 +303,6 @@ def digest_text(db, scope, days=7, now=None):
     win = f"{cond} AND b.created_at>=?"
     wargs = [*args, since]
     mem = ",".join("?" * len(members)) or "''"
-    n = db.execute(f"SELECT COUNT(*) FROM battles b WHERE {win}", wargs).fetchone()[0]
     day = lambda d: f"{d.day} {d.strftime('%b')}"
     out = ["📊 **Weekly digest · The Emerald Accord**",
            f"📅 {day(start)} – {day(now)} {now.year} (UTC)"]

@@ -58,8 +58,17 @@ function render(){
   var CV=S.coverage||[],tt=CV.reduce(function(a,r){return a+r[4]},0),gt=CV.reduce(function(a,r){return a+r[7]},0);
   if(gt>0){var pc=100*tt/gt;add(pc>=90&&pc<=110,pc>=75&&pc<=125,"Company tax tracker covers "+pc.toFixed(0)+"% of the game’s wage tax in alliance countries (100% is a full match; see Company coverage below)")}
   var IX=S.companyIndex;if(IX&&IX.known){var lp=IX.located/IX.known;add(lp>=0.98,lp>=0.5,"Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies located"+(IX.passDone?"":" (full list pass "+IX.pass+" in progress)"))}
+  var FR=S.freshness||[],stl=FR.filter(function(f){return f.state==="stale"});
+  if(FR.length)add(!stl.length,false,stl.length?stl.length+" kind(s) of data stopped arriving: "+stl.map(function(f){return f.label.toLowerCase()}).join(", ")+" (see Data freshness)":"Every kind of data is arriving on time ("+FR.filter(function(f){return f.state==="ok"}).length+" checked)");
   var list=el("ul",{class:"checks"});checks.forEach(function(c){list.appendChild(el("li",{class:"chk-"+c[0]},[el("span",{class:"chk-ico","aria-hidden":"true",text:c[0]==="ok"?"✓":c[0]==="warn"?"!":"✕"}),el("span",{class:"sr",text:c[0]==="ok"?"OK: ":c[0]==="warn"?"Warning: ":"Problem: "}),c[1]]))});
   v.appendChild(card("Health checks",[list]));
+  // data freshness: the newest record of each kind against how often it should arrive
+  if(FR.length){var fl=el("ul",{class:"checks"});
+    FR.forEach(function(f){var k=f.state==="ok"?"ok":f.state==="stale"?"bad":"warn";
+      var age=f.age_h==null?"no data yet":f.age_h<1?Math.max(1,Math.round(f.age_h*60))+" min ago":f.age_h<48?f.age_h.toFixed(1)+" h ago":Math.round(f.age_h/24)+" days ago";
+      fl.appendChild(el("li",{class:"chk-"+k},[el("span",{class:"chk-ico","aria-hidden":"true",text:k==="ok"?"✓":k==="bad"?"✕":"–"}),el("span",{class:"sr",text:k==="ok"?"On time: ":k==="bad"?"Stale: ":"No data yet: "}),
+        f.label+": "+age+" (expected within "+(f.limit_h<48?f.limit_h+" h":f.limit_h/24+" days")+")"]))});
+    v.appendChild(card("Data freshness",[fl,el("div",{class:"note",text:"The newest record of each kind of data, checked at every refresh. A stale line means something stopped saving data even though no run failed; it is also posted to Discord. Donations, trades and transfers depend on players, so they get longer limits."})]))}
   // company coverage: the tracker against the game's own figures, per alliance host country (all owners)
   if(CV.length){var pct=function(a,b){return b?(100*a/b).toFixed(0)+"%":"–"};
     var rows=CV.slice().sort(function(a,b){return b[7]-a[7]});

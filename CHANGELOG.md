@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.5.1 — 2026-11-27
+- **Freshness checks:** every kind of data (16 of them, from the hourly refresh to country income, companies, player snapshots, donations) is checked against how often it should arrive. Stale data shows on the Status page (new *Data freshness* card and a health check) and is posted to Discord once, then every 6 hours, with a note when it recovers. Runs in both the hourly refresh and the 15-minute check, so a missed refresh is caught too. This would have flagged the 1.2.2 income-history bug within about 2.5 hours.
+
 ## 1.5.0 — 2026-11-27
 - **Company tax tracker:** tax what-if: type other employee or manager income tax rates and see the change per day and month, for the companies shown, all wage tax in the host (the game's figure rescaled) and the host's whole income.
 - **Status:** coverage trend: each host's tax coverage over the last 7 days and the overall coverage by day (recorded hourly, kept 90 days).

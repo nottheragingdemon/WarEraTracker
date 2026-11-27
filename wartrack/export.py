@@ -1,6 +1,8 @@
 """Export the database to a compact data.json for the dashboard page (no network access needed)."""
 import json, os, datetime as dt
 
+from .stages.health import freshness
+
 SIDE = {"a": 0, "d": 1, "m": 2}
 KIND = {"damage": 0, "money": 1}
 
@@ -267,7 +269,7 @@ def export(db, out, since, scope=None):
               "lastBackup": os.environ.get("LAST_BACKUP") or None, "gateway": os.environ.get("WARERA_GATEWAY", "1") != "0",
               "rows": {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in
                        ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill", "country_income", "trades")},
-              "companyIndex": company_index_status(db), "coverage": company_coverage(db, E, scope), "coverageHist": coverage_history(db, E),
+              "freshness": freshness(db), "companyIndex": company_index_status(db), "coverage": company_coverage(db, E, scope), "coverageHist": coverage_history(db, E),
               "donationsSince": db.execute("SELECT MIN(ts) FROM donations").fetchone()[0],
               "transfersSince": db.execute("SELECT MIN(ts) FROM transfers").fetchone()[0]}
     data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,

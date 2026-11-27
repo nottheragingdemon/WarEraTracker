@@ -57,7 +57,7 @@ Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run stre
 ## Alerts
 With `ALERT_WEBHOOK_URL` set: new battles involving the alliance, battles that ended (won or lost, damage per side, link), the weekly digest
 (this week against last week, top countries and players, bounty per 1M damage, player efficiency, transfers and donations),
-a warning with a link when a workflow run fails, and a note when collector stages are skipped after API errors (at most every 6 hours).
+a warning with a link when a workflow run fails, a note when collector stages are skipped after API errors (at most every 6 hours), and a stale-data warning when any kind of data stops arriving as often as it should (checked every 15 minutes; see `wartrack/stages/health.py`).
 Money alerts: a transfer between alliance nations of at least `ALERT_TRANSFER_MIN` (default 5,000), a citizen giving their own nation at least `ALERT_DONATION_DAY_MIN` in one day (default 5,000; single donations are capped at 200), and a treasury falling by at least `ALERT_TREASURY_DROP_MIN` (default 5,000) and by half within 24 hours. Change the defaults with repository variables of the same names.
 The first run of each alert type only records a baseline.
 
