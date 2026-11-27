@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    paths: ["wartrack/**", "tests/**", "scripts/**", "site/*.html", "site/*.js", "site/*.css", "streamlit_app.py", ".github/workflows/tests.yml"]
+    paths: ["wartrack/**", "tests/**", "scripts/**", "site/*.html", "site/*.js", "site/*.css", "streamlit_app.py", "requirements-collector.txt", ".github/workflows/tests.yml"]
   pull_request:
   workflow_dispatch:
 
