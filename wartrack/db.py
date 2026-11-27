@@ -27,7 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS trades(id TEXT PRIMARY KEY, ts TEXT, country TEXT, money REAL, item TEXT, quantity REAL);
+CREATE TABLE IF NOT EXISTS trades(id TEXT, ts TEXT, country TEXT, buyer_country TEXT, money REAL, item TEXT, quantity REAL, PRIMARY KEY(id, country));
 CREATE TABLE IF NOT EXISTS country_income(country TEXT, t INTEGER, money REAL, income TEXT, PRIMARY KEY(country, t));
 CREATE TABLE IF NOT EXISTS run_stats(ts TEXT PRIMARY KEY, kind TEXT, seconds REAL, calls INTEGER, gw INTEGER, skipped TEXT, timings TEXT);
 CREATE TABLE IF NOT EXISTS player_snap(eid TEXT, day TEXT, wealth REAL, dmg_total REAL, dmg_week REAL, ts TEXT, PRIMARY KEY(eid, day));
@@ -70,6 +70,10 @@ def connect(path):
     wcols = [r[1] for r in db.execute("PRAGMA table_info(wage_snap)")]
     if wcols and "mgr" not in wcols:
         db.execute("ALTER TABLE wage_snap ADD COLUMN mgr REAL")
+    tcols = [r[1] for r in db.execute("PRAGMA table_info(trades)")]
+    if tcols and "buyer_country" not in tcols:   # first version attributed trades to the buyer's country: rebuild and backfill again
+        db.execute("DROP TABLE trades")
+        db.execute("DELETE FROM meta WHERE k LIKE 'trades_back_%'") if [1 for r in db.execute("SELECT name FROM sqlite_master WHERE name='meta'")] else None
     db.executescript(SCHEMA)
     if "income" not in [r[1] for r in db.execute("PRAGMA table_info(country_now)")]:
         db.execute("ALTER TABLE country_now ADD COLUMN income TEXT")   # the game's hourly income per stream, as JSON

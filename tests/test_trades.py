@@ -28,7 +28,7 @@ class Fake:
 
 class TradeTests(unittest.TestCase):
     def test_trades(self):
-        items = [{"_id": f"t{d}", "createdAt": iso(d + 0.5), "buyerCountryId": "c1", "money": 100.0, "itemCode": "paper", "quantity": 5} for d in range(40)]
+        items = [{"_id": f"t{d}", "createdAt": iso(d + 0.5), "buyerCountryId": "zz", "money": 100.0, "itemCode": "paper", "quantity": 5} for d in range(40)]
         db = dbm.connect(":memory:")
         C.collect_trades(Fake(items), db, Scope(), days=30)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM trades").fetchone()[0], 30)
@@ -36,6 +36,7 @@ class TradeTests(unittest.TestCase):
         C.collect_trades(f, db, Scope(), days=30)
         self.assertEqual(db.execute("SELECT COUNT(*) FROM trades").fetchone()[0], 31)
         self.assertEqual(f.read, 2)
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM trades WHERE country='c1' AND buyer_country='zz'").fetchone()[0], 30)   # listed under c1, bought from zz
 
 
 if __name__ == "__main__":

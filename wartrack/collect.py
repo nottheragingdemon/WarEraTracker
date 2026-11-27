@@ -260,15 +260,16 @@ def collect_transfers(c, db, scope=None, days=90):
 
 
 def collect_trades(c, db, scope=None, days=30, budget=120.0):
-    """Market trades (transactionType trading) linked to each member country (the buyer's country), newest first; stops at
-    the first one already stored or older than `days`, with a one-off backfill. Used to estimate market tax."""
+    """Market trades (transactionType trading) the game lists under each member country, newest first; stops at the first
+    one already stored or older than `days`, with a one-off backfill. The game lists a trade under more than the buyer's
+    country (most likely the seller's too), so each trade is kept per member country it was listed under. Used to estimate market tax."""
     import time as _t
     members = sorted(scope.members) if scope and scope.members else []
     if not members:
         log("trades: no alliance members in scope, skipped"); return
     t0 = _t.monotonic()
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
-    known = {r["id"] for r in db.execute("SELECT id FROM trades")}
+    known = {(r["id"], r["country"]) for r in db.execute("SELECT id, country FROM trades")}
     done_key = f"trades_back_{days:g}"
     backfill = {m for m in members if not db.execute("SELECT 1 FROM meta WHERE k=?", (f"{done_key}_{m}",)).fetchone()}
     reached = set()
@@ -280,7 +281,7 @@ def collect_trades(c, db, scope=None, days=30, budget=120.0):
                 reached.add(m); break
             if _t.monotonic() - t0 > budget:
                 break
-            if t["_id"] in known:
+            if (t["_id"], m) in known:
                 if back:
                     continue
                 break
@@ -291,8 +292,8 @@ def collect_trades(c, db, scope=None, days=30, budget=120.0):
     new = 0
     for m, found in zip(members, c.map(fresh, members)):
         for t in found:
-            db.execute("INSERT OR IGNORE INTO trades VALUES(?,?,?,?,?,?)",
-                       (t["_id"], t["createdAt"], t.get("buyerCountryId") or m, t.get("money") or 0, t.get("itemCode"), t.get("quantity")))
+            db.execute("INSERT OR IGNORE INTO trades VALUES(?,?,?,?,?,?,?)",
+                       (t["_id"], t["createdAt"], m, t.get("buyerCountryId"), t.get("money") or 0, t.get("itemCode"), t.get("quantity")))
             new += 1
     for m in backfill & reached:
         db.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (f"{done_key}_{m}", now_iso()))

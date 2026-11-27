@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.2.1 — 2026-11-27
+- **Market tax estimate fix:** the game lists a trade under more than the buyer's country (most likely the seller's too), so trades are now kept per alliance country they are listed under, instead of being filed under the buyer's country (which put many under non-alliance countries). The trades table is rebuilt and backfilled once.
+
 ## 1.2.0 — 2026-11-27
 - **Company tax tracker:** market tax estimate in the country income section (per day, in the day-by-day table and for every alliance nation): the country's market tax rate × the value of market trades linked to it (7-day average). Clearly marked as an estimate.
 - **Collector:** new `trades` stage (market trades for alliance countries, 30 days, incremental with a one-off backfill).
