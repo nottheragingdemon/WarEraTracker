@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.3.0 — 2026-11-27
+- **Paper cost of sending tax.** Sending a tax payment to a partner needs paper equal to the amount × 0.5 (`paperRatio` in the data). The agreement statement now has "Paper to send" and "Cost of the paper" per partner and in total, the copied text includes the totals, and the agreements summary shows the paper for the month so far. The cost uses the market price of paper at the last hourly update (back end collects `itemTrading.getPrices`), so it also moves for finished months.
+
 ## 2.2.0 — 2026-11-27
 - **Smaller main download.** Battle statistics (`battle-data.json`) and donor lists (`transfer-data.json`) moved out of `data.json`, which drops from about 2.0 MB to 0.7 MB. Only the pages that need them load them (Battles and Ask: battle stats; Transfers: donors).
 - **Status:** a "Last 7 days" card (full refreshes, runs with a skipped stage, average and slowest duration, slowest stage and whether it is getting slower).
