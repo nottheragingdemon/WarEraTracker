@@ -212,7 +212,7 @@ EX.forEach(function(t){var b=el("button",{class:"chip",text:t});b.onclick=functi
 $("go").onclick=ask;$("q").addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))ask()});
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(async function(d){window.weSchema(d);await weLoad(d,"battle-data.json",["statsP"]);
-  try{var x=await fetch("ask-data.json").then(function(r){return r.json()});d.bounty=x.bounty||[];d.contracts=x.contracts||[]}catch(e){d.bounty=d.bounty||[];d.contracts=d.contracts||[]}
+  try{var x=await fetch("ask-data.json").then(function(r){return r.json()});d.bounty=window.weUnpackBounty(x.bounty);d.contracts=x.contracts||[]}catch(e){d.bounty=d.bounty||[];d.contracts=d.contracts||[]}
   d.companies=d.companies||[];d.wageHist=d.wageHist||[];   // company data (about 1 MB) loads on the first question that needs it
   D=d;D.stats=weStats(D);build();stale();
   $("meta").textContent="Data updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+T.battles.rows.length+" battles · ask in plain English, Claude returns a table";

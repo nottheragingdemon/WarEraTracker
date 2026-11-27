@@ -114,3 +114,6 @@ window.weLoad=async function(d,file,keys){
 
 /* a closed-by-default section for long explanations */
 window.weFold=function(title,kids){var d=document.createElement("details");d.className="fold";var s=document.createElement("summary");s.textContent=title;d.appendChild(s);kids.forEach(function(k){if(k)d.appendChild(k)});return d};
+
+/* ask-data.json packs the bounty snapshots as {ts:[times], rows:[[time index, entity, amount, country, mu]]}; an old plain list still works */
+window.weUnpackBounty=function(b){if(!b)return[];if(Array.isArray(b))return b;return(b.rows||[]).map(function(r){return[b.ts[r[0]],r[1],r[2],r[3],r[4]]})};

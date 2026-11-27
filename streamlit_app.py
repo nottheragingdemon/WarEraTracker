@@ -180,6 +180,8 @@ def preview_changes(data, current, new):
                     out.append(f"{h} ↔ {c}: rate {a['pay_percent']}% → {b['pay_percent']}%.{est} Months already saved as final keep their old rate.")
                 if a["regions"] != b["regions"]:
                     out.append(f"{h} ↔ {c}: regions covered change. Applies from the next refresh; saved months keep their old scope.")
+                if a.get("payments_until") != b.get("payments_until"):
+                    out.append(f"{h} ↔ {c}: end date {a.get('payments_until') or 'none'} → {b.get('payments_until') or 'none'}. After the last day's month is saved, the agreement drops out and its partner is no longer collected.")
                 if a["payments_since"] != b["payments_since"]:
                     out.append(f"{h} ↔ {c}: start date {a['payments_since']} → {b['payments_since']}. Statements count from the new date.")
     return out
@@ -199,12 +201,14 @@ def settings():
     for a, members in (data.get("alliances") or {}).items():
         if ents[int(a)][2] == ALLIANCE:
             hosts = sorted(ents[c][2] for c in members if ents[c][2])
-    sha, current = None, {}
+    sha, current, cur_ratio = None, {}, float(data.get("paperRatio") or 0.5)
     if _has_token():
         try:
             got = _gh("GET", AGREEMENTS_PATH)
             sha = got["sha"]
-            current = json.loads(base64.b64decode(got["content"]).decode()).get("agreements") or {}
+            _file = json.loads(base64.b64decode(got["content"]).decode())
+            current = _file.get("agreements") or {}
+            cur_ratio = float(_file.get("paper_ratio", 0.5))
         except Exception as e:   # no file yet, or the token can't read it
             if "404" not in str(e):
                 st.error(f"Couldn't read the saved agreements: {e}")
@@ -220,8 +224,8 @@ def settings():
             regions_of.setdefault(host_name, []).append(r[0])
     def norm(items):   # [{"country", "regions"}], also accepting bare names
         return [{"country": x, "regions": "all", "pay_percent": 90, "payments_since": "2026-11-01"} if isinstance(x, str) else
-                {"country": x.get("country"), "regions": x.get("regions", "all"), "pay_percent": x.get("pay_percent", 90),
-                 "payments_since": x.get("payments_since", "2026-11-01")} for x in items or []]
+                dict({"country": x.get("country"), "regions": x.get("regions", "all"), "pay_percent": x.get("pay_percent", 90),
+                      "payments_since": x.get("payments_since", "2026-11-01")}, **({"payments_until": x["payments_until"]} if x.get("payments_until") else {})) for x in items or []]
     current = {h: norm(v) for h, v in current.items()}
     SCOPES = {"Core regions only (not conquered ones)": "core", "All regions": "all", "Chosen regions": "list"}
     new = {}
@@ -229,6 +233,7 @@ def settings():
         cur = {x["country"]: x["regions"] for x in current.get(h, []) if x["country"]}
         cur_pay = {x["country"]: x["pay_percent"] for x in current.get(h, []) if x["country"]}
         cur_since = {x["country"]: x["payments_since"] for x in current.get(h, []) if x["country"]}
+        cur_until = {x["country"]: x.get("payments_until") for x in current.get(h, []) if x["country"]}
         st.markdown(f"#### {h}")
         picked = st.multiselect(f"{h}: partner countries (whose citizens' companies are covered)", names,
                                 default=[c for c in cur if c in names], key=f"ag_{h}", placeholder="no agreement")
@@ -248,27 +253,38 @@ def settings():
                 import datetime as _dt
                 since = st.date_input(f"{h} ↔ {c}: agreement start (statements count from)", key=f"sd_{h}_{c}",
                                       value=_dt.date.fromisoformat(str(cur_since.get(c, "2026-11-01"))))
-                items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay, "payments_since": since.isoformat()})
+                was_until = cur_until.get(c)
+                ends = st.checkbox(f"{h} ↔ {c}: the agreement ends on a set date", value=bool(was_until), key=f"en_{h}_{c}")
+                until = None
+                if ends:
+                    until = st.date_input(f"{h} ↔ {c}: last day (that month is the last one billed; the agreement then drops out)", key=f"ud_{h}_{c}",
+                                          value=_dt.date.fromisoformat(str(was_until)) if was_until else since.replace(day=28)).isoformat()
+                items.append(dict({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay, "payments_since": since.isoformat()},
+                                  **({"payments_until": until} if until else {})))
         if items:
             new[h] = items
     if not new:
         st.warning("With no agreements at all, no company data is collected.")
+    ratio = st.number_input("Paper needed to send a tax payment, per unit of tax", min_value=0.0, max_value=10.0, step=0.05, value=cur_ratio, key="paper_ratio",
+                            help="Sending tax costs paper: the amount × this (now 0.5). The cost uses the market price of paper.")
     body = {"about": "Tax agreements. For each host country (where the companies stand): the partner countries whose citizens' companies are "
                      "covered, and which of the host's regions each agreement covers: \"all\", \"core\" (the host's own original regions, not "
                      "conquered ones) or a list of region names. The host sends the partner the tax it collects on those companies' employee "
                      "and manager wages (pay_percent of it). Only these companies are collected. Edited from the Streamlit Settings page.",
-            "agreements": new}
+            "paper_ratio": ratio, "agreements": new}
     if not _has_token():
         st.info("Saving needs a GITHUB_TOKEN in this app's Secrets (a fine-grained token for the private WarEraTracker-backend repository "
                 "with Contents: read and write). Until then, copy this into agreements.json in that repository:")
         st.code(json.dumps(body, indent=2), language="json")
         return
-    if new == {h: v for h, v in current.items() if v}:
+    if new == {h: v for h, v in current.items() if v} and abs(ratio - cur_ratio) < 1e-9:
         st.caption("No changes.")
         return
     if st.button("Check the GitHub token"):
         kind, msg = token_status()
         {"ok": st.success, "warn": st.warning, "bad": st.error}[kind](msg)
+    if abs(ratio - cur_ratio) > 1e-9:
+        st.write(f"• Paper per unit of tax {cur_ratio:g} → {ratio:g}. Applies to every month's paper figures at the next refresh.")
     for line in preview_changes(data, current, new):
         st.write("• " + line)
     if st.button("Save agreements", type="primary"):

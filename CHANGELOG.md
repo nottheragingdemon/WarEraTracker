@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.9.0 — 2026-11-27
+- **Settings:** the paper needed per unit of tax (default 0.5) is a setting, and each agreement can have an end date (its last day): once that month is saved the agreement drops out and is no longer collected. Both show in the change preview.
+- **Paper average** is now weighted by how long each price held (a missed hour no longer counts like any other).
+- **Ask WarEra data** is about 60% smaller (bounty snapshots packed; amounts to 2 decimals).
+- Back end: every saved month statement is also written as `statements/YYYY-MM.csv` in the private repo (with the paper to send and its cost at the month's average price).
+
 ## 2.8.0 — 2026-11-27
 - **Live app check** (every 6 hours): the Streamlit app's health endpoint; a failure posts to the webhook, a sleeping app doesn't.
 - **Streamlit:** pages are cached for an hour and refreshed at once when the data file changes (it re-read and re-inlined about 4 MB every 5 minutes per page).
