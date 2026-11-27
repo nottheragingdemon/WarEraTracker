@@ -147,5 +147,8 @@ _HIDE_GH = """<script>(function(){var css='a[href*="github.com"],[class*="viewer
 var w=window;for(var i=0;i<4&&w;i++){try{var d=w.document;if(!d.getElementById('we-hide-gh')){var s=d.createElement('style');s.id='we-hide-gh';
 s.textContent=css;d.head.appendChild(s)}}catch(e){}if(w===w.parent)break;w=w.parent}})();</script>"""
 with st.container(key="ghhide"):
-    components.html(_HIDE_GH, height=0)
+    if hasattr(st, "iframe"):   # components.html is deprecated in newer Streamlit
+        st.iframe(_HIDE_GH, height=1)
+    else:
+        components.html(_HIDE_GH, height=0)
 nav.run()

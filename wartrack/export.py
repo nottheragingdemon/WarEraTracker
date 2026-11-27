@@ -270,6 +270,9 @@ def export(db, out, since, scope=None):
                                  E("country", r["core"] or r["country"])]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
+    statements = {}   # frozen month statements: {month: {host: [[owner, owed, passed], ...]}}
+    for r in db.execute("SELECT * FROM statements ORDER BY month, host, owed DESC"):
+        statements.setdefault(r["month"], {}).setdefault(str(E("country", r["host"])), []).append([E("country", r["owner_country"]), r["owed"], r["passed"]])
     wage_hist = company_history(db, E)
     wage_hist_reg = region_history(db, E)
     rate_hist = {}
@@ -323,6 +326,8 @@ def export(db, out, since, scope=None):
               "rows": {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in
                        ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill", "country_income", "trades")},
               "freshness": freshness(db), "companyIndex": company_index_status(db), "coverage": company_coverage(db, E, scope), "coverageHist": coverage_history(db, E), "fullHist": full_history(db, E),
+              "dbSize": [[r["day"], r["bytes"]] for r in db.execute("SELECT * FROM db_size ORDER BY day")][-30:],
+              "vacuumAt": (db.execute("SELECT v FROM meta WHERE k='vacuum_at'").fetchone() or [None])[0],
               "donationsSince": db.execute("SELECT MIN(ts) FROM donations").fetchone()[0],
               "transfersSince": db.execute("SELECT MIN(ts) FROM transfers").fetchone()[0]}
     data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
@@ -330,7 +335,12 @@ def export(db, out, since, scope=None):
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "wageHistReg": wage_hist_reg, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate,
-            "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
+            "statements": statements, "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
+    # players are found by name; their full ids are only a fallback label (the last 6 characters), so named players keep the
+    # last 8 characters of the id. Ids were about a third of the main file's download.
+    for e in ents:
+        if e[0] == "user" and e[2] and e[1]:
+            e[1] = e[1][-8:]
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     company_extra = {k: data.pop(k) for k in ("wageHist", "wageHistReg", "companies")}   # only the Company page and Ask WarEra need these

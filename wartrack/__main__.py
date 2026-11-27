@@ -45,6 +45,8 @@ def main():
     r.add_argument("--top", type=int, default=20)
     r.add_argument("--csv", action="store_true")
     r.add_argument("--no-names", action="store_true", help="don't look up MU/player names over the API")
+    sm = sub.add_parser("statement", help="print a host country's company tax statement for a month (frozen if available)")
+    sm.add_argument("--host", default="Ireland"); sm.add_argument("--month", help="YYYY-MM (default: this month so far)")
     a = p.parse_args()
 
     cl = api.Client(verbose=a.verbose)
@@ -93,6 +95,10 @@ def main():
             AL.skipped(db, failed)
         if what & {"damage", "companies"}:   # full runs only, not the 15-minute sample
             timed("prune", C.prune, db)
+            if "companies" in what and "companies" not in failed:   # on the 1st: freeze last month's tax statements
+                from . import statement as STM
+                from .stages.common import alliance_countries
+                timed("statements", STM.freeze, db, alliance_countries(db), None, C.log)
         C.log("timings: " + ", ".join(f"{n} {t:.0f}s/{k} calls" for n, t, k in timings))
         import json as _json
         db.execute("INSERT OR REPLACE INTO run_stats VALUES(?,?,?,?,?,?,?)",   # for the Status page
@@ -100,6 +106,21 @@ def main():
                     ",".join(failed), _json.dumps([[n, round(t, 1), k] for n, t, k in timings])))
         db.commit()
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
+        return
+    if a.cmd == "statement":
+        from . import statement as STM
+        import datetime as _dt
+        h = db.execute("SELECT country FROM country_tax WHERE name=?", (a.host,)).fetchone()
+        if not h:
+            raise SystemExit(f"unknown country {a.host}")
+        month = a.month or _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m")
+        if not db.execute("SELECT 1 FROM statements WHERE month=? AND host=?", (month, h[0])).fetchone():
+            rows = STM.compute(db, h[0], month)
+            db.executemany("INSERT OR REPLACE INTO statements VALUES(?,?,?,?,?)", [(month, h[0], o, v[0], v[1]) for o, v in rows.items()])
+            print(STM.text(db, month, h[0]).replace("(final)", "(so far, not saved)"))
+            db.rollback()
+        else:
+            print(STM.text(db, month, h[0]))
         return
     if a.cmd == "alerts":
         from . import alerts as AL

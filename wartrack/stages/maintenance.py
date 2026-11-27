@@ -39,3 +39,26 @@ def prune(db, days=None):
     db.execute("DELETE FROM run_stats WHERE ts<?", (iso(14),))
     db.commit()
     log(f"prune: {db.total_changes - before} old rows removed (keeping {days:g} days)")
+    compact(db, now)
+
+
+def db_bytes(db):
+    return db.execute("PRAGMA page_count").fetchone()[0] * db.execute("PRAGMA page_size").fetchone()[0]
+
+
+def compact(db, now=None, every_days=7):
+    """Once a week, rebuild the file to give back the space of deleted rows (VACUUM), and record the size once a day for the
+    Status page's trend."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    meta = lambda k: (db.execute("SELECT v FROM meta WHERE k=?", (k,)).fetchone() or [None])[0]
+    last = meta("vacuum_at")
+    if not last or (now - dt.datetime.fromisoformat(last)).total_seconds() >= every_days * 86400:
+        size0 = db_bytes(db)
+        db.commit()
+        db.execute("VACUUM")
+        db.execute("INSERT OR REPLACE INTO meta VALUES('vacuum_at',?)", (now.isoformat(timespec="seconds"),))
+        db.commit()
+        log(f"compact: {size0 / 1e6:.1f} MB -> {db_bytes(db) / 1e6:.1f} MB")
+    db.execute("INSERT OR REPLACE INTO db_size VALUES(?,?)", (now.date().isoformat(), db_bytes(db)))
+    db.execute("DELETE FROM db_size WHERE day<?", ((now - dt.timedelta(days=90)).date().isoformat(),))
+    db.commit()

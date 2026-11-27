@@ -3,6 +3,16 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.10.0 — 2026-11-27
+- **Month statements frozen:** on the 1st, the first full refresh saves last month's statement for every alliance host (`statements`, kept permanently), worked out exactly as the page does (checked: same total to the cent). The tax tracker then shows that month as *(final)*. Preview any time with `python -m wartrack statement --host Ireland [--month YYYY-MM]`.
+- **Statement on Discord:** the refresh's alert step posts last month's final statement once (hosts by name in `STATEMENT_HOSTS`, default Ireland).
+- **Smaller download:** named players' ids in data.json are cut to their last 8 characters (they're only a fallback label), about 300 KB less.
+- **Database:** compacted once a week (VACUUM) and its size recorded daily; the Status page shows the size, the last 14 days and the weekly change.
+- **Tests:** the Streamlit app is started in CI (menu links present, Ask hidden without the key); a statement test.
+- **Streamlit:** the GitHub-link hider uses `st.iframe` (components.html is deprecated).
+- **Ask WarEra:** example questions about conquered regions and what original countries receive.
+- Status page: the stored-history label reads "Companies (alliance countries)".
+
 ## 1.9.0 — 2026-11-27
 - **Branding:** the tools are now "WarEra Ireland tools": page and tab titles, the Streamlit tab, Discord failure messages and the weekly digest heading (the Emerald Accord stays where it names the alliance the data covers).
 - **Company tax tracker:** a month statement per source country (tax owed, the core-country share, what the host keeps, share of the total) for the chosen host and region, with Download CSV and Copy as text.

@@ -191,17 +191,18 @@ function render(){
   v.appendChild(incomeCard(hn))}
 /* month statement: what each source country's companies owed the host in the month, split into the core-country share and what the host keeps */
 function statement(M,mk,hn,rn){
-  var rows=Object.keys(M.ownDays).map(function(o){var t=0,p=0,dd=M.ownDays[o];Object.keys(dd).forEach(function(d){if(d.slice(0,7)===mk){t+=dd[d][0];p+=dd[d][1]}});return{o:+o,t:t,p:p,k:t-p}})
+  var fz=!rn&&((D.statements||{})[mk]||{})[String(st.host)];   // frozen on the 1st of the next month: the final figures
+  var rows=fz?fz.map(function(r){return{o:r[0],t:r[1],p:r[2],k:r[1]-r[2]}}):Object.keys(M.ownDays).map(function(o){var t=0,p=0,dd=M.ownDays[o];Object.keys(dd).forEach(function(d){if(d.slice(0,7)===mk){t+=dd[d][0];p+=dd[d][1]}});return{o:+o,t:t,p:p,k:t-p}})
     .filter(function(r){return r.t>0.005}).sort(function(a,b){return b.t-a.t});
   var tot=rows.reduce(function(a,r){a.t+=r.t;a.p+=r.p;a.k+=r.k;return a},{t:0,p:0,k:0});
-  var title="Statement for "+monthName(mk)+": "+hn+(rn?" · "+rn:"");
+  var title="Statement for "+monthName(mk)+": "+hn+(rn?" · "+rn:"")+(fz?" (final)":"");
   if(!rows.length)return card(title,[note("No tracked tax in "+monthName(mk)+" yet.")]);
   var cols=[["Source country",function(r){return r.o<0?"Total":nm(r.o)}],["Tax owed",function(r){return m2(r.t)},1]].concat(M.anyConq||tot.p>0?[["To core countries",function(r){return m2(r.p)},1],[hn+" keeps",function(r){return m2(r.k)},1]]:[]).concat([["Share",function(r){return tot.t?(100*r.t/tot.t).toFixed(1)+"%":"–"},1]]);
   var t=tbl(cols,rows.concat([{o:-1,t:tot.t,p:tot.p,k:tot.k}]));var tr=t.querySelectorAll("tbody tr");if(tr.length)tr[tr.length-1].style.fontWeight="600";
-  var txt=function(){var L=[title+" (tracked so far, UTC days; payment due "+nextMonthFirst(mk)+")"];rows.forEach(function(r){L.push(nm(r.o)+": "+m2(r.t)+(tot.p>0?" (to core "+m2(r.p)+", kept "+m2(r.k)+")":""))});
+  var txt=function(){var L=[title+(fz?"":" (tracked so far)")+", UTC days; payment due "+nextMonthFirst(mk)];rows.forEach(function(r){L.push(nm(r.o)+": "+m2(r.t)+(tot.p>0?" (to core "+m2(r.p)+", kept "+m2(r.k)+")":""))});
     L.push("Total: "+m2(tot.t)+(tot.p>0?" (to core "+m2(tot.p)+", "+hn+" keeps "+m2(tot.k)+")":""));return L.join("\n")};
   var b=el("button",{class:"chip",type:"button",text:"Copy as text"});b.onclick=function(){var s=txt();(navigator.clipboard?navigator.clipboard.writeText(s):Promise.reject()).then(function(){b.textContent="Copied"},function(){window.prompt("Copy the statement:",s)});setTimeout(function(){b.textContent="Copy as text"},2000)};
-  return card(title,[t,b,note("Every source country’s companies in "+(rn||hn)+", whatever source is picked above. Tax owed is the tracked wages × "+hn+"’s rates for each hour of the month so far; payments already made aren’t subtracted. Download CSV for a spreadsheet.")])}
+  return card(title,[t,b,note((fz?"Final: saved on "+nextMonthFirst(mk)+", so these figures no longer change. ":"Saved as final on "+nextMonthFirst(mk)+". ")+"Every source country’s companies in "+(rn||hn)+", whatever source is picked above. Tax owed is the tracked wages × "+hn+"’s rates for each hour of the month so far; payments already made aren’t subtracted. Download CSV for a spreadsheet.")])}
 /* tax what-if: the same wages at other tax rates, for the selected companies and for the whole host country */
 function whatIf(M,hn,sn){
   var cur=[+(M.rate||0),+(M.mrate||0)],inc=((D.countryNow||{})[String(st.host)]||[])[5]||{};

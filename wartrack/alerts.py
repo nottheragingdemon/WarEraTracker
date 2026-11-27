@@ -198,8 +198,24 @@ def run(db, scope):
     for k, v in marks.items():  # a kind seen for the first time only records its baseline (nothing sent)
         if v and (last[k] is None or v > last[k]):
             _set(db, k, v)
+    statement_posts(db, url)
     db.commit()
     C.log(f"alerts: {len(lines)} lines sent")
+
+
+def statement_posts(db, url):
+    """Once per month and host: post last month's frozen company tax statement (hosts by name, $STATEMENT_HOSTS, default Ireland)."""
+    from . import statement as STM
+    month = STM.previous_month()
+    names = [x.strip() for x in os.environ.get("STATEMENT_HOSTS", "Ireland").split(",") if x.strip()]
+    for nm in names:
+        row = db.execute("SELECT country FROM country_tax WHERE name=?", (nm,)).fetchone()
+        if not row or _state(db, f"statement_{row[0]}") == month:
+            continue
+        txt = STM.text(db, month, row[0])
+        if txt:
+            post(url, txt)
+            _set(db, f"statement_{row[0]}", month)
 
 
 def _fmt(x):

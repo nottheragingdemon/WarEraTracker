@@ -110,10 +110,15 @@ function render(){
   if(!runs.length)kids.push(el("div",{class:"note",text:"No runs recorded yet: they appear from the next refresh."}));
   v.appendChild(card("Recent runs",kids));
   // stored data
-  var R=S.rows||{},names={battles:"Battles",battle_stat:"Battle ranking rows",bounty_snap:"Bounty snapshots",contracts:"Mercenary contracts",companies:"Companies (Ireland)",transfers:"Money transfers",donations:"Citizen donations",player_snap:"Player daily snapshots",player_skill:"Player skill sets",country_income:"Country income (hourly)"};
+  var R=S.rows||{},names={battles:"Battles",battle_stat:"Battle ranking rows",bounty_snap:"Bounty snapshots",contracts:"Mercenary contracts",companies:"Companies (alliance countries)",transfers:"Money transfers",donations:"Citizen donations",player_snap:"Player daily snapshots",player_skill:"Player skill sets",country_income:"Country income (hourly)"};
   var tb2=el("tbody");Object.keys(names).forEach(function(k){var tr=el("tr");tr.appendChild(el("td",{"data-label":"Data",text:names[k]}));tr.appendChild(el("td",{class:"n","data-label":"Rows",text:(R[k]||0).toLocaleString()}));tb2.appendChild(tr)});
   v.appendChild(card("Stored history",[el("div",{class:"tw"},[el("table",{class:"stack"},[el("thead",null,[el("tr",null,[el("th",{text:"Data"}),el("th",{class:"n",text:"Rows"})])]),tb2])]),
-    el("div",{class:"note",text:"Kept for 90 days (bounty snapshots older than a week: one per day). Transfers from "+(S.transfersSince||"–").slice(0,10)+", donations from "+(S.donationsSince||"–").slice(0,10)+"."})]))}
+    el("div",{class:"note",text:"Kept for 90 days (bounty snapshots older than a week: one per day). Transfers from "+(S.transfersSince||"–").slice(0,10)+", donations from "+(S.donationsSince||"–").slice(0,10)+"."})].concat(dbSizeKids(S))))}
+function dbSizeKids(S){var z=S.dbSize||[];if(!z.length)return[];var mb=function(b){return(b/1e6).toFixed(1)+" MB"},last=z[z.length-1],first=z[0];
+  var wk=z.filter(function(x){return x[0]>=new Date(Date.now()-7*864e5).toISOString().slice(0,10)})[0]||first;
+  var mx=Math.max.apply(null,z.map(function(x){return x[1]})),box=el("div",{class:"hbars"});
+  z.slice(-14).reverse().forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0]}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:mb(x[1])})]))});
+  return[el("h3",{text:"Database size: "+mb(last[1])}),box,el("div",{class:"note",text:"Change over the last week: "+(last[1]>=wk[1]?"+":"")+mb(last[1]-wk[1])+". The database is compacted once a week"+(S.vacuumAt?" (last "+S.vacuumAt.slice(0,16).replace("T"," ")+" UTC)":"")+" to give back space from old rows; it is saved compressed to the state branch every hour."})]}
 fetch("data.json").then(function(r){return r.json()}).then(function(d){
   D=d;window.weStale(D.generated);
   $("meta").textContent="Updated "+when(D.generated)+" · collector runs on GitHub Actions: full refresh hourly, battle check every 15 minutes";

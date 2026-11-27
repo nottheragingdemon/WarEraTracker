@@ -206,7 +206,7 @@ async function ask(){
   $("status").textContent="";if(logLines.length){$("logtxt").textContent=logLines.join("\n\n");$("log").hidden=false}
   busy=false;$("go").disabled=false}
 
-var EX=["Top 10 players by damage in the last 3 days, with country and MU","Bounty on each Emerald Accord country over time, latest 20 snapshots","Contracts won this week: total payout per MU","Which countries have the most citizen-owned companies abroad?","Region tax collected per day for the 10 highest regions"];
+var EX=["Top 10 players by damage in the last 3 days, with country and MU","Bounty on each Emerald Accord country over time, latest 20 snapshots","Contracts won this week: total payout per MU","Which countries have the most citizen-owned companies abroad?","Region tax collected per day for the 10 highest regions","Which regions are conquered, who holds them and who is their original country?","How much does the United Kingdom get each day from Northern Ireland?","Which Emerald Accord countries have lost regions to other countries?"];
 EX.forEach(function(t){var b=el("button",{class:"chip",text:t});b.onclick=function(){$("q").value=t};$("ex").appendChild(b)});
 $("go").onclick=ask;$("q").addEventListener("keydown",function(e){if(e.key==="Enter"&&(e.ctrlKey||e.metaKey))ask()});
 function stale(){window.weStale(D.generated)}
