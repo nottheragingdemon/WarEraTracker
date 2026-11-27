@@ -251,6 +251,10 @@ def collect_companies(c, db, scope):
         _store_owners(c, db, unknown)
         owner_country = {r["id"]: r["country"] for r in db.execute("SELECT id, country FROM users")}
     agreed = tax_agreements(db)   # with agreements: only companies owned by an agreed country's citizens are followed
+    if agreed is not None:
+        from ..statement import record_terms
+        if record_terms(db):
+            log("companies: tax agreement terms changed, recorded with today's date")
     loc_region = {r["id"]: r["region"] for r in db.execute("SELECT id, region FROM company_loc WHERE disabled=0")}
     def wanted(cid, owner, region=None):
         if agreed is None:

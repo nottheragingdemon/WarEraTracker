@@ -37,6 +37,20 @@ class StatementTests(unittest.TestCase):
         rows = S.compute(self.db, "h", "2026-11", now_ms=ms("2026-11-01T05:00:00"))
         self.assertEqual(set(rows), {"c"})   # Oland has no agreement with Hland: left out
 
+    def test_terms_change_mid_month(self):
+        import json, os, tempfile
+        from wartrack.stages import common
+        path = os.path.join(tempfile.mkdtemp(), "agreements.json")
+        json.dump({"agreements": {"Hland": [{"country": "Oland", "regions": "all", "pay_percent": 100}]}}, open(path, "w"))
+        common.AGREEMENTS_FILE = path
+        self.assertEqual(S.record_terms(self.db, ms("2026-10-01T00:00:00")), 1)
+        self.assertEqual(S.record_terms(self.db, ms("2026-10-02T00:00:00")), 0)                 # unchanged: nothing new
+        json.dump({"agreements": {"Hland": [{"country": "Oland", "regions": "all", "pay_percent": 50}]}}, open(path, "w"))
+        self.assertEqual(S.record_terms(self.db, ms("2026-11-01T02:00:00")), 1)                 # 50% from 02:00 on 1 Nov
+        rows = S.compute(self.db, "h", "2026-11", now_ms=ms("2026-11-01T05:00:00"))
+        self.assertAlmostEqual(rows["o"][0], 75.0, places=3)
+        self.assertAlmostEqual(rows["o"][2], 60.0, places=3)   # terms apply per check: 23:00 and 01:00 checks (45 tax) at 100%, 03:00 check (30) at 50%
+
     def test_compute_month_split(self):
         # November: from 00:00 to the last check's 6-hour cap (03:00 + up to 6 h, cut at 'now')
         rows = S.compute(self.db, "h", "2026-11", now_ms=ms("2026-11-01T05:00:00"))

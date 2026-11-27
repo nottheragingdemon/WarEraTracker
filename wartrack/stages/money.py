@@ -11,22 +11,32 @@ def collect_transfers(c, db, scope=None, days=90):
     if not members:
         log("transfers: no alliance members in scope, skipped"); return
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
-    known = {r["id"] for r in db.execute("SELECT id FROM transfers")}
-    new = 0
-    def fresh(m):   # newest first until something already stored or too old
+    # tax agreement payments: transfers from a host country to one of its partners (the partner may be outside the alliance)
+    from .common import tax_agreements
+    ag = tax_agreements(db) or {}
+    pairs = {(h, p) for h, parts in ag.items() for p in parts}
+    known = {r["id"] for r in db.execute("SELECT id FROM transfers")} | {r["id"] for r in db.execute("SELECT id FROM agreement_payments")}
+    full = {h for h in ag if h in members and not db.execute("SELECT 1 FROM meta WHERE k=?", (f"agreement_pay_back_{h}",)).fetchone()}
+    new = paid = 0
+    def fresh(m):   # newest first until something already stored or too old (a host's first agreement run reads back 90 days)
         out = []
         for t in c.pages("transaction.getPaginatedTransactions", max_pages=60, countryId=m, transactionType="countryMoneyTransfer", limit=100):
-            if t["_id"] in known or t["createdAt"] < cutoff:
+            if (t["_id"] in known and m not in full) or t["createdAt"] < cutoff:
                 break
             out.append(t)
         return out
     for found in c.map(fresh, sorted(members)):   # the countries are read in parallel, written one after another
         for t in found:
-            if t.get("sellerCountryId") in members and t.get("buyerCountryId") in members:
-                db.execute("INSERT OR IGNORE INTO transfers VALUES(?,?,?,?,?)", (t["_id"], t["createdAt"], t["sellerCountryId"], t["buyerCountryId"], t.get("money") or 0))
+            s_, r_ = t.get("sellerCountryId"), t.get("buyerCountryId")
+            if s_ in members and r_ in members and t["_id"] not in known:
+                db.execute("INSERT OR IGNORE INTO transfers VALUES(?,?,?,?,?)", (t["_id"], t["createdAt"], s_, r_, t.get("money") or 0))
                 new += 1
+            if (s_, r_) in pairs:
+                paid += db.execute("INSERT OR IGNORE INTO agreement_payments VALUES(?,?,?,?,?)", (t["_id"], t["createdAt"], s_, r_, t.get("money") or 0)).rowcount
+    for h in full:
+        db.execute("INSERT OR REPLACE INTO meta VALUES(?, '1')", (f"agreement_pay_back_{h}",))
     db.commit()
-    log(f"transfers: {new} new between member countries")
+    log(f"transfers: {new} new between member countries, {paid} tax agreement payments")
 
 
 def collect_trades(c, db, scope=None, days=30, budget=120.0):

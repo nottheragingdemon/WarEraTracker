@@ -172,3 +172,8 @@ tr.detail td{background:var(--panel-2)}
 .guide p,.guide li,.guide dd{line-height:1.5}.guide ul{padding-left:20px;margin:6px 0}.guide li{margin:4px 0}.guide h3{margin:14px 0 4px;font-size:15px}
 .toc{columns:2;column-gap:24px}@media (max-width:640px){.toc{columns:1}}.gloss dt{font-weight:600;margin-top:8px}.gloss dd{margin:2px 0 0}
 .guide .card{scroll-margin-top:12px}
+
+/* folded detail on the tax tracker */
+details.more{margin:12px 0}details.more>summary{cursor:pointer;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-weight:600;list-style:none}
+details.more>summary::-webkit-details-marker{display:none}details.more>summary::before{content:"▸ ";color:var(--muted)}details.more[open]>summary::before{content:"▾ "}
+details.more[open]>summary{margin-bottom:12px}

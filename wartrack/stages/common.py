@@ -97,6 +97,24 @@ def tax_agreements(db, path=None):
     return out
 
 
+def agreement_since(db, path=None):
+    """{host country id: {partner country id: "YYYY-MM-DD"}}: the date payments are counted from (default 2026-11-01)."""
+    path = path or AGREEMENTS_FILE
+    try:
+        cfg = json.load(open(path)).get("agreements") or {}
+    except (ValueError, OSError):
+        return {}
+    ids = {r[1]: r[0] for r in db.execute("SELECT country, name FROM country_tax")}
+    out = {}
+    for host, items in cfg.items():
+        for it in items or []:
+            name = it if isinstance(it, str) else it.get("country")
+            since = "2026-11-01" if isinstance(it, str) else str(it.get("payments_since") or "2026-11-01")
+            if host in ids and name in ids:
+                out.setdefault(ids[host], {})[ids[name]] = since
+    return out
+
+
 def agreement_pay(db, path=None):
     """{host country id: {partner country id: percent of the tax generated that the host pays the partner}} (default 90)."""
     path = path or AGREEMENTS_FILE

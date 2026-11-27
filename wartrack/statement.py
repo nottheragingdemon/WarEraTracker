@@ -6,6 +6,7 @@ Worked out the same way as the Company page: each refresh's wages and the host's
 (`statements`), so it no longer changes as the hourly history is thinned and aged out, and it is posted to Discord once.
 """
 import bisect
+import json
 import datetime as dt
 
 CAP_MS = 6 * 3600 * 1000
@@ -53,11 +54,30 @@ def compute(db, host, month, now_ms=None):
     sts = {k: [x[0] for x in s] for k, s in series.items()}
     cur = db.execute("SELECT income, manager FROM country_tax WHERE country=?", (host,)).fetchone()
     runs = [r["t"] for r in db.execute("SELECT t FROM run_log ORDER BY t")]
-    from .stages.common import tax_agreements
+    from .stages.common import tax_agreements, agreement_pay
     ag = tax_agreements(db)
     cover = ag.get(host, {}) if ag is not None else None
     core_of = {r[0]: (r[1] or host) for r in db.execute("SELECT region, core FROM region_now")}
-    allowed = {o: (None if regs is None else {core_of.get(x, host) for x in regs}) for o, regs in (cover or {}).items()}
+    cores = lambda regs: None if regs is None else {core_of.get(x, host) for x in regs}
+    allowed = {o: cores(regs) for o, regs in (cover or {}).items()}
+    # the terms in force over time (agreement_terms, recorded when they change); before the first record, the first terms apply
+    timeline = {}
+    if cover is not None:
+        for r in db.execute("SELECT * FROM agreement_terms WHERE host=? ORDER BY t", (host,)):
+            regs = json.loads(r["regions"]) if r["regions"] is not None else None
+            timeline.setdefault(r["partner"], []).append((r["t"], r["active"] == 1, None if regs is None else cores(set(regs)), r["pay"]))
+        cur_pay = agreement_pay(db).get(host, {})
+        for o in cover:
+            timeline.setdefault(o, [(0, True, allowed[o], cur_pay.get(o, 90.0))])
+    tl_ts = {o: [x[0] for x in v] for o, v in timeline.items()}
+    def terms(owner, t):
+        """(covered, allowed cores or None for all, pay %) for a partner at time t"""
+        v = timeline.get(owner)
+        if not v:
+            return False, None, None
+        i = bisect.bisect_right(tl_ts[owner], t) - 1
+        x = v[max(i, 0)]
+        return x[1], x[2], x[3]
     # rows from before the split count with each owner's split at the first split check (pay share per original country)
     first = {}
     if split_t is not None:
@@ -67,13 +87,13 @@ def compute(db, host, month, now_ms=None):
             x = _step(sts[(owner, core)], s, split_t + 60_000)
             if x:
                 first.setdefault(owner, {})[core] = first.get(owner, {}).get(core, 0) + x[1] + x[2]
-    def legacy_shares(owner):
+    def legacy_shares(owner, allow):
         """(share of the owner's pay that counts, share of it passed on by the game) for rows without the core split"""
         fc = first.get(owner)
         tot = sum(fc.values()) if fc else 0
         if not tot:
             return 1.0, conq_share.get(owner, 0)
-        ok = [c for c in fc if cover is None or owner not in allowed or allowed[owner] is None or c in allowed[owner]]
+        ok = [c for c in fc if allow is None or c in allow]
         inc = sum(fc[c] for c in ok)
         return inc / tot, (sum(fc[c] for c in ok if c != host) / inc if inc else 0)
     out = {}
@@ -89,23 +109,49 @@ def compute(db, host, month, now_ms=None):
         for (owner, core), s in series.items():
             if core is None and split_t is not None and t0 >= split_t:
                 continue
-            if cover is not None and (owner not in cover or (core is not None and allowed[owner] is not None and core not in allowed[owner])):
+            on, allow, payp = terms(owner, t0) if cover is not None else (True, None, None)
+            if not on or (core is not None and allow is not None and core not in allow):
                 continue
             x = _step(sts[(owner, core)], s, t0)
             if not x:
                 continue
             tax = (x[1] * ri / 100 + x[2] * rm / 100) * hrs
             if core is None:
-                f, share = legacy_shares(owner)
+                f, share = legacy_shares(owner, allow)
                 tax *= f
             else:
                 share = 1 if core != host else 0
-            o = out.setdefault(owner, [0.0, 0.0])
+            o = out.setdefault(owner, [0.0, 0.0, 0.0])
             o[0] += tax
             o[1] += tax * share * pct
-    from .stages.common import agreement_pay
-    pay = agreement_pay(db).get(host, {}) if cover is not None else {}
-    return {k: [round(v[0], 4), round(v[1], 4), round(v[0] * pay[k] / 100, 4) if k in pay else None] for k, v in out.items() if v[0] > 0.00005}
+            if payp is not None:
+                o[2] += tax * payp / 100
+    return {k: [round(v[0], 4), round(v[1], 4), round(v[2], 4) if cover is not None else None] for k, v in out.items() if v[0] > 0.00005}
+
+
+def record_terms(db, now_ms=None):
+    """Save the tax agreements' terms with the time they were first seen, whenever they change (so a statement uses the terms
+    in force on each day, not today's). A partner that is dropped gets an 'ended' row."""
+    from .stages.common import tax_agreements, agreement_pay
+    ag = tax_agreements(db)
+    if ag is None:
+        return 0
+    now_ms = now_ms or int(dt.datetime.now(dt.timezone.utc).timestamp() * 1000)
+    pay = agreement_pay(db)
+    last = {(r["host"], r["partner"]): (r["active"], r["regions"], r["pay"]) for r in db.execute(
+        "SELECT * FROM agreement_terms WHERE (host,partner,t) IN (SELECT host,partner,MAX(t) FROM agreement_terms GROUP BY host,partner)")}
+    cur = {}
+    for h, parts in ag.items():
+        for p, regs in parts.items():
+            cur[(h, p)] = (1, None if regs is None else json.dumps(sorted(regs)), pay.get(h, {}).get(p, 90.0))
+    n = 0
+    for k in set(cur) | {k for k, v in last.items() if v[0] == 1}:
+        v = cur.get(k, (0, None, None))
+        if last.get(k) != v:
+            db.execute("INSERT OR REPLACE INTO agreement_terms VALUES(?,?,?,?,?,?)", (k[0], k[1], now_ms, *v))
+            n += 1
+    db.commit()
+    return n
 
 
 def previous_month(now=None):

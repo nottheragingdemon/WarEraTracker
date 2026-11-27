@@ -155,14 +155,16 @@ def settings():
         if host_name:
             regions_of.setdefault(host_name, []).append(r[0])
     def norm(items):   # [{"country", "regions"}], also accepting bare names
-        return [{"country": x, "regions": "all", "pay_percent": 90} if isinstance(x, str) else
-                {"country": x.get("country"), "regions": x.get("regions", "all"), "pay_percent": x.get("pay_percent", 90)} for x in items or []]
+        return [{"country": x, "regions": "all", "pay_percent": 90, "payments_since": "2026-11-01"} if isinstance(x, str) else
+                {"country": x.get("country"), "regions": x.get("regions", "all"), "pay_percent": x.get("pay_percent", 90),
+                 "payments_since": x.get("payments_since", "2026-11-01")} for x in items or []]
     current = {h: norm(v) for h, v in current.items()}
     SCOPES = {"Core regions only (not conquered ones)": "core", "All regions": "all", "Chosen regions": "list"}
     new = {}
     for h in sorted(set(hosts) | set(current)):
         cur = {x["country"]: x["regions"] for x in current.get(h, []) if x["country"]}
         cur_pay = {x["country"]: x["pay_percent"] for x in current.get(h, []) if x["country"]}
+        cur_since = {x["country"]: x["payments_since"] for x in current.get(h, []) if x["country"]}
         picked = st.multiselect(f"{h}: partner countries (whose citizens' companies are covered)", names,
                                 default=[c for c in cur if c in names], key=f"ag_{h}", placeholder="no agreement")
         items = []
@@ -177,7 +179,10 @@ def settings():
                 scope = st.multiselect(f"{h} ↔ {c}: which regions", opts, default=[r for r in (was if isinstance(was, list) else []) if r in opts], key=f"rg_{h}_{c}")
             pay = st.number_input(f"{h} ↔ {c}: % of the tax generated that {h} pays {c}", min_value=0.0, max_value=100.0, step=1.0,
                                   value=float(cur_pay.get(c, 90)), key=f"pp_{h}_{c}")
-            items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay})
+            import datetime as _dt
+            since = st.date_input(f"{h} ↔ {c}: agreement start (payments and statements count from)", key=f"sd_{h}_{c}",
+                                  value=_dt.date.fromisoformat(str(cur_since.get(c, "2026-11-01"))))
+            items.append({"country": c, "regions": scope, "pay_percent": int(pay) if pay == int(pay) else pay, "payments_since": since.isoformat()})
         if items:
             new[h] = items
     if not new:

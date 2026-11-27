@@ -41,6 +41,7 @@ class CompanyPageTests(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
         text = re.sub(r"<[^>]+>", " ", dom)
         text = re.sub(r"\s+", " ", text)
+        self.assertIn("<th", dom)                                                    # tables keep their header row
         self.assertIn("conquered from Bland", text)                                  # region picker label
         self.assertRegex(text, r"Total 15\.0000")
         self.assertRegex(text, r"Passed to Bland \(10% of the tax from R2\) 0\.5000")

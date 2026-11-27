@@ -278,10 +278,14 @@ def export(db, out, since, scope=None):
     from .stages.common import tax_agreements
     ag = tax_agreements(db)
     # {host: [[partner, [covered region ids] or None for all regions], ...]}
-    from .stages.common import agreement_pay
-    payp = agreement_pay(db)   # [partner, covered region ids or None, percent of the tax the host pays]
-    agreements = None if ag is None else {str(E("country", h)): sorted([E("country", s), sorted(cov) if cov is not None else None, payp.get(h, {}).get(s, 90.0)] for s, cov in srcs.items())
+    from .stages.common import agreement_pay, agreement_since
+    payp, since = agreement_pay(db), agreement_since(db)   # [partner, covered region ids or None, % of the tax the host pays, payments counted from]
+    agreements = None if ag is None else {str(E("country", h)): sorted([E("country", s), sorted(cov) if cov is not None else None, payp.get(h, {}).get(s, 90.0),
+                                                                         since.get(h, {}).get(s, "2026-11-01")] for s, cov in srcs.items())
                                           for h, srcs in ag.items()}
+    agreement_payments = {}   # {host: {partner: [[time, amount], ...]}}: the host's treasury transfers to its partners
+    for r in db.execute("SELECT * FROM agreement_payments ORDER BY ts"):
+        agreement_payments.setdefault(str(E("country", r["host"])), {}).setdefault(str(E("country", r["partner"])), []).append([r["ts"], r["money"]])
     statements = {}   # frozen month statements: {month: {host: [[owner, owed, passed], ...]}}
     for r in db.execute("SELECT * FROM statements ORDER BY month, host, owed DESC"):
         statements.setdefault(r["month"], {}).setdefault(str(E("country", r["host"])), []).append([E("country", r["owner_country"]), r["owed"], r["passed"], r["pays"]])
@@ -360,7 +364,7 @@ def export(db, out, since, scope=None):
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
             "wageHist": wage_hist, "wageHistReg": wage_hist_reg, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate,
-            "statements": statements, "statementsLive": statements_live, "agreements": agreements, "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
+            "statements": statements, "statementsLive": statements_live, "agreements": agreements, "agreementPayments": agreement_payments, "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
     # players are found by name; their full ids are only a fallback label (the last 6 characters), so named players keep the
     # last 8 characters of the id. Ids were about a third of the main file's download.
     for e in ents:

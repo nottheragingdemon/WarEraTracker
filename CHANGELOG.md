@@ -3,6 +3,13 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.15.0 — 2026-11-27
+- **Payments sent:** the collector keeps every treasury transfer from a host to its agreement partners (`agreement_payments`, including partners outside the alliance, read back 90 days on first run). The tax tracker opens with a *Tax agreements* summary per partner: this month so far, last month, owed for completed months since the agreement's start (`payments_since`), sent, balance (still to pay / settled / paid ahead) and the last payment.
+- **Dated terms:** agreement terms are recorded when they change (`agreement_terms`); statements apply the rate and regions in force at each check, so a change doesn't rewrite earlier days.
+- **Tax page layout:** with agreements, the summary, statement and month-by-month come first and the detailed tracking folds under *More detail*.
+- **Settings page:** an agreement start date per partner.
+- **Fix:** the tax tracker's tables had lost their header row since 1.9.0 (a comment swallowed the code that built it).
+
 ## 1.14.2 — 2026-11-27
 - **Tax agreements:** Ireland pays Mexico 100% and the United Kingdom 90% of the tax generated (the game sends the UK the other 10% from Northern Ireland).
 
