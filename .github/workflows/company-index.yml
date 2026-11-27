@@ -1,0 +1,47 @@
+name: Company index
+
+# Daily 04:41 UTC: where every company in the game stands (the API can only list them all together). New companies are
+# looked up, a seventh of the rest re-checked, and owners of companies in alliance countries refreshed. The hourly refresh
+# then follows every company standing in an alliance country, whoever owns it. The first run takes about 10 minutes.
+on:
+  schedule:
+    - cron: "41 4 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r requirements-collector.txt
+      - name: Restore history from the state branch
+        run: sh state.sh restore
+      - name: Index companies
+        env:
+          WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}
+          WARERA_GATEWAY: ${{ vars.WARERA_GATEWAY || '0' }}
+        run: WARTRACK_DB=wartrack.sqlite python3 -m wartrack collect --what alliances,regions,companyindex
+      - name: Save history to the state branch
+        run: |
+          git config user.name "warera-tracker"; git config user.email "warera-tracker@users.noreply.github.com"
+          sh state.sh save
+      - name: Failure alert
+        if: failure()
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW: ${{ github.workflow }}
+        run: |
+          python3 -m wartrack alerts --failure "WarEra Tracker: the $WORKFLOW run failed. $RUN_URL"

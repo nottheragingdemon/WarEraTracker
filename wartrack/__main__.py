@@ -84,6 +84,7 @@ def main():
         if "donations" in what: stage("donations", C.collect_donations, cl, db, scope)
         if "trades" in what: stage("trades", C.collect_trades, cl, db, scope)
         if "contracts" in what: stage("contracts", C.collect_contracts, cl, db, since, scope)
+        if "companyindex" in what: stage("companyindex", C.collect_company_index, cl, db, scope)
         if "companies" in what: stage("companies", C.collect_companies, cl, db, scope)
         if "efficiency" in what: stage("efficiency", C.collect_efficiency, cl, db, scope)
         if failed:

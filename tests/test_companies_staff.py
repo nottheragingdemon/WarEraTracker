@@ -1,4 +1,4 @@
-"""Companies: worker counts come from employee.getCompanyEmployees (the company record no longer lists workers)."""
+"""Companies: located by the daily index (any owner), refreshed hourly in alliance host countries, with employees and wages."""
 import unittest
 
 from wartrack.stages import economy as EC
@@ -11,46 +11,57 @@ class Scope:
 
 class Fake:
     n = 0
+    ALL = {"k1": ("r1", "u1"), "k2": ("r1", "u2"), "k3": ("r9", "u1"), "k4": ("r1", "u3")}
 
     def pages(self, proc, **kw):
-        if proc == "user.getUsersByCountry":
-            yield {"_id": "u1"}
+        assert proc == "company.getCompanies" and "userId" not in kw   # the global list
+        yield from self.ALL
 
     def map(self, fn, xs, workers=None):
         return [fn(x) for x in xs]
 
     def lookup_users(self, ids):
-        return {u: {"username": "Ann", "country": "c1"} for u in ids}
+        return {u: {"username": u.upper(), "country": {"u1": "c1", "u2": "x9", "u3": "c1"}[u]} for u in ids}
 
     def batch_many(self, lists, official=False):
         out = []
         for l in lists:
             res = []
             for proc, inp in l:
-                if proc == "company.getCompanies":
-                    res.append({"items": ["k1", "k2"], "nextCursor": None})
-                elif proc == "company.getById":
-                    res.append({"name": inp["companyId"], "user": "u1", "itemCode": "fish", "region": "r1", "estimatedValue": 10})
+                cid = inp.get("companyId")
+                if proc == "company.getById":
+                    reg, own = self.ALL[cid]
+                    res.append({"name": cid, "user": own, "itemCode": "fish", "region": reg, "estimatedValue": 10,
+                                **({"disabledAt": "2026-11-01"} if cid == "k4" else {})})
                 elif proc == "employee.getCompanyEstimate":
-                    res.append({"wageCost": 0.5, "managerCost": 0.1} if inp["companyId"] == "k1" else None)
+                    res.append({"wageCost": 0.5, "managerCost": 0.1} if cid == "k1" else None)
                 elif proc == "employee.getCompanyEmployees":
-                    res.append([{"wage": 0.2}, {"wage": 0.3}] if inp["companyId"] == "k1" else [{"wage": 0.05}])
+                    res.append([{"wage": 0.2}, {"wage": 0.3}] if cid == "k1" else [{"wage": 0.05}])
             out.append(res)
         return out
 
 
-class StaffTests(unittest.TestCase):
-    def test_workers_and_wage_fallback(self):
-        import os
-        os.environ["WARTRACK_HOST"] = "all"
+class CompanyTests(unittest.TestCase):
+    def test_index_then_hourly(self):
+        db = dbm.connect(":memory:")
+        db.execute("INSERT INTO region_now(region,name,country) VALUES('r1','Home','c1'),('r9','Away','c9')")
+        f = Fake()
+        EC.collect_companies(f, db, Scope())          # no index yet: nothing happens
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM companies").fetchone()[0], 0)
+        EC.collect_company_index(f, db, Scope())
+        self.assertEqual(db.execute("SELECT COUNT(*) FROM company_loc").fetchone()[0], 4)
+        EC.collect_companies(f, db, Scope())
+        rows = {r["id"]: (r["owner_country"], r["workers"], r["wages"]) for r in db.execute("SELECT * FROM companies")}
+        self.assertEqual(rows, {"k1": ("c1", 2, 0.5), "k2": ("x9", 1, 0.05)})   # k2: non-alliance owner kept; k3 elsewhere, k4 disabled
+        snaps = {(r["host"], r["owner_country"]): (r["companies"], r["workers"]) for r in db.execute("SELECT * FROM wage_snap2")}
+        self.assertEqual(snaps, {("c1", "c1"): (1, 2), ("c1", "x9"): (1, 1)})
+        Fake.ALL = {k: v for k, v in Fake.ALL.items() if k != "k2"}        # k2 closes: the next index run drops it
         try:
-            db = dbm.connect(":memory:")
-            EC.collect_companies(Fake(), db, Scope())
+            EC.collect_company_index(f, db, Scope())
+            EC.collect_companies(f, db, Scope())
         finally:
-            del os.environ["WARTRACK_HOST"]
-        rows = {r["id"]: (r["workers"], r["wages"], r["mgr"]) for r in db.execute("SELECT id, workers, wages, mgr FROM companies")}
-        self.assertEqual(rows["k1"], (2, 0.5, 0.1))      # wages from the estimate, 2 employees listed
-        self.assertEqual(rows["k2"], (1, 0.05, 0.0))     # no estimate: the listed employees' wages
+            Fake.ALL["k2"] = ("r1", "u2")
+        self.assertEqual(sorted(r[0] for r in db.execute("SELECT id FROM companies")), ["k1"])
 
 
 if __name__ == "__main__":

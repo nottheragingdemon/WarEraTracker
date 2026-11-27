@@ -41,7 +41,7 @@ def build(out):
     if n != 1:
         raise SystemExit("ask.html: navigation not found")
     write(ask, "index.html", page)
-    for name in ("theme.js", "theme.css", "data.json"):
+    for name in ("theme.js", "theme.css", "data.json", "company-data.json"):
         write(tracker, name, read(name))
     for name in ("theme.js", "theme.css", "data.json", "ask-data.json"):
         write(ask, name, read(name))

@@ -55,11 +55,14 @@ function nextMonthFirst(m){var y=+m.slice(0,4),mo=+m.slice(5,7);return new Date(
 
 /* ---------- model ---------- */
 var CAP=6*3600*1000;
+var ALL_OWNERS=-2;
+function srcMatch(o){return st.src===ALL_OWNERS?o>=0:o===st.src}
+function srcName(){return st.src===ALL_OWNERS?"all owners’":nm(st.src)}
 function hostOf(c){var r=(D.regionsNow||{})[c[4]];return r?r[1]:-1}
 function step(arr,t){var lo=0,hi=arr.length-1,k=-1;while(lo<=hi){var m=(lo+hi)>>1;if(arr[m][0]<=t){k=m;lo=m+1}else hi=m-1}return k<0?null:arr[k]}
 function calc(){
   var R=D.regionsNow||{},regs={},comps=[];
-  D.companies.forEach(function(c){if(c[5]!==st.src||hostOf(c)!==st.host)return;comps.push(c);
+  D.companies.forEach(function(c){if(!srcMatch(c[5])||hostOf(c)!==st.host)return;comps.push(c);
     var g=regs[c[4]]=regs[c[4]]||{id:c[4],name:R[c[4]][0],n:0,w:0,wages:0,mg:0};g.n++;g.w+=c[6]||0;g.wages+=c[7]||0;g.mg+=c[8]||0});
   var ct=(D.countryTax||{})[st.host]||[null,null],wages=0,mpay=0,staff=0,gInc=0,gMan=0,list=Object.keys(regs).map(function(k){var g=regs[k],r=R[k];
     g.emp=r[2];g.mgr=r[3];g.nco=r[4];g.nem=r[5];g.si=g.nem?Math.min(1,g.w/g.nem):0;g.sm=g.nco?Math.min(1,g.n/g.nco):0;
@@ -67,9 +70,8 @@ function calc(){
     wages+=g.wages;mpay+=g.mg;staff+=g.w;gInc+=g.gi;gMan+=g.gm;return g}).sort(function(a,b){return b.o-a.o});
   var empTax=wages*(ct[0]||0)/100,manTax=mpay*(ct[1]||0)/100;
   /* hourly history: wages x the host's income tax rate at that time, held from each check to the next (max 6 h) */
-  var keys={};list.forEach(function(g){keys[g.id]=1});
-  (D.wageHist||[]).forEach(function(r){if(r[1]===st.src&&R[r[0]]&&R[r[0]][1]===st.host)keys[r[0]]=1});
-  var per={};(D.wageHist||[]).forEach(function(r){if(r[1]!==st.src||!keys[r[0]])return;(per[r[0]]=per[r[0]]||[]).push([r[2],r[3],r[4],r[5],r[6]||0])});
+  /* one step series per owner country in this host (summed when "All owners" is chosen) */
+  var per={};(D.wageHist||[]).forEach(function(r){if(r[0]!==st.host||!srcMatch(r[1]))return;(per[r[1]]=per[r[1]]||[]).push([r[2],r[3],r[4],r[5],r[6]||0])});
   var rates=(D.rateHist||{})[st.host]||[],runs=(D.runs||[]).slice(),now=Date.now();
   var ivs=[],days={};
   for(var i=0;i<runs.length;i++){
@@ -95,8 +97,8 @@ function card0(t){return el("div",{class:"card"},[el("h2",{text:t})])}
 /* ---------- view ---------- */
 function render(){
   var v=$("view");v.textContent="";
-  if(st.host<0||st.src<0){v.appendChild(note("No collected companies yet. Company data is collected by the scheduled refresh; check back after the next run."));return}
-  var M=calc(),hn=nm(st.host),sn=nm(st.src),today=new Date().toISOString().slice(0,10),mk=st.month;
+  if(st.host<0||(st.src<0&&st.src!==ALL_OWNERS)){v.appendChild(note("No collected companies yet. Company data is collected by the scheduled refresh; check back after the next run."));return}
+  var M=calc(),hn=nm(st.host),sn=srcName(),today=new Date().toISOString().slice(0,10),mk=st.month;
   var dm=Object.keys(M.days).filter(function(d){return d.slice(0,7)===mk}).sort().map(function(d){return M.days[d]});
   var owedM=dm.reduce(function(s,x){return s+x.o},0),hM=dm.reduce(function(s,x){return s+x.h},0),hAll=monthDays(mk)*24;
   var est=hM>0?owedM/hM*hAll:M.hour*hAll,tdy=M.days[today];
@@ -191,17 +193,25 @@ function incomeCard(hn){
 
 /* ---------- controls ---------- */
 function fillSelects(){
-  var R=D.regionsNow||{},hostN={},srcN={},pair={};
-  D.companies.forEach(function(c){var h=hostOf(c);if(h<0||c[5]<0)return;hostN[h]=(hostN[h]||0)+1;srcN[c[5]]=(srcN[c[5]]||0)+1;var k=h+"|"+c[5];pair[k]=(pair[k]||0)+1});
-  var best=Object.keys(pair).filter(function(k){return k.split("|")[0]!==k.split("|")[1]}).sort(function(a,b){return pair[b]-pair[a]})[0]||Object.keys(pair).sort(function(a,b){return pair[b]-pair[a]})[0];
-  if(best){st.host=+best.split("|")[0];st.src=+best.split("|")[1]}
-  function fill(id,cnt,cur){var s=$(id);s.textContent="";Object.keys(cnt).sort(function(a,b){return nm(+a).localeCompare(nm(+b))}).forEach(function(k){s.appendChild(el("option",{value:k,text:nm(+k)+" ("+cnt[k]+")"}))});s.value=String(cur)}
-  fill("f-host",hostN,st.host);fill("f-src",srcN,st.src);
-  $("f-host").onchange=function(){st.host=+this.value;st.limit=0;render()};
+  var hostN={};D.companies.forEach(function(c){var h=hostOf(c);if(h>=0)hostN[h]=(hostN[h]||0)+1});
+  var ea=null;Object.keys(D.alliances||{}).forEach(function(a){if(nm(+a)==="The Emerald Accord")ea=new Set(D.alliances[a])});
+  if(st.host<0||!hostN[st.host]){st.host=+Object.keys(hostN).sort(function(a,b){return hostN[b]-hostN[a]})[0];if(isNaN(st.host))st.host=-1}
+  var hs=$("f-host");hs.textContent="";Object.keys(hostN).sort(function(a,b){return nm(+a).localeCompare(nm(+b))}).forEach(function(k){hs.appendChild(el("option",{value:k,text:nm(+k)+" ("+hostN[k]+")"}))});hs.value=String(st.host);
+  function fillSrc(){
+    var srcN={},tot=0;D.companies.forEach(function(c){if(hostOf(c)===st.host&&c[5]>=0){srcN[c[5]]=(srcN[c[5]]||0)+1;tot++}});
+    var ss=$("f-src");ss.textContent="";ss.appendChild(el("option",{value:String(ALL_OWNERS),text:"All owners ("+tot+")"}));
+    var keys=Object.keys(srcN).sort(function(a,b){return srcN[b]-srcN[a]||nm(+a).localeCompare(nm(+b))});
+    [["Emerald Accord",keys.filter(function(k){return ea&&ea.has(+k)})],["Other countries",keys.filter(function(k){return !(ea&&ea.has(+k))})]].forEach(function(g){
+      if(!g[1].length)return;var og=el("optgroup",{label:g[0]});g[1].forEach(function(k){og.appendChild(el("option",{value:k,text:nm(+k)+" ("+srcN[k]+")"}))});ss.appendChild(og)});
+    if(st.src!==ALL_OWNERS&&!srcN[st.src]){var other=keys.filter(function(k){return +k!==st.host});st.src=other.length?+other[0]:ALL_OWNERS}
+    ss.value=String(st.src)}
+  fillSrc();
+  hs.onchange=function(){st.host=+this.value;st.limit=0;fillSrc();render()};
   $("f-src").onchange=function(){st.src=+this.value;st.limit=0;render()}}
 function stale(){window.weStale(D.generated)}
-fetch("data.json").then(function(r){return r.json()}).then(function(d){
+fetch("data.json").then(function(r){return r.json()}).then(async function(d){
   D=d;stale();D.companies=D.companies||[];
+  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.wageHist=cx.wageHist||[]}catch(e){D.wageHist=D.wageHist||[]}
   var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];
   st.month=(days.length?days[days.length-1]:new Date().toISOString().slice(0,10)).slice(0,7);
   $("f-month").value=st.month;$("f-month").onchange=function(){if(this.value){st.month=this.value;render()}};

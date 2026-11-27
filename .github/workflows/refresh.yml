@@ -50,7 +50,7 @@ jobs:
           sh state.sh save
       - name: Commit data.json (Streamlit redeploys on push)
         run: |
-          git add site/data.json site/ask-data.json
+          git add site/data.json site/ask-data.json site/company-data.json
           git diff --cached --quiet || {
             git commit -m "data: $(date -u +%Y-%m-%dT%H:%MZ)"
             for i in 1 2 3; do

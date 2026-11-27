@@ -40,6 +40,8 @@ class ExportTests(unittest.TestCase):
             self.data = json.load(f)
         with open(os.path.join(self.dir, "ask-data.json")) as f:
             self.ask = json.load(f)
+        with open(os.path.join(self.dir, "company-data.json")) as f:
+            self.company = json.load(f)
 
     def test_shape(self):
         for k in ("v", "generated", "ents", "battles", "statsP", "players", "playerHist", "status", "countryIncomeDays", "tradeDays", "marketRate"):
@@ -49,6 +51,8 @@ class ExportTests(unittest.TestCase):
         self.assertNotIn("bounty", self.data)               # moved to ask-data.json
         self.assertEqual(len(self.ask["bounty"]), 1)
         self.assertEqual(self.ask["generated"], self.data["generated"])
+        self.assertNotIn("wageHist", self.data)             # moved to company-data.json
+        self.assertIn("wageHist", self.company)
 
     def test_packed_stats_round_trip(self):
         E = self.data["ents"]
@@ -58,6 +62,29 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(named[(0, "c1", 0)], 1500)          # integral values exported as ints
         self.assertEqual(named[(1, "c1", 0)], 12.5)
         self.assertEqual(named[(0, "c2", 1)], 2000)
+
+    def test_company_history_levels_and_thinning(self):
+        import time
+        now = int(time.time() * 1000)
+        d = self.db
+        d.execute("INSERT INTO region_now(region,name,country) VALUES('r1','R1','c1'),('r2','R2','c1')")
+        # old per-region rows two days ago (summed per host), new host-level rows: hourly in the last 48 h kept, older thinned
+        d.execute("INSERT INTO wage_snap VALUES('r1','c2',?,1,2,1.0,0)", (now - 80 * 3600000,))
+        d.execute("INSERT INTO wage_snap VALUES('r2','c2',?,1,3,2.0,0)", (now - 80 * 3600000 + 1000,))
+        for h in range(72, 0, -1):
+            d.execute("INSERT INTO wage_snap2 VALUES('c1','c2',?,2,5,?,0)", (now - h * 3600000, 3.0 + h / 1000))
+        ents, idx = [], {}
+        def E(t, i):
+            if (t, i) not in idx:
+                idx[(t, i)] = len(ents); ents.append([t, i, None])
+            return idx[(t, i)]
+        rows = X.company_history(d, E)
+        self.assertTrue(all(r[0] == E("country", "c1") and r[1] == E("country", "c2") for r in rows))
+        old = [r for r in rows if r[2] < now - 79 * 3600000]
+        self.assertEqual([r[5] for r in old][-1], 3.0)      # the two regions summed: 1.0 + 2.0
+        recent = [r for r in rows if r[2] >= now - 48 * 3600000]
+        self.assertEqual(len(recent), 48)                   # every snapshot of the last 48 h
+        self.assertLess(len(rows) - len(recent), 10)        # older ones: one per 6-hour block
 
     def test_day_aggregates(self):
         inc = self.data["countryIncomeDays"]

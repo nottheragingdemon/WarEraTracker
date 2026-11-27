@@ -9,7 +9,7 @@ player efficiency, and plain-English questions over the data. A collector on Git
 | Page | What it shows |
 |---|---|
 | `site/index.html` **WarEra Tracker** | Battle damage and battle money (bounty) by alliance, country, military unit and player; per-country bar chart; bounty per 1M damage, with a day-by-day chart, a player card with a drill-down to each battle, and a three-player comparison. |
-| `site/company.html` **Company tax tracker** | Pick a host and a source country: tax collected per hour on those companies, the daily and monthly amount owed, a cross-check against the game's region figures, and at the end the host country's whole income per day by stream (employee and manager income tax, development, strategic resources, government type, and an estimate of market tax), with the last 30 days day by day. |
+| `site/company.html` **Company tax tracker** | Pick a host (any Emerald Accord country) and a source country (any owner citizenship, or All owners): tax collected per hour on those companies, the daily and monthly amount owed, a cross-check against the game's region figures, and at the end the host country's whole income per day by stream (employee and manager income tax, development, strategic resources, government type, and an estimate of market tax), with the last 30 days day by day. |
 | `site/transfers.html` **EA Money Transfers** | Tab 1: country money transfers between alliance nations (totals, battles per nation, sortable list). Tab 2: citizens' donations to their own nation (totals, nation, citizen and amount filters, sortable tables, donations per day). |
 | `site/efficiency.html` **Player efficiency** | Per nation, the top 20 players with 1M+ damage in the last 7 days, ranked by wealth gained (or wealth) per 1M damage, with their build: War (20% or less of skill points in companies, energy, management and production), Eco (over 50%) or Hybrid. Tap a player for skills and daily trend charts. |
 | `site/status.html` **Status** | Health checks, the last refresh and its stage timings, recent runs, last backup and digest, stored history. |
@@ -37,6 +37,7 @@ Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run stre
 - History lives in a SQLite database kept on the `state` branch (one force-pushed commit). Data older than 90 days is pruned (`WARTRACK_KEEP_DAYS`); bounty snapshots older than a week keep one per day.
 - `site/data.json` is the core data (per-battle stats packed, about 2 MB); `site/ask-data.json` (bounty history, contracts) is loaded by Ask WarEra only.
 - Transfers and donations are kept for 90 days. Player efficiency takes one snapshot of wealth and total damage per player per UTC day, for each nation's top 100 players by this week's damage, and refreshes skills daily or after a reset (a level-L skill costs 1+2+…+L points).
+- Companies: the API can only list all companies together, so the daily *Company index* workflow records where every company stands (new ones looked up, a seventh of the rest re-checked each day); the hourly refresh then follows every company standing in an alliance country, whoever owns it. Wage history is stored per host and owner country and loaded by the Company page only (`site/company-data.json`).
 - Market trades (`trading` transactions) the game lists under each alliance country (its citizens buying or selling) are kept 30 days to estimate market tax: the country's market tax rate × the average daily value of those trades over the last 7 full days. The game doesn't report market tax, and which side's country collects it isn't published.
 - Country income (treasury and income by stream) is stored hourly for the alliance's countries; the Company tax tracker shows it day by day.
 - The MU list is refreshed every 6 hours (`WARTRACK_PEOPLE_EVERY_H`) and closed mercenary contracts every 3 hours (`WARTRACK_CONTRACTS_FULL_H`).
@@ -48,6 +49,7 @@ Run locally: `WARERA_API_KEY=... sh refresh.sh`, then `uv run streamlit run stre
 | Refresh data | hourly at :17 | collect, export `data.json`, battle alerts, save the database |
 | Quick sample | every 15 minutes | region tax rates and new or ended battles, then battle alerts (switches: test alert, test failure) |
 | Weekly digest | Mondays 08:23 UTC | the week's summary to the webhook (`python -m wartrack alerts --print-digest` shows it without sending) |
+| Company index | daily 04:41 UTC | where every company in the game stands (first run about 10 minutes) |
 | Weekly backup | Sundays 03:07 UTC | copies the database to `backup/state-YYYY-MM-DD`, keeping the newest 4 |
 | Tests | on push | unit tests, then every page in headless Chrome (`scripts/smoke_pages.py`) |
 | Release | by hand | tags a version from `CHANGELOG.md` and publishes a GitHub release |

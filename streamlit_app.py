@@ -26,11 +26,12 @@ def page(name: str) -> str:
     html = html.replace('<link rel="stylesheet" href="theme.css">', "<style>" + css + "</style>")
     html = html.replace('<script src="theme.js"></script>', "<script>" + js + "</script>")
     html = html.replace(old, "Promise.resolve(" + data.replace("</", "<\\/") + ")", 1)
-    extra_fetch = 'fetch("ask-data.json").then(function(r){return r.json()})'
-    if extra_fetch in html:   # the Ask page also needs bounty history and contracts
-        extra = (HERE / "site" / "ask-data.json").read_text(encoding="utf-8")
-        json.loads(extra)
-        html = html.replace(extra_fetch, "Promise.resolve(" + extra.replace("</", "<\\/") + ")", 1)
+    for extra_name in ("ask-data.json", "company-data.json"):   # pages that load a second data file get it inlined too
+        extra_fetch = 'fetch("' + extra_name + '").then(function(r){return r.json()})'
+        if extra_fetch in html:
+            extra = (HERE / "site" / extra_name).read_text(encoding="utf-8")
+            json.loads(extra)
+            html = html.replace(extra_fetch, "Promise.resolve(" + extra.replace("</", "<\\/") + ")", 1)
     return html
 
 

@@ -43,6 +43,48 @@ SKILLS = ["companies", "energy", "management", "production", "attack", "precisio
           "health", "hunger", "stamina", "lootChance"]   # the first four are the economy skills
 
 
+def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
+    """Wage history per (host country, owner country) for the Company tax tracker: every snapshot from the last 48 hours,
+    the last one in each 6-hour block before that, for 35 days. Rows: [host, owner country, t, companies, workers, wages/h, manager pay/h].
+    Older per-region snapshots (wage_snap, before 27 Nov 2026) are summed to the same level."""
+    import time
+    now = int(time.time() * 1000)
+    lo, full_from, bucket = now - days * 864e5, now - full_hours * 36e5, int(bucket_hours * 36e5)
+    series = {}
+    host_of = {r["region"]: r["country"] for r in db.execute("SELECT region, country FROM region_now")}
+    # old per-region snapshots: step series per region, summed per (host, owner) at every change
+    old = {}
+    for r in db.execute("SELECT * FROM wage_snap WHERE t>=? ORDER BY t", (lo,)):
+        h = host_of.get(r["region"])
+        if h and r["owner_country"]:
+            old.setdefault((h, r["owner_country"]), []).append((r["t"], r["region"], (r["companies"], r["workers"], r["wages"], r["mgr"] or 0)))
+    for k, evs in old.items():
+        cur, out = {}, []
+        for t, reg, v in evs:
+            cur[reg] = v
+            tot = [sum(x[i] for x in cur.values()) for i in range(4)]
+            if out and out[-1][0] == t:
+                out[-1] = (t, tot)
+            else:
+                out.append((t, tot))
+        series.setdefault(k, []).extend(out)
+    for r in db.execute("SELECT * FROM wage_snap2 WHERE t>=? ORDER BY t", (lo,)):
+        series.setdefault((r["host"], r["owner_country"]), []).append((r["t"], [r["companies"], r["workers"], r["wages"], r["mgr"] or 0]))
+    rows = []
+    for (h, o), evs in series.items():
+        evs.sort(key=lambda x: x[0])
+        keep, last_bucket = [], {}
+        for t, v in evs:
+            if t >= full_from:
+                keep.append((t, v))
+            else:
+                last_bucket[t // bucket] = (t, v)   # the last snapshot in each block wins
+        for t, v in sorted(last_bucket.values()) + keep:
+            rows.append([E("country", h), E("country", o), t, v[0], v[1], round(v[2], 4), round(v[3], 4)])
+    rows.sort(key=lambda r: r[2])
+    return rows
+
+
 def export(db, out, since, scope=None):
     ents, eidx = [], {}
 
@@ -150,8 +192,7 @@ def export(db, out, since, scope=None):
     regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"]]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
-    wage_hist = [[r["region"], E("country", r["owner_country"]), r["t"], r["companies"], r["workers"], r["wages"], r["mgr"] or 0]
-                 for r in db.execute("SELECT * FROM wage_snap ORDER BY t")]
+    wage_hist = company_history(db, E)
     rate_hist = {}
     for r in db.execute("SELECT * FROM rate_hist ORDER BY t"):
         rate_hist.setdefault(str(E("country", r["country"])), []).append([r["t"], r["income"], r["manager"]])
@@ -211,8 +252,11 @@ def export(db, out, since, scope=None):
             "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
+    company_extra = {"wageHist": data.pop("wageHist")}   # only the Company tax tracker needs the wage history
     with open(out, "w") as f:
         json.dump(data, f, separators=(",", ":"))
     with open(os.path.join(os.path.dirname(out) or ".", "ask-data.json"), "w") as f:
         json.dump(dict(extra, generated=data["generated"]), f, separators=(",", ":"))
-    return {k: len(v) for k, v in dict(data, **extra).items() if isinstance(v, (list, dict))}
+    with open(os.path.join(os.path.dirname(out) or ".", "company-data.json"), "w") as f:
+        json.dump(dict(company_extra, generated=data["generated"]), f, separators=(",", ":"))
+    return {k: len(v) for k, v in dict(data, **extra, **company_extra).items() if isinstance(v, (list, dict))}

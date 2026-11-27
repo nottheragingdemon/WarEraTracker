@@ -3,6 +3,10 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.4.0 — 2026-11-27
+- **Company tax tracker:** any Emerald Accord country can be the host, and companies of every owner are followed, not only alliance citizens': the source list has the alliance's countries, other countries and **All owners** (which should match the game's totals for the host).
+- **Collector:** new daily *Company index* workflow (where every company stands; the API only lists them all together), the hourly companies stage now follows every company in alliance countries (about 6,300), wage history stored per host and owner country with 0.5% change threshold, and moved to `company-data.json` (loaded by the Company page only), thinned to 6-hour steps after 48 hours.
+
 ## 1.3.1 — 2026-11-27
 - **Company tax tracker fix:** worker counts were 0 for every company because the game's company record stopped listing workers. They now come from `employee.getCompanyEmployees`, so the staff cross-check against the game's region figures works again. Wages and tax were not affected (they come from the wage estimate).
 
