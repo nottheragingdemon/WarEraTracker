@@ -70,9 +70,9 @@ class SettingsAgreements(unittest.TestCase):
 
     def test_agreements_show_first_without_token(self):
         at = self.run_settings("")
-        labels = [m.label for m in at.multiselect]
+        labels = [m.label for m in at.multiselect if "partner countries" in m.label]
         self.assertTrue(labels[0].startswith("Ireland:"), labels[:3])
-        self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
+        self.assertEqual([m for m in at.multiselect if "partner countries" in m.label][0].value, ["Mexico", "United Kingdom"])
 
     def test_core_stays_core_and_token_and_dryrun_panel(self):
         at = self.run_settings("_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
@@ -96,6 +96,19 @@ class SettingsAgreements(unittest.TestCase):
                                " {'sha': 'bbbbbbbbbbbb', 'commit': {'committer': {'date': '2026-11-20T10:00:00Z'}, 'message': 'Settings: old'}}]\n")
         self.assertEqual([b.label for b in at.button if b.label == "Restore this version"], ["Restore this version"])   # not offered for the current one
 
+    def test_enemies_editor(self):
+        at = self.run_settings("_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
+                               "import json as _j, base64 as _b\n"
+                               "def _gh(m, p, body=None):\n"
+                               "    return {'sha': 's', 'content': _b.b64encode(_j.dumps({'countries': ['Chile'], 'agreements': {}}).encode()).decode()}\n"
+                               "def _gh_actions(m, p, body=None): return {'workflow_runs': []}\n"
+                               "def _gh_repo(m, p, body=None): return []\n")
+        pick = [m for m in at.multiselect if m.label == "Sworn enemy countries"][0]
+        self.assertEqual(pick.value, ["Chile"])
+        pick.select("Venezuela").run()
+        self.assertTrue(any("Added: Venezuela" in m.value for m in at.markdown))
+        self.assertIn("Save enemies", [b.label for b in at.button])
+
     def test_published_core_detected(self):
         at = self.run_settings("")
         self.assertIn("Core regions only (not conquered ones)", [x.value for x in at.selectbox])
@@ -104,7 +117,7 @@ class SettingsAgreements(unittest.TestCase):
         at = self.run_settings("import urllib.error\n_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
                                "def _gh(*a, **k): raise urllib.error.HTTPError('u', 404, 'nf', {}, None)\n"
                                "def _gh_actions(*a, **k): raise urllib.error.HTTPError('u', 403, 'no', {}, None)\n")
-        self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
+        self.assertEqual([m for m in at.multiselect if "partner countries" in m.label][0].value, ["Mexico", "United Kingdom"])
         self.assertTrue(any("Couldn't read agreements.json" in w.value for w in at.warning))
         self.assertEqual([b.label for b in at.button if b.label == "Save agreements"], [])
 

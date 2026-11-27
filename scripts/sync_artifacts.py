@@ -41,7 +41,9 @@ def build(out):
     if n != 1:
         raise SystemExit("ask.html: navigation not found")
     write(ask, "index.html", page)
-    for name in ("theme.js", "theme.css", "data.json", "company-data.json", "battle-data.json", "transfer-data.json"):
+    for name in ("theme.js", "theme.css", "data.json", "company-data.json", "battle-data.json", "transfer-data.json", "enemy-data.json"):
+        if name == "enemy-data.json" and not os.path.exists(os.path.join(SITE, name)):
+            continue   # not published yet
         write(tracker, name, read(name))
     for name in ("theme.js", "theme.css", "data.json", "ask-data.json", "company-data.json", "battle-data.json"):
         write(ask, name, read(name))

@@ -3,6 +3,11 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.14.0 — 2026-11-27
+- **Efficiency:** new "Sworn enemies" tab. Players from enemy countries who did a lot of damage while their wealth fell (damage and wealth-drop limits adjustable on the page), and donors who gave more than 5,000 to their own country in 72 hours. A three-week donation summary per country and the top donors are shown too.
+- **Settings:** "Sworn enemy countries" editor (saves `enemies.json` in the back end). Seeded with Chile, Venezuela, Guatemala, Costa Rica and Honduras.
+- Back end: hourly snapshots of the top 100 damage dealers per enemy country, donations to their own country (21 days read back on the first run). The 72-hour figures fill in over the first three days.
+
 ## 2.13.0 — 2026-11-27
 - **Status:** "Refresh reliability" (the last 30 days: refreshes without a skipped stage, the weakest days) and "History size" (database size, estimated saved size, growth per day and a projection).
 - **Settings:** the month-end check shows what it looked at in plain words.

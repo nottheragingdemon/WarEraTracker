@@ -53,8 +53,10 @@ def page(name: str, stamp: float = 0.0) -> str:   # stamp: the data file's modif
             html = html.replace(extra_fetch, "Promise.resolve(" + extra.replace("</", "<\\/") + ")", 1)
     # pages that load an optional part of the data with weLoad(d, "file.json", [...]) get it inlined: the page runs from a string, so it can't fetch it
     parts = {}
-    for part_name in ("battle-data.json", "transfer-data.json"):
+    for part_name in ("battle-data.json", "transfer-data.json", "enemy-data.json"):
         if 'weLoad(d,"' + part_name + '"' in html:
+            if part_name == "enemy-data.json" and not (HERE / "site" / part_name).exists():
+                continue   # not collected yet: the tab says so
             part = (HERE / "site" / part_name).read_text(encoding="utf-8")
             json.loads(part)
             parts[part_name] = part
@@ -311,6 +313,50 @@ def preview_changes(data, current, new):
     return out
 
 
+ENEMIES_PATH = "enemies.json"
+
+
+def enemies_panel(names):
+    """The sworn-enemy countries (enemies.json in the back-end repo): their players and donations are tracked for the Sworn enemies tab."""
+    import base64
+    st.subheader("Sworn enemies")
+    st.caption("Countries whose players (damage and wealth over 72 hours) and citizens' donations to their own country are tracked for the Sworn enemies "
+               "tab of the Player efficiency page. Applies from the next hourly refresh.")
+    sha, cur = None, []
+    if _has_token():
+        try:
+            got = _gh("GET", ENEMIES_PATH)
+            sha = got["sha"]
+            cur = list(json.loads(base64.b64decode(got["content"]).decode()).get("countries") or [])
+        except Exception as e:   # noqa: BLE001
+            if "404" not in str(e):
+                st.warning(f"Couldn't read the enemies list. {explain_save_error(e)}")
+                return
+    picked = st.multiselect("Sworn enemy countries", names, default=[c for c in cur if c in names], key="enemies_pick", placeholder="none")
+    if not _has_token():
+        st.code(json.dumps({"countries": picked}, indent=2), language="json")
+        return
+    if sorted(picked) == sorted(c for c in cur if c in names):
+        st.caption("No changes.")
+        return
+    added, removed = sorted(set(picked) - set(cur)), sorted(set(cur) - set(picked))
+    if added:
+        st.write("• Added: " + ", ".join(added) + ". Their players and donations are collected from the next refresh; the 72-hour figures fill in over three days.")
+    if removed:
+        st.write("• Removed: " + ", ".join(removed) + ". Their stored data is dropped as it ages out.")
+    if st.button("Save enemies", type="primary", key="enemies_save"):
+        try:
+            body = {"about": "Sworn enemies of The Emerald Accord: their players (damage and wealth over 72 hours) and citizens' donations to their own country are "
+                             "tracked for the Sworn enemies tab of the Player efficiency page. Edited from the Streamlit Settings page.", "countries": picked}
+            payload = {"message": "Settings: sworn enemies (from the Streamlit app)", "content": base64.b64encode((json.dumps(body, indent=2) + "\n").encode()).decode()}
+            if sha:
+                payload["sha"] = sha
+            _gh("PUT", ENEMIES_PATH, payload)
+            st.success("Saved. It applies from the next hourly refresh.")
+        except Exception as e:   # noqa: BLE001
+            st.error(f"Couldn't save. {explain_save_error(e)} What you picked is still here; nothing was changed.")
+
+
 def settings():
     import base64
     st.title("⚙️ Settings")
@@ -321,6 +367,8 @@ def settings():
     data = json.loads((HERE / "site" / "data.json").read_text(encoding="utf-8"))
     ents = data.get("ents", [])
     names = sorted({e[2] for e in ents if e[0] == "country" and e[2]})
+    enemies_panel(names)
+    st.divider()
     hosts = []
     for a, members in (data.get("alliances") or {}).items():
         if ents[int(a)][2] == ALLIANCE:

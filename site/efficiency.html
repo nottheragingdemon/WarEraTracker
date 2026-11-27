@@ -24,7 +24,8 @@
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
-  <div class="filters">
+  <div id="tabbar" style="margin-bottom:10px"></div>
+  <div class="filters" id="filters">
     <label>Nation<select id="f-nation"><option value="-1">All Emerald Accord nations</option></select></label>
     <label>Military unit<select id="f-mu"><option value="-1">Any</option></select></label>
     <label>Player<input id="f-name" placeholder="any (type a name)" autocomplete="off"></label>
@@ -34,7 +35,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={nation:-1,mu:-1,metric:null,build:"all",end:"top",name:"",open:{}},HIST={},HDAYS=[];
+var D=null,st={tab:"rank",nation:-1,mu:-1,metric:null,build:"all",end:"top",name:"",open:{},eDmg:3,eDrop:2000,eOnly:false},HIST={},HDAYS=[];
 var WAR=0.20,ECO=0.50,MIN=1e6,TOP=20;   // build thresholds (share of skill points in the four economy skills) and the damage floor
 var $=function(i){return document.getElementById(i)};
 var el=window.weEl;
@@ -101,7 +102,41 @@ function trend(p){
   box.appendChild(el("div",{class:"tcol"},[el("div",{class:"tlab",text:"Damage per day (latest "+big(dl[dl.length-1])+")"}),spark("bar",dmg,HDAYS,big)]));
   box.appendChild(el("div",{class:"note",text:HDAYS[0]+" to "+HDAYS[HDAYS.length-1]+" (UTC days). Hover or tap a point for its value."}));
   return box}
+/* ---- Sworn enemies: players from the enemy countries (set in Settings) who dealt heavy damage while their wealth fell, and citizens' big donations ---- */
+function etbl(cols,rows,empty){
+  if(!rows.length)return el("div",{class:"note",text:empty});
+  var t=el("table",{class:cols.length>4?"stack compact":"stack"}),h=el("tr");cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
+  var b=el("tbody");rows.forEach(function(r){var tr=el("tr",{class:r._flag?"sel":""});cols.forEach(function(c,j){var v=c[1](r),td=el("td",{class:(c[2]?"n":"")+(j===0&&cols.length>4?" lead":""),"data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});
+  t.appendChild(b);return weCsvWrap(el("div",{class:"tw"},[t]))}
+function numIn(label,key,step,unit){var l=el("label",{text:label}),i=el("input",{type:"number",min:"0",step:String(step),value:String(st[key])});i.onchange=function(){var x=parseFloat(this.value);st[key]=isNaN(x)||x<0?0:x;render()};l.appendChild(i);if(unit)l.appendChild(document.createTextNode(" "+unit));return l}
+function renderEnemies(){
+  var v=$("view"),E=D.enemy;v.textContent="";
+  if(!E||!E.countries||!E.countries.length){v.appendChild(card("Sworn enemies",[el("div",{class:"note",text:"No enemy countries are set yet, or their data hasn’t been collected yet. Pick the countries on the Settings page of the Streamlit app; their players and donations are collected from the next hourly refresh."})]));return}
+  var span=E.spanHours||0,full=span>=E.windowHours-1.5,minD=st.eDmg*1e6,minDrop=st.eDrop;
+  var P=(E.players||[]).map(function(p){return{u:p[0],name:p[1]||("…"+String(p[0]).slice(-6)),c:p[2],dmg:p[3],wealth:p[4],chg:p[5],span:p[6],week:p[7]}});
+  P.forEach(function(p){p._flag=p.dmg!=null&&p.dmg>=minD&&p.chg!=null&&-p.chg>=minDrop});
+  var don=(E.donors72||[]).filter(function(d){return d[2]>5000}),donTot=(E.donors72||[]).reduce(function(a,d){return a+d[2]},0);
+  v.appendChild(kpis([[P.filter(function(p){return p._flag}).length,"Heavy damage and big spend",E.countries.join(", ")],[P.length,"Enemy players followed","top damage dealers of "+E.countries.length+" countries"],
+    [don.length,"Donors over 5,000 to their own country","last 72 hours"],[big(donTot),"Donated to their own countries","last 72 hours, all donors"]]));
+  if(!full)v.appendChild(card("Still filling in",[el("div",{class:"note",text:"Damage and wealth change are measured between hourly snapshots. The oldest snapshot so far is "+span.toFixed(1)+" h old; the full "+E.windowHours+" hours are covered from "+Math.max(0,E.windowHours-span).toFixed(0)+" h from now. Until then the figures cover "+span.toFixed(1)+" h, and “Week damage” (the game’s own weekly figure) is a guide."})]));
+  var ctl=card("What counts as heavy damage and big spend",[el("div",{class:"filters"},[numIn("Damage over "+E.windowHours+" h at least","eDmg",0.5,"M"),numIn("Wealth drop at least","eDrop",500,"")]),
+    chipsOnly(),el("div",{class:"note",text:"Spend is read from wealth: a player who dealt heavy damage while their wealth fell by this much has been spending (ammo, gear, the market). Wealth is the game’s player wealth value, so it also moves with prices and gains, which means a big drop is a hint, not proof."})]);
+  v.appendChild(ctl);
+  var list=P.filter(function(p){return !st.eOnly||p._flag}).sort(function(a,b){return(b.dmg==null?b.week:b.dmg)-(a.dmg==null?a.week:a.dmg)}).slice(0,100);
+  v.appendChild(card("Damage and wealth change, last "+E.windowHours+" hours"+(st.eOnly?" (flagged only)":""),[etbl([["Player",function(p){return p.name+(p._flag?" ⚑":"")}],["Country",function(p){return p.c}],["Damage",function(p){return raw(p.dmg==null?"–":big(p.dmg),p.dmg)},1],
+    ["Wealth change",function(p){return raw(sgn(p.chg),p.chg)},1],["Wealth now",function(p){return raw(big(p.wealth),p.wealth)},1],["Week damage",function(p){return raw(big(p.week),p.week)},1]],list,"No followed enemy player matches yet.")]));
+  v.appendChild(card("Donations to their own country over 5,000, last 72 hours",[etbl([["Donor",function(d){return d[0]}],["Country",function(d){return d[1]}],["Donated",function(d){return raw(big(d[2]),d[2])},1],["Donations",function(d){return d[3]},1],["Latest",function(d){return String(d[4]||"").slice(5,16).replace("T"," ")}]],don,"No citizen of the listed countries donated more than 5,000 to their own country in the last 72 hours.")]));
+  // three-week review
+  var days=E.donationDays||[],byC={};days.forEach(function(r){var o=byC[r[1]]=byC[r[1]]||{c:r[1],tot:0,n:0,max:0,days:0};o.tot+=r[2];o.n+=r[3];o.days++;o.max=Math.max(o.max,r[2])});
+  var cr=Object.keys(byC).map(function(k){return byC[k]}).sort(function(a,b){return b.tot-a.tot});
+  v.appendChild(card("Donations to their own country, last 3 weeks",[etbl([["Country",function(r){return r.c}],["Donated",function(r){return raw(big(r.tot),r.tot)},1],["Donations",function(r){return r.n},1],["Days with donations",function(r){return r.days},1],["Biggest day",function(r){return raw(big(r.max),r.max)},1]],cr,"No donations stored yet."),
+    el("div",{class:"note",text:E.donationsSince?"Stored from "+String(E.donationsSince).slice(0,10)+". Only donations by citizens of the same country count.":""})]));
+  var top=(E.donors21||[]).slice(0,25);
+  v.appendChild(card("Biggest donors, last 3 weeks",[etbl([["Donor",function(d){return d[0]}],["Country",function(d){return d[1]}],["Donated",function(d){return raw(big(d[2]),d[2])},1],["Donations",function(d){return d[3]},1],["Days",function(d){return d[4]},1]],top,"No donors yet.")]))}
+function chipsOnly(){var seg=el("div",{class:"seg"});[[false,"Everyone followed"],[true,"Flagged only"]].forEach(function(o){var b=el("button",{class:"chip",text:o[1],"aria-pressed":String(st.eOnly===o[0])});b.onclick=function(){st.eOnly=o[0];render()};seg.appendChild(b)});return seg}
+function drawTabs(){var box=$("tabbar");box.textContent="";var seg=el("div",{class:"seg"});[["rank","Efficiency ranking"],["enemies","Sworn enemies"]].forEach(function(o){var b=el("button",{class:"chip",text:o[1],"aria-pressed":String(st.tab===o[0])});b.onclick=function(){st.tab=o[0];location.hash=o[0]==="enemies"?"enemies":"";render()};seg.appendChild(b)});box.appendChild(seg)}
 function render(){
+  drawTabs();if(st.tab==='enemies'){$("filters").style.display="none";return renderEnemies()}$("filters").style.display="";
   var all=rows(),hist=all.some(function(p){return p.hist});if(!st.metric)st.metric=hist?"gain":"wealth";var metric=st.metric,v=$("view");v.textContent="";
   var q=st.name.trim().toLowerCase();
   var pool=all.filter(function(p){return(st.nation<0||p.c===st.nation)&&(st.mu<0||p.mu===st.mu)&&(st.build==="all"||(p.b&&p.b.kind===st.build))&&(!q||nm(p.u).toLowerCase().indexOf(q)>=0)});
@@ -126,7 +161,7 @@ function render(){
     var m={War:0,Hybrid:0,Eco:0};by[c].forEach(function(p){if(p.b)m[p.b.kind]++});
     v.appendChild(card(nm(c)+" · "+(st.end==="bottom"?"bottom ":"top ")+l.length+" of "+by[c].length,[el("div",{class:"note",text:"Builds among its 1M+ damage players: War "+m.War+" · Hybrid "+m.Hybrid+" · Eco "+m.Eco}),table(l,metric)]))})}
 function stale(){window.weStale(D.generated)}
-fetch("data.json").then(function(r){return r.json()}).then(function(d){window.weSchema(d);
+fetch("data.json").then(function(r){return r.json()}).then(async function(d){window.weSchema(d);await window.weLoad(d,"enemy-data.json",["enemy"]);
   D=d;D.players=D.players||[];SK=D.skillOrder||[];stale();
   var PH=D.playerHist||{days:[],rows:[]};HDAYS=PH.days;PH.rows.forEach(function(r){HIST[r[0]]=[r[1],r[2]]});
   var cs={};D.players.forEach(function(p){cs[p[1]]=1});
@@ -135,7 +170,7 @@ fetch("data.json").then(function(r){return r.json()}).then(function(d){window.we
     sel.textContent="";sel.appendChild(el("option",{value:"-1",text:"Any"}));
     Object.keys(ms).map(Number).sort(function(a,b){return nm(a).localeCompare(nm(b))}).forEach(function(m){sel.appendChild(el("option",{value:String(m),text:nm(m)+" ("+ms[m]+")"}))});
     st.mu=ms[keep]?keep:-1;sel.value=String(st.mu)}
-  fillMu();
+  fillMu();if((location.hash||'')==='#enemies')st.tab='enemies';
   $("f-nation").onchange=function(){st.nation=+this.value;fillMu();render()};
   $("f-mu").onchange=function(){st.mu=+this.value;render()};
   $("f-name").oninput=function(){st.name=this.value;render()};
