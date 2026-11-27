@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.14.2 — 2026-11-27
+- **Tax agreements:** Ireland pays Mexico 100% and the United Kingdom 90% of the tax generated (the game sends the UK the other 10% from Northern Ireland).
+
 ## 1.14.1 — 2026-11-27
 - **Tax agreements:** Ireland pays each partner 90% of the tax generated (`pay_percent` per agreement, set on the Settings page), for both the United Kingdom and Mexico. The statement shows tax generated, what Ireland pays, the game's own 10% for a conquered region, and what Ireland keeps; frozen statements store the payment.
 
