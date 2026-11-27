@@ -310,10 +310,21 @@ def collect_contracts(c, db, since, scope=None):
         cond, cargs = scope.battle_sql("b")
         keep_b = {r[0] for r in db.execute(f"SELECT id FROM battles b WHERE {cond}", cargs)}
     n = seen = 0
-    for st in STATUSES:
+
+    def fetch(st):   # one status list, newest first, down to `since`
+        out = []
         for a in c.pages("mercenaryContractAuction.getPaginatedAuctions", status=st, limit=50):
             if a["createdAt"] < since:
                 break
+            out.append(a)
+        return out
+    # closed contracts rarely change: their lists (the long ones) are read every few hours, the active list every run
+    every = float(os.environ.get("WARTRACK_CONTRACTS_FULL_H", "3"))
+    last = db.execute("SELECT v FROM meta WHERE k='contracts_full_at'").fetchone()
+    full = not last or (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(last["v"])).total_seconds() >= every * 3600
+    statuses = STATUSES if full else ["active"]
+    for found in c.map(fetch, statuses):   # the status lists are read in parallel, written one after another
+        for a in found:
             seen += 1
             if keep_b is not None and a.get("battle") not in keep_b:
                 continue
@@ -324,8 +335,10 @@ def collect_contracts(c, db, since, scope=None):
                         a.get("currentPerK"), a.get("currentPayout"), a.get("duration"), a.get("status"),
                         a["createdAt"], a.get("expiresAt"), a.get("currentWinner"), a.get("currentWinnerUser"),
                         json.dumps(a.get("bids", [])), a.get("updatedAt")))
-        db.commit()
-    log(f"contracts: {n} stored ({seen} seen)")
+    if full:
+        db.execute("INSERT OR REPLACE INTO meta VALUES('contracts_full_at',?)", (now_iso(),))
+    db.commit()
+    log(f"contracts: {n} stored ({seen} seen, {'all statuses' if full else f'active only; closed lists every {every:g} h'})")
 
 
 def collect_alliances(c, db):
@@ -517,6 +530,7 @@ def prune(db, days=None):
         db.execute(f"DELETE FROM {t} WHERE t<?", (cut_ms,))
     db.execute("DELETE FROM company_skip WHERE checked<?", (iso(7),))
     db.execute("DELETE FROM player_snap WHERE day<?", (cut[:10],))
+    db.execute("DELETE FROM player_skill_hist WHERE checked<?", (cut,))
     db.commit()
     log(f"prune: {db.total_changes - before} old rows removed (keeping {days:g} days)")
 
@@ -578,6 +592,9 @@ def collect_efficiency(c, db, scope=None, per_country=100, min_week=200_000):
             spent = (s.get("leveling") or {}).get("spentSkillPoints") or sum(skill_points(x) for x in lv.values())
             eco = sum(skill_points(lv.get(k)) for k in ECO_SKILLS)
             reset = ((s.get("dates") or {}).get("lastSkillsResetAt")) or ""
+            old = db.execute("SELECT checked, spent, eco FROM player_skill WHERE eid=?", (u,)).fetchone()
+            if old and (old["spent"], old["eco"]) != (spent, eco):   # the allocation changed: keep the previous one
+                db.execute("INSERT OR REPLACE INTO player_skill_hist VALUES(?,?,?,?)", (u, old["checked"], old["spent"], old["eco"]))
             db.execute("INSERT OR REPLACE INTO player_skill VALUES(?,?,?,?,?,?)", (u, ts, reset, spent, eco, json.dumps(lv, separators=(",", ":"))))
     db.commit()
     log(f"efficiency: {len(kept)} players in {len(members)} countries, {len(need)} skill sets fetched")

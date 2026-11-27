@@ -27,17 +27,18 @@
   <div class="filters">
     <label>From<input type="date" id="f-from"></label>
     <label>To<input type="date" id="f-to"></label>
-    <label>Sort by<select id="f-sort"><option value="amount">Amount</option><option value="nation">Nation</option><option value="battles">Battles</option><option value="count">Transfers</option><option value="don">Citizen donations</option></select></label>
-    <label>Order<select id="f-dir"><option value="desc">High to low / Z to A</option><option value="asc">Low to high / A to Z</option></select></label>
+    <label id="l-sort">Sort by<select id="f-sort"><option value="amount">Amount</option><option value="nation">Nation</option><option value="battles">Battles</option><option value="count">Transfers</option><option value="don">Citizen donations</option></select></label>
+    <label id="l-dir">Order<select id="f-dir"><option value="desc">High to low / Z to A</option><option value="asc">Low to high / A to Z</option></select></label>
   </div>
   <div class="chiprow" id="quick"></div>
+  <div class="tabs" role="tablist" id="tabs"></div>
   <div id="view"></div>
 <div id="tip"></div>
 </div>
 <script>
 (function(){
 "use strict";
-var D=null,st={from:"",to:"",sort:"amount",dir:"desc",sel:-1};
+var D=null,st={tab:"transfers",from:"",to:"",sort:"amount",dir:"desc",sel:-1,dnat:-1,dname:"",dmin:0,cit:-1,dlimit:100,srt:{}};
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c!=null)e.appendChild(typeof c==="string"?document.createTextNode(c):c)});return e}
 function num(n,d){var o=new String(n==null||isNaN(n)?"–":Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}));o.raw=n==null||isNaN(n)?"":Math.round(n*1e4)/1e4;return o}
@@ -52,7 +53,12 @@ function kpis(list){var k=el("div",{class:"kpis"});list.forEach(function(x){k.ap
 function card(title,kids){return el("div",{class:"card"},[el("h2",{text:title})].concat(kids||[]))}
 
 function inRange(ts){var d=ts.slice(0,10);return(!st.from||d>=st.from)&&(!st.to||d<=st.to)}
-function render(){
+var TABS=[["transfers","Transfers between nations"],["donations","Citizen donations"]];
+function tabs(){var t=$("tabs");t.textContent="";TABS.forEach(function(x){var b=el("button",{role:"tab",text:x[1],"aria-selected":String(st.tab===x[0])});
+  b.onclick=function(){st.tab=x[0];try{history.replaceState(null,"","#"+x[0])}catch(e){}render()};t.appendChild(b)});
+  $("l-sort").style.display=$("l-dir").style.display=st.tab==="transfers"?"":"none"}
+function render(){tabs();if(st.tab==="donations")renderDonations();else renderTransfers()}
+function renderTransfers(){
   var tr=D.transfers.filter(function(t){return inRange(t[0])});
   var bt=D.battles.filter(function(b){return inRange(b[2])});
   var by={};
@@ -85,23 +91,71 @@ function render(){
     tbl([["Date (UTC)",function(t){return fmtD(t[0])}],["From",function(t){return nm(t[1])}],["To",function(t){return nm(t[2])}],["Amount",function(t){return m0(t[3])},1]],list)];
   if(st.sel>=0){var clr=el("button",{class:"chip",text:"Show all nations"});clr.onclick=function(){st.sel=-1;render()};c2.unshift(clr)}
   v.appendChild(card(title,c2));
-  var dm={};(D.donors||[]).forEach(function(d){if(inRange(d[0])&&(st.sel<0||d[1]===st.sel)){var k=d[1]+"|"+d[2],r=dm[k]||(dm[k]={c:d[1],u:d[2],t:0,n:0});r.t+=d[3];r.n+=d[4]}});
-  var dr=Object.keys(dm).map(function(k){return dm[k]});
-  dr.sort(function(a,b){if(st.sort==="nation")return m*nm(a.c).localeCompare(nm(b.c))||(b.t-a.t);if(st.sort==="count")return m*(a.n-b.n)||(b.t-a.t);return m*(a.t-b.t)||nm(a.u).localeCompare(nm(b.u))});
-  var dtot=dr.reduce(function(a,r){return a+r.t},0),lim=st.dlimit||100,shown=dr.slice(0,lim);
-  var kids=[el("div",{class:"note",text:dr.length+" citizens donated "+m0(dtot)+" to their own nation"+(st.sel>=0?" ("+nm(st.sel)+")":"")+" in this period."})];
-  if(dr.length){var dtb=tbl([["Citizen",function(r){return nm(r.u)}],["Nation",function(r){return nm(r.c)}],["Donated",function(r){return m0(r.t)},1],["Donations",function(r){return r.n},1]],shown);
-    Array.prototype.forEach.call(dtb.querySelectorAll("tbody tr"),function(tr_,i){tr_.style.cursor="pointer";if(shown[i].u===st.cit)tr_.className="sel";tr_.onclick=function(){st.cit=st.cit===shown[i].u?-1:shown[i].u;render()}});
-    kids.push(dtb);kids.push(el("div",{class:"note",text:"Tap a citizen to see their donations day by day."}))}
-  if(dr.length>lim){var more=el("button",{class:"chip",text:"Show "+Math.min(200,dr.length-lim)+" more"});more.onclick=function(){st.dlimit=lim+200;render()};kids.push(more)}
-  v.appendChild(card("Citizens\u2019 donations to their own nation",kids));
-  v.appendChild(dailyCard())}
+  var dtip=el("button",{class:"chip",text:"See citizen donations →"});dtip.onclick=function(){st.tab="donations";if(st.sel>=0)st.dnat=st.sel;render()};
+  v.appendChild(dtip)}
+
+/* ---------- citizen donations tab ---------- */
+/* a table whose column headings sort it: cols = [heading, display(row), sortValue(row), numeric]; the sort is remembered per table */
+function sortTable(key,cols,rows,def,onRow,selOf){
+  var s=st.srt[key]||(st.srt[key]={i:def[0],dir:def[1]}),kf=cols[s.i][2];
+  rows=rows.slice().sort(function(a,b){var x=kf(a),y=kf(b);if(typeof x==="string")return s.dir*x.localeCompare(y);return s.dir*((x||0)-(y||0))});
+  var t=el("table",{class:"stack"}),h=el("tr");
+  cols.forEach(function(c,i){var th=el("th",{class:c[3]?"n":"",text:c[0]+(i===s.i?(s.dir>0?" ▲":" ▼"):""),"aria-sort":i===s.i?(s.dir>0?"ascending":"descending"):"none"});
+    th.style.cursor="pointer";th.onclick=function(){if(s.i===i)s.dir=-s.dir;else{s.i=i;s.dir=c[3]?-1:1}render()};h.appendChild(th)});
+  t.appendChild(el("thead",null,[h]));var tb=el("tbody");
+  rows.forEach(function(r){var tr=el("tr");if(selOf&&selOf(r))tr.className="sel";if(onRow){tr.style.cursor="pointer";tr.onclick=function(){onRow(r)}}
+    cols.forEach(function(c){var v=c[1](r),td=el("td",{class:c[3]?"n":"","data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});tb.appendChild(tr)});
+  t.appendChild(tb);
+  // the same sort as a control, for phones where the table shows as cards without headings
+  var sel=el("select",{"aria-label":"Sort by"});cols.forEach(function(c,i){sel.appendChild(el("option",{value:String(i),text:c[0]}))});sel.value=String(s.i);
+  sel.onchange=function(){s.i=+this.value;s.dir=cols[s.i][3]?-1:1;render()};
+  var dirB=el("button",{class:"chip",type:"button",text:s.dir>0?"▲ Low to high / A–Z":"▼ High to low / Z–A"});dirB.onclick=function(){s.dir=-s.dir;render()};
+  var bar=el("div",{class:"sortbar"},[el("label",{},["Sort by",sel]),dirB]);
+  return{node:el("div",{},[bar,weCsvWrap(el("div",{class:"tw"},[t]))]),rows:rows}}
+function renderDonations(){
+  var v=$("view");v.textContent="";
+  var q=st.dname.trim().toLowerCase(),inNat=function(c){return st.dnat<0||c===st.dnat};
+  // per citizen totals over the period (rows of D.donors are per citizen per day)
+  var dm={};(D.donors||[]).forEach(function(d){if(!inRange(d[0])||!inNat(d[1]))return;var k=d[1]+"|"+d[2],r=dm[k]||(dm[k]={c:d[1],u:d[2],t:0,n:0,first:d[0],last:d[0],days:0});
+    r.t+=d[3];r.n+=d[4];r.days++;if(d[0]<r.first)r.first=d[0];if(d[0]>r.last)r.last=d[0]});
+  var all=Object.keys(dm).map(function(k){var r=dm[k];r.avg=r.n?r.t/r.n:0;return r});
+  var cits=all.filter(function(r){return r.t>=st.dmin&&(!q||nm(r.u).toLowerCase().indexOf(q)>=0)});
+  var tot=cits.reduce(function(a,r){a.t+=r.t;a.n+=r.n;return a},{t:0,n:0}),nats={};cits.forEach(function(r){nats[r.c]=1});
+  // controls
+  var natSel=el("select"),ns={};(D.donors||[]).forEach(function(d){ns[d[1]]=1});natSel.appendChild(el("option",{value:"-1",text:"All nations"}));
+  Object.keys(ns).map(Number).sort(function(a,b){return nm(a).localeCompare(nm(b))}).forEach(function(c){natSel.appendChild(el("option",{value:String(c),text:nm(c)}))});
+  natSel.value=String(st.dnat);natSel.onchange=function(){st.dnat=+this.value;st.cit=-1;render()};
+  var nameIn=el("input",{placeholder:"any (type a name)",autocomplete:"off"});nameIn.value=st.dname;nameIn.oninput=function(){st.dname=this.value;st.dlimit=100;render();var x=document.querySelector("#view input");if(x){x.focus();x.setSelectionRange(x.value.length,x.value.length)}};
+  var minSel=el("select");[[0,"Any amount"],[100,"100 or more"],[1000,"1,000 or more"],[10000,"10,000 or more"],[50000,"50,000 or more"]].forEach(function(o){minSel.appendChild(el("option",{value:String(o[0]),text:o[1]}))});
+  minSel.value=String(st.dmin);minSel.onchange=function(){st.dmin=+this.value;render()};
+  v.appendChild(el("div",{class:"filters"},[el("label",{},["Nation",natSel]),el("label",{},["Citizen",nameIn]),el("label",{},["Donated in the period",minSel])]));
+  v.appendChild(kpis([[m0(tot.t),"Total donated"],[tot.n,"Donations"],[cits.length,"Citizens"],[cits.length?m0(tot.t/cits.length):"–","Average per citizen"],[Object.keys(nats).length,"Nations"]]));
+  if(!cits.length){v.appendChild(card("No donations",[el("div",{class:"note",text:"No citizen donations to their own nation match these filters in this period."})]));return}
+  // by nation
+  var bn={};cits.forEach(function(r){var x=bn[r.c]||(bn[r.c]={c:r.c,t:0,n:0,k:0});x.t+=r.t;x.n+=r.n;x.k++});
+  var nrows=Object.keys(bn).map(function(k){var x=bn[k];x.avg=x.t/x.k;x.share=tot.t?x.t/tot.t:0;return x});
+  var nt=sortTable("nat",[["Nation",function(x){return nm(x.c)},function(x){return nm(x.c).toLowerCase()}],["Donated",function(x){return m0(x.t)},function(x){return x.t},1],
+    ["Citizens",function(x){return x.k},function(x){return x.k},1],["Donations",function(x){return x.n},function(x){return x.n},1],
+    ["Average per citizen",function(x){return m0(x.avg)},function(x){return x.avg},1],["Share",function(x){return(100*x.share).toFixed(1)+"%"},function(x){return x.share},1]],
+    nrows,[1,-1],function(x){st.dnat=st.dnat===x.c?-1:x.c;st.cit=-1;render()},function(x){return x.c===st.dnat});
+  v.appendChild(card("By nation",[nt.node,el("div",{class:"note",text:"Tap a nation to show only its citizens; tap it again for all. Tap a column heading to sort."})]));
+  // citizens
+  var lim=st.dlimit;
+  var ct=sortTable("cit",[["Citizen",function(r){return nm(r.u)},function(r){return nm(r.u).toLowerCase()}],["Nation",function(r){return nm(r.c)},function(r){return nm(r.c).toLowerCase()}],
+    ["Donated",function(r){return m0(r.t)},function(r){return r.t},1],["Donations",function(r){return r.n},function(r){return r.n},1],["Average donation",function(r){return m0(r.avg)},function(r){return r.avg},1],
+    ["Days donated",function(r){return r.days},function(r){return r.days},1],["Last donation",function(r){return r.last},function(r){return r.last}]],
+    cits,[2,-1],function(r){st.cit=st.cit===r.u?-1:r.u;render()},function(r){return r.u===st.cit});
+  var tbody=ct.node.querySelector("tbody");/* show the first lim rows */[].slice.call(tbody.children).slice(lim).forEach(function(tr){tr.remove()});
+  var kids=[ct.node,el("div",{class:"note",text:"Donations by citizens to their own nation's treasury. Tap a citizen for their donations day by day; tap a column heading to sort."})];
+  if(cits.length>lim){var more=el("button",{class:"chip",text:"Show "+Math.min(200,cits.length-lim)+" more ("+(cits.length-lim)+" left)"});more.onclick=function(){st.dlimit=lim+200;render()};kids.push(more)}
+  v.appendChild(card("Citizens ("+cits.length+")",kids));
+  v.appendChild(dailyCard(cits))}
 /* citizens' donations day by day: all citizens of the selected nation (or of every nation), or one citizen picked in the table above */
-function dailyCard(){
-  var one=st.cit!==undefined&&st.cit>=0,days={};
-  (D.donors||[]).forEach(function(d){if(!inRange(d[0])||(st.sel>=0&&d[1]!==st.sel)||(one&&d[2]!==st.cit))return;var r=days[d[0]]||(days[d[0]]={t:0,n:0});r.t+=d[3];r.n+=d[4]});
+function dailyCard(cits){
+  var one=st.cit>=0,days={},keep={};cits.forEach(function(r){keep[r.c+"|"+r.u]=1});
+  (D.donors||[]).forEach(function(d){if(!inRange(d[0])||!keep[d[1]+"|"+d[2]]||(one&&d[2]!==st.cit))return;var r=days[d[0]]||(days[d[0]]={t:0,n:0});r.t+=d[3];r.n+=d[4]});
   var keys=Object.keys(days).sort(),mx=Math.max.apply(null,keys.map(function(k){return days[k].t}).concat([1]));
-  var title="Donations per day: "+(one?nm(st.cit):"all citizens")+(st.sel>=0?" of "+nm(st.sel):"");
+  var title="Donations per day: "+(one?nm(st.cit):"citizens shown above");
   var kids=[];
   if(one){var clr=el("button",{class:"chip",text:"Show all citizens"});clr.onclick=function(){st.cit=-1;render()};kids.push(clr)}
   if(!keys.length){kids.push(el("div",{class:"note",text:"No citizen donations in this period."}));return card(title,kids)}
@@ -118,10 +172,11 @@ fetch("data.json").then(function(r){return r.json()}).then(function(d){
   $("f-from").onchange=function(){st.from=this.value;render()};$("f-to").onchange=function(){st.to=this.value;render()};
   $("f-sort").onchange=function(){st.sort=this.value;render()};$("f-dir").onchange=function(){st.dir=this.value;render()};
   $("meta").textContent="Updated "+fmtD(D.generated)+" UTC · transfers between Emerald Accord nations only · data from api2.warera.io";
+  var h=(location.hash||"").slice(1);if(TABS.some(function(t){return t[0]===h}))st.tab=h;
   setRange(30);
 }).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
 })();
 </script>
-<footer class="site-foot">Supported by <a href="https://warerastats.io" target="_blank" rel="noopener noreferrer">warerastats.io</a></footer>
+<footer class="site-foot">Data from the WarEra API (api2.warera.io) · Emerald Accord tools</footer>
 </body>
 </html>

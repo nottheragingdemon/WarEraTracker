@@ -48,7 +48,7 @@ function mark(){var v=document.documentElement.classList.contains("plain-tables"
 mark();w.onclick=function(e){var b=e.target.closest("button");if(!b)return;set(b.dataset.view);mark()}})})();
 
 /* Temporarily hidden apps (testing): empty HIDDEN_PAGES to bring them back for everyone.
-   Testing mode: tap the words "Supported by" in the footer 5 times to show them on this device (tap 5 times again to hide). */
+   Testing mode: tap the footer line at the bottom of the page 5 times to show them on this device (tap 5 times again to hide). */
 var HIDDEN_PAGES=["ask.html"];
 (function(){
 var dev=false;try{dev=localStorage.getItem("we-dev")==="1"}catch(e){}
@@ -72,3 +72,9 @@ window.weStale=function(generated){
 
 /* per-battle stats arrive packed as [[kind, battle, [entity*3+side, value, ...]], ...]: unpack to rows [kind, battle, entity, side, value] */
 window.weStats=function(D){if(D.stats)return D.stats;var out=[];(D.statsP||[]).forEach(function(g){var k=g[0],b=g[1],f=g[2];for(var i=0;i<f.length;i+=2){var x=f[i];out.push([k,b,(x-x%3)/3,x%3,f[i+1]])}});return out};
+
+/* phones: the app tabs scroll sideways; keep the current app in view and fade the edge that has more tabs */
+document.addEventListener("DOMContentLoaded",function(){var n=document.getElementById("apps");if(!n)return;
+  var cur=n.querySelector("[aria-current]");if(cur&&n.scrollWidth>n.clientWidth)n.scrollLeft=Math.max(0,cur.offsetLeft-(n.clientWidth-cur.offsetWidth)/2);
+  function edge(){n.classList.toggle("more-right",n.scrollLeft+n.clientWidth<n.scrollWidth-4);n.classList.toggle("more-left",n.scrollLeft>4)}
+  edge();n.addEventListener("scroll",edge,{passive:true});addEventListener("resize",edge)});

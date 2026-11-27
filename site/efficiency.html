@@ -26,6 +26,7 @@
   <div class="sub" id="meta">Loading…</div>
   <div class="filters">
     <label>Nation<select id="f-nation"><option value="-1">All Emerald Accord nations</option></select></label>
+    <label>Military unit<select id="f-mu"><option value="-1">Any</option></select></label>
     <label>Player<input id="f-name" placeholder="any (type a name)" autocomplete="off"></label>
   </div>
   <div id="view"></div>
@@ -33,7 +34,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={nation:-1,metric:null,build:"all",name:"",open:{}};
+var D=null,st={nation:-1,mu:-1,metric:null,build:"all",name:"",open:{}},HIST={},HDAYS=[];
 var WAR=0.20,ECO=0.50,MIN=1e6,TOP=20;   // build thresholds (share of skill points in the four economy skills) and the damage floor
 var $=function(i){return document.getElementById(i)};
 function el(tag,attrs,kids){var e=document.createElement(tag);if(attrs)for(var k in attrs){if(k==="text")e.textContent=attrs[k];else if(k==="class")e.className=attrs[k];else e.setAttribute(k,attrs[k])}(kids||[]).forEach(function(c){if(c)e.appendChild(c)});return e}
@@ -44,13 +45,17 @@ function raw(s,v){var o=new String(s);o.raw=v==null||isNaN(v)?"":Math.round(v*10
 var SK=null;
 function build(p){if(!p.spent)return null;var r=p.eco/p.spent;return{share:r,kind:r<=WAR?"War":r>ECO?"Eco":"Hybrid"}}
 function rows(){
-  return D.players.map(function(r){var p={u:r[0],c:r[1],mu:r[2],wealth:r[3],dTot:r[4],dWeek:r[5],day:r[6],wThen:r[7],dThen:r[8],spent:r[9],eco:r[10],lv:r[11]};
+  return D.players.map(function(r){var p={u:r[0],c:r[1],mu:r[2],wealth:r[3],dTot:r[4],dWeek:r[5],day:r[6],wThen:r[7],dThen:r[8],spent:r[9],eco:r[10],lv:r[11],reset:r[12],prev:r[13]};
     p.hist=!!p.day;p.dmg=p.hist?Math.max(0,p.dTot-p.dThen):p.dWeek;p.gain=p.hist?p.wealth-p.wThen:null;p.b=build(p);
+    p.pb=p.prev?build({spent:p.prev[0],eco:p.prev[1]}):null;p.recent=p.reset&&(Date.now()-Date.parse(p.reset))<7*864e5;
     p.perGain=p.gain!=null&&p.dmg>0?p.gain/(p.dmg/1e6):null;p.perWealth=p.dmg>0?p.wealth/(p.dmg/1e6):null;return p})}
 function card(t,kids){return el("div",{class:"card"},[el("h2",{text:t})].concat(kids||[]))}
 function kpis(list){return el("div",{class:"kpis"},list.map(function(x){return el("div",{class:"kpi"},[el("b",{text:String(x[0])}),el("span",{text:x[1]})])}))}
 function chips(opts,key){var seg=el("div",{class:"seg"});opts.forEach(function(o){var b=el("button",{class:"chip",text:o[1],"aria-pressed":String(st[key]===o[0])});b.onclick=function(){st[key]=o[0];render()};seg.appendChild(b)});return seg}
-function badge(b){if(!b)return el("span",{class:"muted",text:"–"});return el("span",{class:"build b-"+b.kind.toLowerCase(),text:b.kind+" · "+Math.round(100*b.share)+"% eco",title:"Share of skill points in companies, energy, management and production"})}
+function badge(b,p){if(!b)return el("span",{class:"muted",text:"–"});
+  var w=el("span",{class:"bwrap"},[el("span",{class:"build b-"+b.kind.toLowerCase(),text:b.kind+" · "+Math.round(100*b.share)+"% eco",title:"Share of skill points in companies, energy, management and production"})]);
+  if(p&&p.recent){var ch=p.pb&&p.pb.kind!==b.kind;w.appendChild(el("span",{class:"reset",text:ch?"↻ was "+p.pb.kind:"↻ reset",title:"Skills reset "+p.reset.slice(0,10)+(p.pb?" (before: "+p.pb.kind+", "+Math.round(100*p.pb.share)+"% eco)":"")}))}
+  return w}
 function skillLine(p){if(!p.lv)return"Skills not loaded yet.";return SK.map(function(k,i){return k+" "+p.lv[i]}).filter(function(x){return !/ 0$/.test(x)}).join(" · ")+" ("+p.spent+" points, "+p.eco+" in economy skills)"}
 function table(list,metric){
   var t=el("table",{class:"stack"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage"];
@@ -59,15 +64,40 @@ function table(list,metric){
   list.forEach(function(p,i){var v=metric==="gain"?p.perGain:p.perWealth;
     var cells=[raw(String(i+1),i+1),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v)];
     var tr=el("tr",{class:st.open[p.u]?"sel":""});tr.style.cursor="pointer";
-    cells.forEach(function(c,j){var td=el("td",{class:j>=3||j===0?"n":"","data-label":cols[j]});if(j===2)td.appendChild(badge(p.b));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
+    cells.forEach(function(c,j){var td=el("td",{class:j>=3||j===0?"n":"","data-label":cols[j]});if(j===2)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
     tr.onclick=function(){st.open[p.u]=!st.open[p.u];render()};tb.appendChild(tr);
     if(st.open[p.u]){var d=el("tr",{class:"detail"});var td=el("td",{colspan:String(cols.length),"data-label":""});
-      td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · "+skillLine(p)+(p.hist?" · compared with "+p.day:" · no earlier snapshot yet")}));d.appendChild(td);tb.appendChild(d)}});
+      td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · "+skillLine(p)+(p.hist?" · compared with "+p.day:" · no earlier snapshot yet")+(p.reset?" · skills last reset "+p.reset.slice(0,10):"")}));
+      td.appendChild(trend(p));d.appendChild(td);tb.appendChild(d)}});
   t.appendChild(tb);return weCsvWrap(el("div",{class:"tw"},[t]))}
+/* two small charts from the daily snapshots: wealth (line) and damage dealt each day (bars); one measure per chart */
+function spark(kind,vals,days,fmt){
+  var W=300,H=64,pad=4,n=vals.length,xs=function(i){return pad+(W-2*pad)*(n<2?0.5:i/(n-1))};
+  var nums=vals.filter(function(v){return v!=null}),mx=Math.max.apply(null,nums.concat([0])),mn=kind==="bar"?0:Math.min.apply(null,nums.concat([mx]));
+  var ys=function(v){return H-pad-(H-2*pad)*(mx===mn?0.5:(v-mn)/(mx-mn))},NS="http://www.w3.org/2000/svg";
+  var svg=document.createElementNS(NS,"svg");svg.setAttribute("viewBox","0 0 "+W+" "+H);svg.setAttribute("class","spark");svg.setAttribute("role","img");
+  if(kind==="line"){var d="";vals.forEach(function(v,i){if(v==null)return;d+=(d?"L":"M")+xs(i).toFixed(1)+" "+ys(v).toFixed(1)});
+    var path=document.createElementNS(NS,"path");path.setAttribute("d",d);path.setAttribute("class","sline");svg.appendChild(path);
+    vals.forEach(function(v,i){if(v==null)return;var c=document.createElementNS(NS,"circle");c.setAttribute("cx",xs(i));c.setAttribute("cy",ys(v));c.setAttribute("r","3");c.setAttribute("class","sdot");
+      var t=document.createElementNS(NS,"title");t.textContent=days[i]+": "+fmt(v);c.appendChild(t);svg.appendChild(c)})}
+  else{var bw=Math.max(3,(W-2*pad)/Math.max(n,1)-4);vals.forEach(function(v,i){if(v==null)return;var r=document.createElementNS(NS,"rect"),y=ys(v);
+      r.setAttribute("x",xs(i)-bw/2);r.setAttribute("y",y);r.setAttribute("width",bw);r.setAttribute("height",Math.max(1,H-pad-y));r.setAttribute("rx","2");r.setAttribute("class","sbar");
+      var t=document.createElementNS(NS,"title");t.textContent=days[i]+": "+fmt(v);r.appendChild(t);svg.appendChild(r)})}
+  svg.setAttribute("aria-label",(kind==="line"?"Wealth":"Damage per day")+", "+days[0]+" to "+days[days.length-1]);
+  return svg}
+function trend(p){
+  var h=HIST[p.u],box=el("div",{class:"trend"});
+  if(!h||h[0].filter(function(v){return v!=null}).length<2){box.appendChild(el("div",{class:"note",text:"Trend charts appear once two days of snapshots exist for this player."}));return box}
+  var dmg=h[1].map(function(v,i){if(!i||v==null)return null;for(var j=i-1;j>=0;j--)if(h[1][j]!=null)return Math.max(0,v-h[1][j]);return null});
+  var wl=h[0].filter(function(v){return v!=null}),dl=dmg.filter(function(v){return v!=null});
+  box.appendChild(el("div",{class:"tcol"},[el("div",{class:"tlab",text:"Wealth: "+big(wl[0])+" → "+big(wl[wl.length-1])}),spark("line",h[0],HDAYS,big)]));
+  box.appendChild(el("div",{class:"tcol"},[el("div",{class:"tlab",text:"Damage per day (latest "+big(dl[dl.length-1])+")"}),spark("bar",dmg,HDAYS,big)]));
+  box.appendChild(el("div",{class:"note",text:HDAYS[0]+" to "+HDAYS[HDAYS.length-1]+" (UTC days). Hover or tap a point for its value."}));
+  return box}
 function render(){
   var all=rows(),hist=all.some(function(p){return p.hist});if(!st.metric)st.metric=hist?"gain":"wealth";var metric=st.metric,v=$("view");v.textContent="";
   var q=st.name.trim().toLowerCase();
-  var pool=all.filter(function(p){return(st.nation<0||p.c===st.nation)&&(st.build==="all"||(p.b&&p.b.kind===st.build))&&(!q||nm(p.u).toLowerCase().indexOf(q)>=0)});
+  var pool=all.filter(function(p){return(st.nation<0||p.c===st.nation)&&(st.mu<0||p.mu===st.mu)&&(st.build==="all"||(p.b&&p.b.kind===st.build))&&(!q||nm(p.u).toLowerCase().indexOf(q)>=0)});
   var qual=pool.filter(function(p){return p.dmg>=MIN});
   var mix={War:0,Hybrid:0,Eco:0};qual.forEach(function(p){if(p.b)mix[p.b.kind]++});
   v.appendChild(kpis([[qual.length,"Players with 1M+ damage"],[mix.War,"War builds"],[mix.Hybrid,"Hybrid builds"],[mix.Eco,"Eco builds"]]));
@@ -85,15 +115,22 @@ function render(){
 function stale(){window.weStale(D.generated)}
 fetch("data.json").then(function(r){return r.json()}).then(function(d){
   D=d;D.players=D.players||[];SK=D.skillOrder||[];stale();
+  var PH=D.playerHist||{days:[],rows:[]};HDAYS=PH.days;PH.rows.forEach(function(r){HIST[r[0]]=[r[1],r[2]]});
   var cs={};D.players.forEach(function(p){cs[p[1]]=1});
   Object.keys(cs).map(Number).sort(function(a,b){return nm(a).localeCompare(nm(b))}).forEach(function(c){$("f-nation").appendChild(el("option",{value:String(c),text:nm(c)}))});
-  $("f-nation").onchange=function(){st.nation=+this.value;render()};
+  function fillMu(){var sel=$("f-mu"),keep=st.mu,ms={};D.players.forEach(function(p){if(p[2]>=0&&(st.nation<0||p[1]===st.nation))ms[p[2]]=(ms[p[2]]||0)+1});
+    sel.textContent="";sel.appendChild(el("option",{value:"-1",text:"Any"}));
+    Object.keys(ms).map(Number).sort(function(a,b){return nm(a).localeCompare(nm(b))}).forEach(function(m){sel.appendChild(el("option",{value:String(m),text:nm(m)+" ("+ms[m]+")"}))});
+    st.mu=ms[keep]?keep:-1;sel.value=String(st.mu)}
+  fillMu();
+  $("f-nation").onchange=function(){st.nation=+this.value;fillMu();render()};
+  $("f-mu").onchange=function(){st.mu=+this.value;render()};
   $("f-name").oninput=function(){st.name=this.value;render()};
   $("meta").textContent="Updated "+(D.generated||"").slice(0,16).replace("T"," ")+" UTC · "+D.players.length+" players tracked in Emerald Accord nations · data from api2.warera.io";
   render();
 }).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
 })();
 </script>
-<footer class="site-foot">Supported by <a href="https://warerastats.io" target="_blank" rel="noopener noreferrer">warerastats.io</a></footer>
+<footer class="site-foot">Data from the WarEra API (api2.warera.io) · Emerald Accord tools</footer>
 </body>
 </html>

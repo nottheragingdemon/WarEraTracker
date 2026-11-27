@@ -116,13 +116,26 @@ def export(db, out, since, scope=None):
     for r in db.execute("SELECT eid, day, wealth, dmg_total FROM player_snap WHERE day>=? AND day<? ORDER BY day DESC", (lo, today.isoformat())):
         then[r["eid"]] = (r["day"], r["wealth"], r["dmg_total"])   # descending, so the oldest day wins
     skills = {r["eid"]: r for r in db.execute("SELECT * FROM player_skill")}
+    prev = {}
+    for r in db.execute("SELECT eid, checked, spent, eco FROM player_skill_hist ORDER BY checked"):
+        prev[r["eid"]] = (r["spent"], r["eco"])   # latest earlier allocation wins
     players = []
     for r in db.execute("SELECT * FROM player_now"):
         sk, th = skills.get(r["eid"]), then.get(r["eid"])
         players.append([E("user", r["eid"]), E("country", r["country"]), E("mu", r["mu"]), round(r["wealth"] or 0, 2), round(r["dmg_total"] or 0),
                         round(r["dmg_week"] or 0), th[0] if th else None, round(th[1] or 0, 2) if th else None, round(th[2] or 0) if th else None,
                         sk["spent"] if sk else None, sk["eco"] if sk else None,
-                        [json.loads(sk["levels"]).get(k, 0) for k in SKILLS] if sk else None])
+                        [json.loads(sk["levels"]).get(k, 0) for k in SKILLS] if sk else None,
+                        (sk["reset_at"] or None) if sk else None, list(prev[r["eid"]]) if r["eid"] in prev else None])
+    # daily history for the trend charts: the last 30 days of wealth and total damage per tracked player
+    days = sorted({r["day"] for r in db.execute("SELECT DISTINCT day FROM player_snap WHERE day>=?", ((today - dt.timedelta(days=30)).isoformat(),))})
+    di = {d: i for i, d in enumerate(days)}
+    hist = {}
+    for r in db.execute("SELECT eid, day, wealth, dmg_total FROM player_snap WHERE day>=?", (days[0] if days else "9",)):
+        h = hist.setdefault(r["eid"], [[None] * len(days), [None] * len(days)])
+        h[0][di[r["day"]]], h[1][di[r["day"]]] = round(r["wealth"] or 0), round(r["dmg_total"] or 0)
+    player_hist = {"days": days, "rows": [[E("user", u), h[0], h[1]] for u, h in hist.items()
+                                          if u in {p for (p,) in db.execute("SELECT eid FROM player_now")}]}
     wealth = [[E("user", r["eid"]), E("country", r["country"]), E("mu", r["mu"]), r["value"], r["rank"]]
               for r in db.execute("SELECT * FROM wealth_now ORDER BY value DESC")]
     transfers = [[r["ts"], E("country", r["sender"]), E("country", r["receiver"]), r["money"]]
@@ -161,7 +174,7 @@ def export(db, out, since, scope=None):
             "ents": ents, "battles": battles, "statsP": stats_p, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
-            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS}
+            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     with open(out, "w") as f:

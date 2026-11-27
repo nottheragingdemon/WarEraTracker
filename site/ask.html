@@ -70,6 +70,10 @@ function build(){
    rows:(D.wealthNow||[]).map(function(r){return[r[4],ent(r[0]),ent(r[1]),ent(r[2]),Math.round(r[3])]})};
   var td=[];Object.keys((D.taxHist||{}).days||{}).sort().forEach(function(d){var x=D.taxHist.days[d];Object.keys(x.r).forEach(function(rid){td.push([d,regionName[rid]||rid,x.h,x.r[rid]])})});
   T.region_tax_days={cols:["day","region","hours_tracked","tax_collected_whole_region"],rows:td};
+  var SKO=D.skillOrder||[];
+  T.players={cols:["player","country","mu","build","eco_share_pct","skill_points","wealth","wealth_week_ago","wealth_change","damage_7d","weekly_damage_game","compared_with_day","skills_reset_at"].concat(SKO.map(function(k){return"skill_"+k})),
+   rows:(D.players||[]).map(function(r){var eco=r[9]?r[10]/r[9]:null,b=eco==null?null:eco<=0.2?"War":eco>0.5?"Eco":"Hybrid",hist=!!r[6],dmg=hist?Math.max(0,r[4]-r[8]):r[5];
+     return[ent(r[0]),ent(r[1]),ent(r[2]),b,eco==null?null:Math.round(eco*1000)/10,r[9],r[3],hist?r[7]:null,hist?Math.round((r[3]-r[7])*100)/100:null,dmg,r[5],r[6],r[12]||null].concat(SKO.map(function(k,i){return r[11]?r[11][i]:null}))})};
   var am=[];Object.keys(D.alliances||{}).forEach(function(a){D.alliances[a].forEach(function(c){am.push([ent(+a),ent(c)])})});
   T.alliance_members={cols:["alliance","country"],rows:am};
 }
@@ -85,6 +89,7 @@ var DOC={
  country_tax_history:"employee and manager income tax rate (%) per country each time the rate was sampled or changed",
  region_tax_days:"integrated region tax (employee+manager income tax) per region and UTC day since tracking began; hours_tracked = hours covered that day",
  alliance_members:"alliance to member country",
+ players:"player efficiency: players of the alliance's countries with the most damage this week (top ~100 per country), one row each: build (War = 20% or less of skill points in companies, energy, management, production; Eco = over 50%; Hybrid between), eco_share_pct, skill_points spent, current wealth, wealth on compared_with_day (the oldest daily snapshot in the last 7 days; null until one exists) and wealth_change, damage_7d (from daily snapshots, or the game's weekly figure before there is history), skill levels (skill_*: a level-L skill costs 1+2+...+L points)",
  country_now:"current state of every country: treasury (money), country_wealth (game wealth ranking value and rank), population, development",
  player_wealth:"richest players of the tracked alliance's countries (game userWealth ranking, top ~200 per country, latest snapshot): wealth, country, mu. The game does not say whether this counts companies"};
 
@@ -189,6 +194,6 @@ fetch("data.json").then(function(r){return r.json()}).then(async function(d){
 }).catch(function(e){$("meta").textContent="Could not load data.json: "+e.message});
 })();
 </script>
-<footer class="site-foot">Supported by <a href="https://warerastats.io" target="_blank" rel="noopener noreferrer">warerastats.io</a></footer>
+<footer class="site-foot">Data from the WarEra API (api2.warera.io) · Emerald Accord tools</footer>
 </body>
 </html>

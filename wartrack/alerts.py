@@ -169,6 +169,46 @@ def _change(cur, prev):
     return f"({'↑' if pct > 0.5 else '↓' if pct < -0.5 else '→'} {abs(pct):.0f}%)"
 
 
+def _build(spent, eco):
+    if not spent:
+        return None
+    share = eco / spent
+    return "War" if share <= 0.20 else "Eco" if share > 0.50 else "Hybrid"
+
+
+def _efficiency_lines(db, members, now, pname, cname):
+    """Most efficient players (wealth gained per 1M damage over the last 7 days, 1M+ damage) and the build mix."""
+    import datetime as dt
+    if not members:
+        return []
+    mem = ",".join("?" * len(members))
+    lo, today = (now.date() - dt.timedelta(days=7)).isoformat(), now.date().isoformat()
+    rows = db.execute(f"""SELECT p.eid, p.country, p.wealth, p.dmg_total, p.dmg_week, s.spent, s.eco,
+        (SELECT o.wealth FROM player_snap o WHERE o.eid=p.eid AND o.day>=? AND o.day<? ORDER BY o.day LIMIT 1) w0,
+        (SELECT o.dmg_total FROM player_snap o WHERE o.eid=p.eid AND o.day>=? AND o.day<? ORDER BY o.day LIMIT 1) d0
+        FROM player_now p LEFT JOIN player_skill s ON s.eid=p.eid WHERE p.country IN ({mem})""", (lo, today, lo, today, *members)).fetchall()
+    if not rows:
+        return []
+    hist = any(r["w0"] is not None for r in rows)
+    scored, mix = [], {"War": 0, "Hybrid": 0, "Eco": 0}
+    for r in rows:
+        dmg = (r["dmg_total"] - r["d0"]) if r["d0"] is not None else r["dmg_week"]
+        if not dmg or dmg < 1e6:
+            continue
+        b = _build(r["spent"], r["eco"])
+        if b:
+            mix[b] += 1
+        val = ((r["wealth"] - r["w0"]) if hist and r["w0"] is not None else (r["wealth"] if not hist else None))
+        if val is not None:
+            scored.append((val / (dmg / 1e6), r, b))
+    out = ["**⚖️ Player efficiency** (1M+ damage)", f"Builds: War **{mix['War']}** · Hybrid **{mix['Hybrid']}** · Eco **{mix['Eco']}**"]
+    if scored:
+        out.append("Most " + ("wealth gained" if hist else "wealth") + " per 1M damage:")
+        out += _ranked([(f"{pname(r['eid'])} ({cname(r['country'])}, {b or '?'})", _f1(v) if abs(v) < 1000 else _fmt(v))
+                        for v, r, b in sorted(scored, key=lambda x: -x[0])[:5]])
+    return out
+
+
 def digest_text(db, scope, days=7, now=None):
     """The weekly summary as Discord-flavoured markdown: battles, damage and bounty by country and player, transfers, donations."""
     import datetime as dt
@@ -219,6 +259,9 @@ def digest_text(db, scope, days=7, now=None):
         if best_p:
             out.append("Players (1M+ damage):")
             out += _ranked([(pname(k), _f1(p)) for k, p in best_p])
+    eff = _efficiency_lines(db, members, now, pname, cname)
+    if eff:
+        out += [""] + eff
     if members:
         q = f"FROM transfers WHERE ts>=? AND sender IN ({mem}) AND receiver IN ({mem})"
         tr = db.execute(f"SELECT COUNT(*) n, COALESCE(SUM(money),0) m {q}", (since, *members, *members)).fetchone()
