@@ -66,10 +66,17 @@ function badge(b,p){if(!b)return el("span",{class:"muted",text:"–"});
 function skillLine(p){if(!p.lv)return"Skills not loaded yet.";return SK.map(function(k,i){return k+" "+p.lv[i]}).filter(function(x){return !/ 0$/.test(x)}).join(" · ")+" ("+p.spent+" points, "+p.eco+" in economy skills)"}
 function table(list,metric){
   var t=el("table",{class:"stack compact"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage","Week before","Damage week before"].slice(0,list.some(function(p){return p.lw})?9:7);   // the week-before columns appear once there is a week of history
-  var h=el("tr");cols.forEach(function(c,i){h.appendChild(el("th",{class:i>=3||i===0?"n":"",text:c}))});t.appendChild(el("thead",null,[h]));
+  var h=el("tr"),S=st.sort&&st.sort.i<cols.length?st.sort:null;
+  cols.forEach(function(c,i){var on=S&&S.i===i,th=el("th",{class:i>=3||i===0?"n":"","aria-sort":on?(S.dir>0?"ascending":"descending"):"none"}),
+    bt=el("button",{type:"button",class:"thsort",title:"Sort by "+c,text:c+(on?(S.dir>0?" ▲":" ▼"):"")});
+    bt.onclick=function(){st.sort=on?(S.dir<0?{i:i,dir:1}:null):{i:i,dir:i===1||i===2?1:-1};render()};th.appendChild(bt);h.appendChild(th)});
+  t.appendChild(el("thead",null,[h]));
   var tb=el("tbody");
+  list.forEach(function(p,i){p._pos=i+1});   // the rank stays the one in the default order when sorted by another column
+  if(S){var kf=function(p){var m=metric==="gain";switch(S.i){case 0:return p.rank||null;case 1:return String(nm(p.u)).toLowerCase();case 2:return p.b?p.b.share:null;case 3:return p.wealth;case 4:return p.gain;case 5:return p.dmg;case 6:return m?p.perGain:p.perWealth;case 7:return p.lw?(m?p.lw.perGain:p.lw.perWealth):null;default:return p.lw?p.lw.dmg:null}};
+    list=list.map(function(p,i){return{p:p,i:i}}).sort(function(a,z){var x=kf(a.p),y=kf(z.p);if(x==null&&y==null)return a.i-z.i;if(x==null)return 1;if(y==null)return -1;return(x<y?-1:x>y?1:a.i-z.i)*S.dir||(a.i-z.i)}).map(function(o){return o.p})}
   list.forEach(function(p,i){var v=metric==="gain"?p.perGain:p.perWealth;
-    var rk=p.rank||i+1,lv=p.lw?(metric==="gain"?p.lw.perGain:p.lw.perWealth):null,mv=p.prevRank==null?(p.lw?" new":""):p.prevRank>rk?" ↑"+(p.prevRank-rk):p.prevRank<rk?" ↓"+(rk-p.prevRank):" =";
+    var rk=p.rank||p._pos,lv=p.lw?(metric==="gain"?p.lw.perGain:p.lw.perWealth):null,mv=p.prevRank==null?(p.lw?" new":""):p.prevRank>rk?" ↑"+(p.prevRank-rk):p.prevRank<rk?" ↓"+(rk-p.prevRank):" =";
     var cells=[raw(String(rk)+mv,rk),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v),raw(lv==null?"–":big(lv),lv),raw(p.lw?big(p.lw.dmg):"–",p.lw?p.lw.dmg:null)].slice(0,cols.length);
     var tr=el("tr",{class:st.open[p.u]?"sel":""});tr.style.cursor="pointer";
     cells.forEach(function(c,j){var td=el("td",{class:(j>=3||j===0?"n":"")+(j===1?"lead":""),"data-label":cols[j]});if(j===2)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
