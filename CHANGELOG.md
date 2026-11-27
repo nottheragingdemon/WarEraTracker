@@ -3,6 +3,13 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.9.0 — 2026-11-27
+- **Branding:** the tools are now "WarEra Ireland tools": page and tab titles, the Streamlit tab, Discord failure messages and the weekly digest heading (the Emerald Accord stays where it names the alliance the data covers).
+- **Company tax tracker:** a month statement per source country (tax owed, the core-country share, what the host keeps, share of the total) for the chosen host and region, with Download CSV and Copy as text.
+- **Storage-full check:** each refresh records whether a company's storage is full (a full company stops producing) and, per host, the tax covered counting all staffed companies against counting producing ones only. The Status page shows both and which is closer to the game's figures over time, to settle the US and Mexico over-count.
+- **Speed:** company-data.json is about 30% smaller (region ids and item codes stored once, wages to 4 decimals).
+- **Phones:** the tax tracker's wide tables use compact cards (the day or name as the heading, figures in pairs).
+
 ## 1.8.0 — 2026-11-27
 - **Company tax tracker:** "Received from lost regions" in the country income section: an alliance country's original regions held by another country and the 10% of their tax it receives (e.g. Mexico from Veracruz & Tabasco, held by Guatemala).
 - **Company tax tracker:** exact history for one conquered region (recorded per region from today, `wage_snap_reg`); before that it is estimated from today's split, as noted on the page.

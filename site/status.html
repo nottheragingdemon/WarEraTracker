@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Status</title>
+<title>Status · WarEra Ireland tools</title>
 <link rel="stylesheet" href="theme.css">
 <script src="theme.js"></script>
 </head>
@@ -84,6 +84,18 @@ function render(){
     var ixl=IX&&IX.known?"Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located"+(IX.passDone?(IX.fullAt?"; last full pass "+when(IX.fullAt):""):"; full list pass "+IX.pass+" in progress ("+IX.passListed.toLocaleString()+" listed so far)")+". ":"";
     v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Each pair is tracker / game."}),weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack compact"},[el("thead",null,[h3]),tb3])])),
       el("div",{class:"note",text:"Overall tax covered by day: "+(dl.length?dl.join(" · "):"recorded from today")+"."}),el("div",{class:"note",text:ixl+"The tracker follows every company standing in an alliance country, whoever owns it, and compares it with the game’s own region totals. The game counts only companies with staff. Below 100%: companies not located yet, or ones that moved in recently; above: wage estimates taken a little later than the game’s figures."})]))}
+  // storage-full check: does the game's tax follow all staffed companies, or only the ones still producing?
+  var FH=S.fullHist||[];if(CV.length&&CV[0].length>9){
+    var avg=function(h,i){var p=FH.filter(function(x){return x[0]===h&&x[6]>0});if(!p.length)return null;return 100*p.reduce(function(a,x){return a+x[i]/x[6]},0)/p.length};
+    var fmt=function(x){return x==null?"–":x.toFixed(0)+"%"},tb4=el("tbody"),dist={a:0,n:0,k:0};
+    CV.slice().sort(function(a,b){return b[7]-a[7]}).forEach(function(r){if(!r[7])return;var a7=avg(r[0],4),n7=avg(r[0],5);
+      if(a7!=null&&n7!=null){dist.k++;dist.a+=Math.abs(a7-100);dist.n+=Math.abs(n7-100)}
+      var tr=el("tr");[[nm(r[0]),""],[r[8]+" of "+r[2],"n"],[fmt(r[7]?100*r[4]/r[7]:null),"n"],[fmt(r[7]?100*r[9]/r[7]:null),"n"],[fmt(a7),"n"],[fmt(n7),"n"]].forEach(function(c,i){
+        tr.appendChild(el("td",{class:(c[1]+(i?"":" lead")).trim(),"data-label":["Host","Storage full","All staffed, now","Producing only, now","All staffed, 7-day avg","Producing only, 7-day avg"][i],text:c[0]}))});tb4.appendChild(tr)});
+    var h4=el("tr");["Host country","Staffed companies with full storage","Tax covered: all staffed","Tax covered: producing only","All staffed (7-day avg)","Producing only (7-day avg)"].forEach(function(x,i){h4.appendChild(el("th",{class:i?"n":"",text:x}))});
+    var verdict=dist.k?("Over the hours recorded so far, counting "+(dist.a<=dist.n?"all staffed companies":"only producing companies")+" is closer to the game’s figures (average gap "+(Math.min(dist.a,dist.n)/dist.k).toFixed(1)+" points against "+(Math.max(dist.a,dist.n)/dist.k).toFixed(1)+")."):"Recorded hourly from today.";
+    v.appendChild(card("Storage-full check",[weCsvWrap(el("div",{class:"tw"},[el("table",{class:"stack compact"},[el("thead",null,[h4]),tb4])])),
+      el("div",{class:"note",text:"A company whose storage is full stops producing. This compares the tracker’s wage tax with the game’s, once counting every staffed company and once leaving out the full ones, each hour, to find which way the game counts. "+verdict+" The tax tracker keeps counting all staffed companies until the record shows otherwise."})]))}
   // stage timings of the last full refresh
   if(lf){var t=lf[6]||[],mx=Math.max.apply(null,t.map(function(x){return x[1]}).concat([1])),box=el("div",{class:"hbars"});
     t.slice().sort(function(a,b){return b[1]-a[1]}).forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";

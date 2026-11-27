@@ -44,4 +44,4 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW: ${{ github.workflow }}
         run: |
-          python3 -m wartrack alerts --failure "WarEra Tracker: the $WORKFLOW run failed. $RUN_URL"
+          python3 -m wartrack alerts --failure "WarEra Ireland tools: the $WORKFLOW run failed. $RUN_URL"

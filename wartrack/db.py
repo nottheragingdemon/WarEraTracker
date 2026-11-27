@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS full_hist(host TEXT, t INTEGER, staffed INTEGER, full INTEGER, tax REAL, tax_not_full REAL, game_tax REAL, PRIMARY KEY(host, t));
 CREATE TABLE IF NOT EXISTS coverage_hist(day TEXT, host TEXT, staffed INTEGER, game_companies INTEGER, workers INTEGER, game_workers INTEGER, tax REAL, game_tax REAL, PRIMARY KEY(day, host));
 CREATE TABLE IF NOT EXISTS company_loc(id TEXT PRIMARY KEY, region TEXT, owner TEXT, disabled INTEGER, checked TEXT, listed INTEGER);
 CREATE TABLE IF NOT EXISTS wage_snap_reg(region TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(region, owner_country, t));
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS player_skill(eid TEXT PRIMARY KEY, checked TEXT, rese
 CREATE TABLE IF NOT EXISTS player_skill_hist(eid TEXT, checked TEXT, spent INTEGER, eco INTEGER, PRIMARY KEY(eid, checked));
 CREATE TABLE IF NOT EXISTS player_now(eid TEXT PRIMARY KEY, country TEXT, mu TEXT, name TEXT, wealth REAL, dmg_total REAL, dmg_week REAL, ts TEXT);
 CREATE TABLE IF NOT EXISTS region_rate(region TEXT, t INTEGER, emp REAL, mgr REAL, PRIMARY KEY(region,t));
-CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT, workers INT, wages REAL, mgr REAL);
+CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT, workers INT, wages REAL, mgr REAL, full INT);
 CREATE TABLE IF NOT EXISTS region_now(region TEXT PRIMARY KEY, name TEXT, country TEXT, emp REAL, mgr REAL, res REAL, companies INT, employees INT, core TEXT);
 CREATE TABLE IF NOT EXISTS country_tax(country TEXT PRIMARY KEY, name TEXT, income REAL, manager REAL, market REAL);
 CREATE TABLE IF NOT EXISTS country_now(country TEXT PRIMARY KEY, name TEXT, money REAL, wealth REAL, wealth_rank INT, population INT, development REAL, updated TEXT);
@@ -75,7 +76,7 @@ def connect(path):
     if cols and "name" not in cols:
         db.execute("ALTER TABLE users ADD COLUMN name TEXT")
     ccols = [r[1] for r in db.execute("PRAGMA table_info(companies)")]
-    for col, typ in (("workers", "INT"), ("wages", "REAL"), ("mgr", "REAL")):
+    for col, typ in (("workers", "INT"), ("wages", "REAL"), ("mgr", "REAL"), ("full", "INT")):
         if ccols and col not in ccols:
             db.execute(f"ALTER TABLE companies ADD COLUMN {col} {typ}")
     wcols = [r[1] for r in db.execute("PRAGMA table_info(wage_snap)")]

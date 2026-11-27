@@ -8,7 +8,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 HERE = Path(__file__).parent
-st.set_page_config(page_title="WarEra", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="WarEra Ireland tools", page_icon="⚔️", layout="wide")
 # No Streamlit top bar or sidebar: a fixed menu at the top switches apps.
 st.markdown("""<style>
 header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stToolbarActions"],[data-testid="stAppDeployButton"],[data-testid="stMainMenu"],[class*="viewerBadge"],[class*="profileContainer"],[class*="profilePreview"],[data-testid="appCreatorAvatar"],a[href*="github.com"],.st-key-ghhide,[data-testid="stDecoration"],[data-testid="stSidebar"],[data-testid="stSidebarCollapsedControl"]{display:none !important}

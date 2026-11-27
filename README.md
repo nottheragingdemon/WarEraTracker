@@ -1,6 +1,6 @@
-# WarEra Tracker
+# WarEra Ireland tools
 
-Tools for The Emerald Accord alliance in WarEra: battle damage and bounty, company taxes, money transfers and donations,
+WarEra Ireland tools for The Emerald Accord alliance in WarEra: battle damage and bounty, company taxes, money transfers and donations,
 player efficiency, and plain-English questions over the data. A collector on GitHub Actions reads the WarEra API
 (`api2.warera.io`) every hour and writes `site/data.json`; the pages read that file.
 

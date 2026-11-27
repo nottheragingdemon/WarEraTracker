@@ -86,6 +86,23 @@ def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
     return rows
 
 
+def pack_companies(cx):
+    """Shrink company-data.json: region ids and item codes become indexes into regionKeys / items (the pages map them back
+    with weUnpackCompanies in theme.js). Region ids alone were about a third of the file."""
+    rk, ri, ik, ii = [], {}, [], {}
+    def reg(x):
+        if x not in ri:
+            ri[x] = len(rk); rk.append(x)
+        return ri[x]
+    def item(x):
+        if x not in ii:
+            ii[x] = len(ik); ik.append(x)
+        return ii[x]
+    comps = [c[:2] + [item(c[2]), c[3], reg(c[4])] + c[5:] for c in cx.get("companies", [])]
+    hreg = [[reg(r[0])] + r[1:] for r in cx.get("wageHistReg", [])]
+    return dict(cx, companies=comps, wageHistReg=hreg, regionKeys=rk, items=ik)
+
+
 def _thin(evs, full_from, bucket):
     """Every snapshot from full_from on; before that, the last one in each block."""
     evs = sorted(evs, key=lambda x: x[0])
@@ -120,6 +137,14 @@ def company_index_status(db):
     return {"known": q("SELECT COUNT(*) FROM company_loc"), "located": q("SELECT COUNT(*) FROM company_loc WHERE checked IS NOT NULL"),
             "pass": pass_no, "passListed": q("SELECT COUNT(*) FROM company_loc WHERE listed=?", pass_no) if pass_no else 0,
             "passDone": not meta("index_cursor"), "fullAt": meta("index_full_at")}
+
+
+def full_history(db, E, days=7):
+    """Hourly per host for the storage-full check: [host, t, staffed, full staffed, tax/h all, tax/h leaving full out, game tax/h]."""
+    import time
+    lo = int(time.time() * 1000) - days * 864e5
+    return [[E("country", r["host"]), r["t"], r["staffed"], r["full"], r["tax"], r["tax_not_full"], r["game_tax"]]
+            for r in db.execute("SELECT * FROM full_hist WHERE t>=? ORDER BY t", (lo,))]
 
 
 def company_coverage(db, E, scope=None):
@@ -199,7 +224,7 @@ def export(db, out, since, scope=None):
     companies, companies_at = [], None
     for r in db.execute("SELECT * FROM companies ORDER BY value DESC"):
         companies.append([r["name"], E("user", r["owner"]), r["item"], round(r["value"] or 0), r["region"], E("country", r["owner_country"]),
-                          r["workers"] or 0, round(r["wages"] or 0, 6), round(r["mgr"] or 0, 6)])
+                          r["workers"] or 0, round(r["wages"] or 0, 4), round(r["mgr"] or 0, 4)])
         companies_at = r["seen"]
     country_now = {str(E("country", r["country"])): [r["money"], r["wealth"], r["wealth_rank"], r["population"], r["development"],
                                                      json.loads(r["income"]) if r["income"] else None]
@@ -297,7 +322,7 @@ def export(db, out, since, scope=None):
               "lastBackup": os.environ.get("LAST_BACKUP") or None, "gateway": os.environ.get("WARERA_GATEWAY", "1") != "0",
               "rows": {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in
                        ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill", "country_income", "trades")},
-              "freshness": freshness(db), "companyIndex": company_index_status(db), "coverage": company_coverage(db, E, scope), "coverageHist": coverage_history(db, E),
+              "freshness": freshness(db), "companyIndex": company_index_status(db), "coverage": company_coverage(db, E, scope), "coverageHist": coverage_history(db, E), "fullHist": full_history(db, E),
               "donationsSince": db.execute("SELECT MIN(ts) FROM donations").fetchone()[0],
               "transfersSince": db.execute("SELECT MIN(ts) FROM transfers").fetchone()[0]}
     data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
@@ -314,5 +339,5 @@ def export(db, out, since, scope=None):
     with open(os.path.join(os.path.dirname(out) or ".", "ask-data.json"), "w") as f:
         json.dump(dict(extra, generated=data["generated"]), f, separators=(",", ":"))
     with open(os.path.join(os.path.dirname(out) or ".", "company-data.json"), "w") as f:
-        json.dump(dict(company_extra, generated=data["generated"]), f, separators=(",", ":"))
+        json.dump(dict(pack_companies(company_extra), generated=data["generated"]), f, separators=(",", ":"))
     return {k: len(v) for k, v in dict(data, **extra, **company_extra).items() if isinstance(v, (list, dict))}

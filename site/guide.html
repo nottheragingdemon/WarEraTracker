@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Guide</title>
+<title>Guide · WarEra Ireland tools</title>
 <link rel="stylesheet" href="theme.css">
 <script src="theme.js"></script>
 </head>
@@ -76,6 +76,7 @@
       <li><b>Cross-check</b> against the game's region totals, an hour-by-hour list, a day-by-day table and <b>this month's bill</b> (tax owed so far, and a full-month estimate).</li>
       <li><b>By region</b> and the list of active companies.</li>
       <li><b>Conquered regions:</b> when the host holds a region that originally belonged to another country (for example Ireland holding Northern Ireland, a core region of the United Kingdom), the game hands 10% of that region's tax to the original country. The tracker shows how much is passed on and how much the host keeps, and the region list marks it "conquered from …". With the original country as the source, it also shows what that country gets back. The split is recorded from 27 Nov 2026, and per conquered region from 10:35 that day; earlier days are estimated from today's split. The game's own tax figure for a conquered region is what the holder keeps, and the original country's income already includes its 10%.</li>
+      <li><b>Statement</b> for the month: what every source country's companies owed the host (and, for conquered regions, what went to the original country), with Download CSV and Copy as text for sharing.</li>
       <li><b>Received from lost regions</b> (in the country income section): the host's original regions that another country now holds, and the 10% of their tax the host receives.</li>
       <li><b>What if the tax rates changed?</b> Type a different employee or manager income tax rate to see how the host's daily and monthly income would change, for the companies shown and for the whole country. It assumes companies stay put, so treat big changes as a rough guide.</li>
       <li><b>Country income per day</b> (at the end): the host country's whole income right now by stream (employee and manager income tax, development, strategic resources bonus, government type bonus, and a market tax estimate), then day by day for the last 30 days, and the same for every alliance nation.</li>
@@ -111,7 +112,7 @@
   </div>
 
   <div class="card" id="status"><h2>Status</h2>
-    <p>Whether everything is running, and whether the Company tax tracker matches the game: per alliance country, the tracker's companies, workers and wage tax against the game's own figures, and how that coverage moved over the last week. Also: the age of the data, the last hourly refresh and where it spent its time, the 15-minute battle checks, the last backup and weekly digest, and how much history is stored. A green tick is fine, an amber ! needs a look soon, a red ✕ means something has stopped. <b>Data freshness</b> lists each kind of data with how long ago it last arrived, so a part that quietly stopped is visible even when nothing failed.</p>
+    <p>Whether everything is running, and whether the Company tax tracker matches the game: per alliance country, the tracker's companies, workers and wage tax against the game's own figures, and how that coverage moved over the last week. Also: the age of the data, the last hourly refresh and where it spent its time, the 15-minute battle checks, the last backup and weekly digest, and how much history is stored. A green tick is fine, an amber ! needs a look soon, a red ✕ means something has stopped. <b>Data freshness</b> lists each kind of data with how long ago it last arrived, so a part that quietly stopped is visible even when nothing failed. <b>Storage-full check</b> compares the tracker's tax with the game's twice, counting every staffed company and counting only those still producing (storage not full), to find out how the game counts.</p>
   </div>
 
   <div class="card" id="data"><h2>Where the data comes from, and its limits</h2>

@@ -26,7 +26,7 @@ def prune(db, days=None):
     for t, col in (("transfers", "ts"), ("donations", "ts")):
         db.execute(f"DELETE FROM {t} WHERE {col}<?", (cut,))
     tables = {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-    for t in ("region_rate", "wage_snap", "wage_snap2", "wage_snap3", "wage_snap_reg", "run_log", "country_income"):
+    for t in ("region_rate", "wage_snap", "wage_snap2", "wage_snap3", "wage_snap_reg", "full_hist", "run_log", "country_income"):
         if t in tables:
             db.execute(f"DELETE FROM {t} WHERE t<?", (cut_ms,))
     for t in ("wage_snap", "wage_snap2"):   # retired formats: drop once nothing in them is inside the 35-day company history

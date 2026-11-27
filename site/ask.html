@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ask WarEra</title>
+<title>Ask WarEra · WarEra Ireland tools</title>
 <link rel="stylesheet" href="theme.css">
 <script src="theme.js"></script>
 </head>
@@ -115,7 +115,7 @@ var DOC={
 /* the company list and wage history come from company-data.json, fetched the first time a question queries them */
 var LAZY={companies:1,wage_history:1,region_wage_history:1},companyLoaded=false;
 async function loadCompanyData(){if(companyLoaded)return;
-  try{var cx=await fetch("company-data.json").then(function(r){return r.json()});D.companies=cx.companies||[];D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[]}catch(e){D.companies=D.companies||[];D.wageHist=D.wageHist||[]}
+  try{var cx=window.weUnpackCompanies(await fetch("company-data.json").then(function(r){return r.json()}));D.companies=cx.companies||[];D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[]}catch(e){D.companies=D.companies||[];D.wageHist=D.wageHist||[]}
   companyLoaded=true;build()}
 function runQuery(q){
   var t=T[q.table];if(!t)throw new Error("unknown table "+q.table+". Tables: "+Object.keys(T).join(", "));

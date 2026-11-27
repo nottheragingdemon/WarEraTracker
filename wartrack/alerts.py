@@ -54,7 +54,7 @@ def skipped(db, stages):
     if last and now - dt.datetime.fromisoformat(last) < dt.timedelta(hours=6):
         return
     if os.environ.get("ALERT_WEBHOOK_URL"):
-        failure("WarEra Tracker: these stages were skipped after API errors, so their data is not fresh: " + ", ".join(stages))
+        failure("WarEra Ireland tools: these stages were skipped after API errors, so their data is not fresh: " + ", ".join(stages))
         _set(db, "skipped_at", now.isoformat(timespec="seconds")); db.commit()
 
 
@@ -156,7 +156,7 @@ def test():
     url = os.environ.get("ALERT_WEBHOOK_URL")
     if not url:
         raise SystemExit("ALERT_WEBHOOK_URL is not set for this workflow")
-    post(url, "✅ Test alert from WarEra Tracker: the webhook works. New battles involving The Emerald Accord will appear here.")
+    post(url, "✅ Test alert from WarEra Ireland tools: the webhook works. New battles involving The Emerald Accord will appear here.")
     C.log("alerts: test message sent")
 
 
@@ -304,7 +304,7 @@ def digest_text(db, scope, days=7, now=None):
     wargs = [*args, since]
     mem = ",".join("?" * len(members)) or "''"
     day = lambda d: f"{d.day} {d.strftime('%b')}"
-    out = ["📊 **Weekly digest · The Emerald Accord**",
+    out = ["📊 **WarEra Ireland tools · weekly digest** (The Emerald Accord)",
            f"📅 {day(start)} – {day(now)} {now.year} (UTC)"]
     z = lambda d: d.isoformat(timespec="seconds").replace("+00:00", "Z")
     cur = _totals(db, scope, z(start), z(now))

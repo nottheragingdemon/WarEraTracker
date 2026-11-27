@@ -78,3 +78,8 @@ document.addEventListener("DOMContentLoaded",function(){var n=document.getElemen
   var cur=n.querySelector("[aria-current]");if(cur&&n.scrollWidth>n.clientWidth)n.scrollLeft=Math.max(0,cur.offsetLeft-(n.clientWidth-cur.offsetWidth)/2);
   function edge(){n.classList.toggle("more-right",n.scrollLeft+n.clientWidth<n.scrollWidth-4);n.classList.toggle("more-left",n.scrollLeft>4)}
   edge();n.addEventListener("scroll",edge,{passive:true});addEventListener("resize",edge)});
+
+/* company-data.json stores region ids and item codes as indexes (regionKeys, items) to keep the file small: map them back */
+window.weUnpackCompanies=function(cx){if(!cx||cx.__unpacked)return cx;var rk=cx.regionKeys,ik=cx.items;
+  if(rk||ik)(cx.companies||[]).forEach(function(c){if(ik&&typeof c[2]==="number")c[2]=ik[c[2]];if(rk&&typeof c[4]==="number")c[4]=rk[c[4]]});
+  if(rk)(cx.wageHistReg||[]).forEach(function(r){if(typeof r[0]==="number")r[0]=rk[r[0]]});cx.__unpacked=true;return cx};

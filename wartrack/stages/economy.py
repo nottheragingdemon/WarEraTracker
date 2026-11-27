@@ -209,7 +209,9 @@ def core_tax_pct(db):
 
 
 def coverage_rows(db, hosts):
-    """Per host country: [host, companies tracked, staffed, workers, wage tax/h (all owners), game companies, game workers, game tax/h]."""
+    """Per host country: [host, companies tracked, staffed, workers, wage tax/h (all owners), game companies, game workers, game tax/h,
+    staffed companies whose storage is full, wage tax/h leaving those out]. A full company stops producing; whether the game still
+    taxes its wages is what the full_hist record (hourly) is meant to show."""
     rate = {r["country"]: (r["income"] or 0, r["manager"] or 0) for r in db.execute("SELECT country, income, manager FROM country_tax")}
     keep = 1 - core_tax_pct(db) / 100   # a conquered region's game tax figure is what the holder keeps: gross it up to compare
     out = []
@@ -217,10 +219,13 @@ def coverage_rows(db, hosts):
         g = db.execute("""SELECT COALESCE(SUM(companies),0) co, COALESCE(SUM(employees),0) em,
             COALESCE(SUM((COALESCE(emp,0)+COALESCE(mgr,0)) / CASE WHEN core IS NOT NULL AND core!=country THEN ? ELSE 1 END),0) tax
             FROM region_now WHERE country=?""", (keep, h)).fetchone()
-        t = db.execute("""SELECT COUNT(*) n, COALESCE(SUM(c.workers>0),0) staffed, COALESCE(SUM(c.workers),0) w, COALESCE(SUM(c.wages),0) wg, COALESCE(SUM(c.mgr),0) mg
+        t = db.execute("""SELECT COUNT(*) n, COALESCE(SUM(c.workers>0),0) staffed, COALESCE(SUM(c.workers),0) w, COALESCE(SUM(c.wages),0) wg, COALESCE(SUM(c.mgr),0) mg,
+            COALESCE(SUM(c.workers>0 AND c.full=1),0) fs, COALESCE(SUM(CASE WHEN c.full=1 THEN 0 ELSE c.wages END),0) wgn,
+            COALESCE(SUM(CASE WHEN c.full=1 THEN 0 ELSE c.mgr END),0) mgn
             FROM companies c JOIN region_now r ON r.region=c.region WHERE r.country=?""", (h,)).fetchone()
         ri, rm = rate.get(h, (0, 0))
-        out.append([h, t["n"], t["staffed"], t["w"], round(t["wg"] * ri / 100 + t["mg"] * rm / 100, 3), g["co"], g["em"], round(g["tax"], 3)])
+        out.append([h, t["n"], t["staffed"], t["w"], round(t["wg"] * ri / 100 + t["mg"] * rm / 100, 3), g["co"], g["em"], round(g["tax"], 3),
+                    t["fs"], round(t["wgn"] * ri / 100 + t["mgn"] * rm / 100, 3)])
     return out
 
 
@@ -270,15 +275,17 @@ def collect_companies(c, db, scope):
                 wages, mgr = sum(float(w.get("wage") or 0) for w in ws), 0.0
             owner = d.get("user") or cand.get(cid)
             rows.append((cid, d.get("name"), owner, d.get("itemCode"), d.get("estimatedValue") or 0,
-                         d.get("region"), owner_country.get(owner), ts, len(ws), round(wages, 6), round(mgr, 6)))
+                         d.get("region"), owner_country.get(owner), ts, len(ws), round(wages, 6), round(mgr, 6), 1 if d.get("isFull") else 0))
     # drop companies that left the alliance's countries, closed or disappeared from the index
     keep = {r["id"] for r in db.execute("SELECT id, region FROM company_loc WHERE disabled=0") if r["region"] in host_regions}
     db.executemany("DELETE FROM companies WHERE id=?", [(r["id"],) for r in db.execute("SELECT id FROM companies").fetchall() if r["id"] not in keep])
-    db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr) VALUES(?,?,?,?,?,?,?,?,?,?,?)", rows)
+    db.executemany("INSERT OR REPLACE INTO companies(id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr,full) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", rows)
     allrows = [tuple(r) for r in db.execute("SELECT id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr FROM companies")]
     snapshot_wages(db, allrows)
     day = ts[:10]   # coverage against the game's own figures, the latest check of each day (Status page trend)
+    now_ms = int(_t.time() * 1000)
     for r in coverage_rows(db, hosts):
         db.execute("INSERT OR REPLACE INTO coverage_hist VALUES(?,?,?,?,?,?,?,?)", (day, r[0], r[2], r[5], r[3], r[6], r[4], r[7]))
+        db.execute("INSERT OR REPLACE INTO full_hist VALUES(?,?,?,?,?,?,?)", (r[0], now_ms, r[2], r[8], r[4], r[9], r[7]))
     db.commit()
     log(f"companies: {len(rows)} refreshed this run, {len(allrows)} stored")

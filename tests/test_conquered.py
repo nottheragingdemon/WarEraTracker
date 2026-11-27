@@ -32,3 +32,24 @@ class ConqueredTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PackAndFullTests(unittest.TestCase):
+    def test_pack_companies_round_trip(self):
+        cx = {"companies": [["A", 1, "bread", 5, "regionid000000000000001", 2, 3, 1.5, 0.0], ["B", 1, "wood", 5, "regionid000000000000001", 2, 0, 0.0, 0.0]],
+              "wageHistReg": [["regionid000000000000001", 2, 1, 1, 3, 1.5, 0.0]], "wageHist": []}
+        p = X.pack_companies(cx)
+        self.assertEqual(p["regionKeys"], ["regionid000000000000001"])
+        self.assertEqual(p["items"], ["bread", "wood"])
+        self.assertEqual([c[2] for c in p["companies"]], [0, 1])
+        self.assertEqual(p["companies"][0][4], 0)
+        self.assertEqual(p["wageHistReg"][0][0], 0)
+
+    def test_coverage_counts_full_storage(self):
+        from wartrack.stages.economy import coverage_rows
+        d = dbm.connect(":memory:")
+        d.execute("INSERT INTO region_now(region,name,country,emp,mgr,companies,employees,core) VALUES('r1','R1','h',1.0,0,2,5,'h')")
+        d.execute("INSERT INTO country_tax(country,name,income,manager) VALUES('h','H',10,0)")
+        d.execute("INSERT INTO companies(id,region,workers,wages,mgr,full) VALUES('a','r1',3,6.0,0,0),('b','r1',2,4.0,0,1)")
+        r = coverage_rows(d, {"h"})[0]
+        self.assertEqual((r[2], r[4], r[8], r[9]), (2, 1.0, 1, 0.6))   # 2 staffed, tax 10% of 10; 1 full; 10% of 6 without it
