@@ -120,7 +120,7 @@ function dbSizeKids(S){var z=S.dbSize||[];if(!z.length)return[];var mb=function(
   var mx=Math.max.apply(null,z.map(function(x){return x[1]})),box=el("div",{class:"hbars"});
   z.slice(-14).reverse().forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0]}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:mb(x[1])})]))});
   return[el("h3",{text:"Database size: "+mb(last[1])}),box,el("div",{class:"note",text:"Change over the last week: "+(last[1]>=wk[1]?"+":"")+mb(last[1]-wk[1])+". The database is compacted once a week"+(S.vacuumAt?" (last "+S.vacuumAt.slice(0,16).replace("T"," ")+" UTC)":"")+" to give back space from old rows; it is saved compressed to the state branch every hour."})]}
-fetch("data.json").then(function(r){return r.json()}).then(function(d){
+fetch("data.json").then(function(r){return r.json()}).then(function(d){window.weSchema(d);
   D=d;window.weStale(D.generated);
   $("meta").textContent="Updated "+when(D.generated)+" · collector runs on GitHub Actions: full refresh hourly, battle check every 15 minutes";
   render();

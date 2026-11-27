@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.1.0 — 2026-11-27
+- **Stale-data watchdog.** The 15-minute Battle check posts to Discord when `data.json` is more than 3 hours old (once per outage, with a recovery message).
+- **Schema number.** The data files carry `schema` (now 4); every page shows a clear banner if the data and page disagree. `site/contract.json` lists the keys the pages need; the back end refuses to publish data that doesn't match it.
+- **Tax agreements summary:** the first completed month not yet covered by payments gets a due date, and shows OVERDUE after a week's grace.
+- **Settings preview:** before saving, the Streamlit Settings page lists what a change does (rate change with an estimate on the latest month, added or removed partners, regions, start date).
+
 ## 2.0.0 — 2026-11-27
 - **Split into two repos.** The collector, the history database and its backups, the tax agreements, statements, agreement payments and terms moved to the private repo `WarEraTracker-backend`, with the hourly refresh, company index, weekly backup, weekly digest, statement preview and diagnose workflows. Every hour it publishes `site/*.json` to this repo, so the pages, Streamlit and the artifacts carry on as before.
 - **This repo (public)** keeps the pages, the Streamlit app, the artifact sync and a new 15-minute **Battle check** (`scripts/battlecheck.py`, standard library only) that posts new and ended battles to Discord, with its own small state on the `battlecheck-state` branch. The back end no longer posts battle alerts (no duplicates).

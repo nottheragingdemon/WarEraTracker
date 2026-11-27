@@ -150,7 +150,7 @@
   </div>
 </div>
 <script>
-fetch("data.json").then(function(r){return r.json()}).then(function(d){
+fetch("data.json").then(function(r){return r.json()}).then(function(d){window.weSchema(d);
   window.weStale(d.generated);
   document.getElementById("meta").textContent="Updated "+String(d.generated||"").slice(0,16).replace("T"," ")+" UTC · data from api2.warera.io";
 }).catch(function(e){document.getElementById("meta").textContent="Could not load data.json: "+e.message});

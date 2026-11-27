@@ -126,7 +126,7 @@ function render(){
     var m={War:0,Hybrid:0,Eco:0};by[c].forEach(function(p){if(p.b)m[p.b.kind]++});
     v.appendChild(card(nm(c)+" · "+(st.end==="bottom"?"bottom ":"top ")+l.length+" of "+by[c].length,[el("div",{class:"note",text:"Builds among its 1M+ damage players: War "+m.War+" · Hybrid "+m.Hybrid+" · Eco "+m.Eco}),table(l,metric)]))})}
 function stale(){window.weStale(D.generated)}
-fetch("data.json").then(function(r){return r.json()}).then(function(d){
+fetch("data.json").then(function(r){return r.json()}).then(function(d){window.weSchema(d);
   D=d;D.players=D.players||[];SK=D.skillOrder||[];stale();
   var PH=D.playerHist||{days:[],rows:[]};HDAYS=PH.days;PH.rows.forEach(function(r){HIST[r[0]]=[r[1],r[2]]});
   var cs={};D.players.forEach(function(p){cs[p[1]]=1});

@@ -35,3 +35,24 @@ class StreamlitAppTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PreviewChanges(unittest.TestCase):
+    def test_rate_change_estimate_and_add_remove(self):
+        import importlib.util, os
+        spec = importlib.util.spec_from_file_location("sa", os.path.join(os.path.dirname(__file__), "..", "streamlit_app.py"))
+        # streamlit_app runs page code on import, so exercise the function by source instead
+        src = open(spec.origin).read()
+        ns = {}
+        start = src.index("def preview_changes"); end = src.index("def settings")
+        exec(src[start:end], ns)
+        data = {"ents": [["country", "a", "Ireland"], ["country", "b", "Mexico"], ["country", "c", "Chile"]],
+                "statementsLive": {"2026-11": {"0": [[1, 1000.0, 0, 1000.0]]}}}
+        cur = {"Ireland": [{"country": "Mexico", "regions": "core", "pay_percent": 100, "payments_since": "2026-11-01"}]}
+        new = {"Ireland": [{"country": "Mexico", "regions": "core", "pay_percent": 90, "payments_since": "2026-11-01"},
+                           {"country": "Chile", "regions": "all", "pay_percent": 50, "payments_since": "2026-12-01"}]}
+        out = ns["preview_changes"](data, cur, new)
+        self.assertTrue(any("100% → 90%" in l and "1,000.00 → 900.00" in l for l in out))
+        self.assertTrue(any("Chile: new agreement" in l for l in out))
+        self.assertEqual(ns["preview_changes"](data, cur, cur), [])
+        self.assertTrue(any("removed" in l for l in ns["preview_changes"](data, cur, {})))

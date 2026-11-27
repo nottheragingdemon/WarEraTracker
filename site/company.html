@@ -234,14 +234,17 @@ function agreementSummary(hn){
     var owed=Object.keys(months).filter(function(m){return m>=sm&&m<cur}).reduce(function(a,m){var x=monthPays(m,h,o);return a+(x?x.pay:0)},0);
     var tx=(P[String(o)]||[]).filter(function(x){return x[0].slice(0,10)>=since}),sent=tx.reduce(function(a,x){return a+x[1]},0),lastTx=tx[tx.length-1];
     var nowM=monthPays(cur,h,o),prevM=monthPays(prev,h,o);
-    return{o:o,since:since,owed:owed,sent:sent,bal:owed-sent,now:nowM?nowM.pay:0,prev:prevM,last:lastTx}});
+    /* the first completed month the payments don't yet cover is due on the 1st of the month after it; a week's grace, then "overdue" */
+    var cum=0,dueDate=null;Object.keys(months).filter(function(m){return m>=sm&&m<cur}).sort().forEach(function(m){var x=monthPays(m,h,o);cum+=x?x.pay:0;if(!dueDate&&cum-sent>0.005)dueDate=nextMonthFirst(m)});
+    var late=dueDate?Math.floor((Date.now()-Date.parse(dueDate+"T00:00:00Z"))/864e5):0;
+    return{o:o,since:since,owed:owed,sent:sent,bal:owed-sent,now:nowM?nowM.pay:0,prev:prevM,last:lastTx,dueDate:dueDate,late:late}});
   var t=tbl([["Partner",function(r){return nm(r.o)}],["Regions covered",function(r){return scopeLabel(h,r.o)}],["Rate",function(r){return payPct(h,r.o)+"%"},1],
     [monthName(cur)+" so far",function(r){return m2(r.now)},1],[monthName(prev),function(r){return r.prev?m2(r.prev.pay)+(r.prev.final?"":" (not final)"):"–"},1],
     ["Owed for completed months",function(r){return m2(r.owed)},1],["Sent",function(r){return m2(r.sent)},1],
-    ["Balance",function(r){return Math.abs(r.bal)<0.005?"settled":r.bal>0?m2(r.bal)+" still to pay":m2(-r.bal)+" paid ahead"},1],
+    ["Balance",function(r){return Math.abs(r.bal)<0.005?"settled":r.bal>0?m2(r.bal)+" still to pay"+(r.late>7?" · OVERDUE "+r.late+" days (due "+r.dueDate+")":r.dueDate?" · due "+r.dueDate:""):m2(-r.bal)+" paid ahead"},1],
     ["Last payment",function(r){return r.last?r.last[0].slice(0,10)+" · "+m2(r.last[1]):"none yet"}]],rows);
   var due=rows.reduce(function(a,r){return a+Math.max(0,r.bal)},0),nowT=rows.reduce(function(a,r){return a+r.now},0);
-  return card("Tax agreements: "+hn,[kpis([[m2(nowT),"Owed to partners, "+monthName(cur)+" so far","final on "+nextMonthFirst(cur)],[m2(due),"Still to pay for completed months",due>0.005?"see Balance below":"all settled"]]),t,
+  return card("Tax agreements: "+hn,[kpis([[m2(nowT),"Owed to partners, "+monthName(cur)+" so far","final on "+nextMonthFirst(cur)],[m2(due),"Still to pay for completed months",due>0.005?(rows.some(function(r){return r.late>7})?"overdue, see Balance below":"see Balance below"):"all settled"]]),t,
     note("Owed = the monthly statements (what "+hn+" pays each partner: its rate × the tax generated in the covered regions), counted from each agreement’s start date ("+rows.map(function(r){return nm(r.o)+" "+r.since}).join(", ")+"). Sent = every treasury transfer from "+hn+" to the partner since that date, as the game records it (the tracker can’t tell a tax payment from another transfer). The current month is owed once it ends, so a payment sent before then shows as paid ahead.")])}
 /* month statement: what each source country's companies owed the host in the month, split into the core-country share and what the host keeps */
 function statement(M,mk,hn,rn){
@@ -404,7 +407,7 @@ function fillSelects(){
     if(st.regionByDefault){st.regionByDefault=false;st.region=ALL_REGIONS;fillReg();var keep=st.src;fillSrc();st.src=keep;$("f-src").value=String(keep)}
     render()}}
 function stale(){window.weStale(D.generated)}
-fetch("data.json").then(function(r){return r.json()}).then(async function(d){
+fetch("data.json").then(function(r){return r.json()}).then(async function(d){window.weSchema(d);
   D=d;stale();D.companies=D.companies||[];
   try{var cx=window.weUnpackCompanies(await fetch("company-data.json").then(function(r){return r.json()}));D.wageHist=cx.wageHist||[];D.wageHistReg=cx.wageHistReg||[];D.companies=cx.companies||D.companies||[]}catch(e){D.wageHist=D.wageHist||[];D.companies=D.companies||[]}
   var TH=D.taxHist,days=TH&&TH.days?Object.keys(TH.days).sort():[];

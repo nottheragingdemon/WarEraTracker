@@ -124,6 +124,39 @@ def _has_token():
         return False
 
 
+def preview_changes(data, current, new):
+    """Plain-language lines for what a Settings change would do, using the latest month's tracked tax (rates only; a change of
+    regions or start date alters what is collected, which can't be estimated from existing data)."""
+    ents = data.get("ents", [])
+    ids = {e[2]: i for i, e in enumerate(ents) if e[0] == "country" and e[2]}
+    months = sorted(set((data.get("statementsLive") or {})) | set((data.get("statements") or {})))
+    out = []
+    def gen(host, partner, month):
+        rows = ((data.get("statements") or {}).get(month, {}) or {}).get(str(ids.get(host))) or \
+               ((data.get("statementsLive") or {}).get(month, {}) or {}).get(str(ids.get(host))) or []
+        return next((r[1] for r in rows if r[0] == ids.get(partner)), None)
+    for h in sorted(set(current) | set(new)):
+        old = {x["country"]: x for x in current.get(h, [])}
+        nw = {x["country"]: x for x in new.get(h, [])}
+        for c in sorted(set(old) | set(nw)):
+            if c not in nw:
+                out.append(f"{h} ↔ {c}: agreement removed. {c}'s companies are no longer collected or billed.")
+            elif c not in old:
+                out.append(f"{h} ↔ {c}: new agreement ({nw[c]['pay_percent']}%, from {nw[c]['payments_since']}). Collection starts at the next refresh; there is no history before that.")
+            else:
+                a, b = old[c], nw[c]
+                if a["pay_percent"] != b["pay_percent"]:
+                    m = months[-1] if months else None
+                    g = gen(h, c, m) if m else None
+                    est = f" On {m}'s tracked tax ({g:,.2f}) that is {g * a['pay_percent'] / 100:,.2f} → {g * b['pay_percent'] / 100:,.2f}." if g else ""
+                    out.append(f"{h} ↔ {c}: rate {a['pay_percent']}% → {b['pay_percent']}%.{est} Months already saved as final keep their old rate.")
+                if a["regions"] != b["regions"]:
+                    out.append(f"{h} ↔ {c}: regions covered change. Applies from the next refresh; saved months keep their old scope.")
+                if a["payments_since"] != b["payments_since"]:
+                    out.append(f"{h} ↔ {c}: start date {a['payments_since']} → {b['payments_since']}. Payments and balances count from the new date.")
+    return out
+
+
 def settings():
     import base64
     st.title("⚙️ Settings")
@@ -203,6 +236,8 @@ def settings():
     if new == {h: v for h, v in current.items() if v}:
         st.caption("No changes.")
         return
+    for line in preview_changes(data, current, new):
+        st.write("• " + line)
     if st.button("Save agreements", type="primary"):
         try:
             payload = {"message": "Settings: tax agreements (from the Streamlit app)",

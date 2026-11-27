@@ -93,3 +93,15 @@ window.weKpis=function(list){return weEl("div",{class:"kpis"},list.map(function(
 /* a formatted number that also carries its raw value (for sorting and CSV) */
 window.weNum=function(n,d){var o=new String(n==null||isNaN(n)?"–":Number(n).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d}));o.raw=n==null||isNaN(n)?"":Math.round(n*1e4)/1e4;return o};
 window.weFmtD=function(s){return s?s.slice(0,16).replace("T"," "):"–"};
+
+/* The data files carry a schema number; a page built for another one says so instead of failing with a cryptic error. */
+window.WE_SCHEMA=4;
+window.weSchema=function(d){
+  if(!d||d.schema==null||d.schema===window.WE_SCHEMA)return;
+  var older=d.schema<window.WE_SCHEMA;
+  var b=document.createElement("div");b.setAttribute("role","alert");
+  b.style.cssText="margin:8px 0;padding:8px 12px;border:1px solid var(--warn,#c90);border-radius:8px;background:var(--card,transparent)";
+  b.textContent=older?"The data files are older than this page (schema "+d.schema+", page expects "+window.WE_SCHEMA+"). Some numbers may be missing until the next hourly update."
+    :"The data files are newer than this page (schema "+d.schema+", page expects "+window.WE_SCHEMA+"). Reload the page; if this stays, the page needs updating.";
+  var m=document.getElementById("meta");(m&&m.parentNode?m.parentNode:document.body).insertBefore(b,m||document.body.firstChild);
+};

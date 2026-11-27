@@ -58,6 +58,25 @@ def fmt(x):
     return f"{x / 1e6:.1f}M" if abs(x) >= 1e6 else f"{x / 1e3:.0f}k" if abs(x) >= 1e3 else f"{x:.0f}"
 
 
+STALE_HOURS = float(os.environ.get("STALE_HOURS", "3"))
+
+
+def stale_check(data, state, now=None):
+    """Return a message when data.json is older than STALE_HOURS (once per outage), or a recovery message; updates state."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    try:
+        age = (now - dt.datetime.fromisoformat(data["generated"])).total_seconds() / 3600
+    except (KeyError, ValueError, TypeError):
+        return None
+    if age > STALE_HOURS and not state.get("stale_alert"):
+        state["stale_alert"] = now.isoformat(timespec="seconds")
+        return f"⏰ The data on the site is {age:.1f} hours old (last update {data['generated'][:16].replace('T', ' ')} UTC). The hourly back-end refresh in WarEraTracker-backend may have stopped."
+    if age <= STALE_HOURS and state.get("stale_alert"):
+        state.pop("stale_alert")
+        return "✅ Site data is updating again."
+    return None
+
+
 def main(state_path, test=False):
     if test:
         post("✅ Test alert from WarEra Ireland tools: the webhook works. New battles involving The Emerald Accord will appear here.")
@@ -71,6 +90,12 @@ def main(state_path, test=False):
         if ents[int(a)][2] == ALLIANCE:
             alliance_id, members = ents[int(a)][1], {ents[c][1] for c in m}
     state = json.load(open(state_path)) if os.path.exists(state_path) else {}
+    note = stale_check(data, state)
+    if note:
+        try:
+            post(note)
+        except Exception as e:
+            print(f"could not send the stale-data notice: {e}")
     since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=3)).isoformat()[:19]
     extra = {"allianceId": alliance_id} if alliance_id else {}
     battles = {b["_id"]: b for b in pages("battle.getBattles", isActive=True, limit=100, **extra)}

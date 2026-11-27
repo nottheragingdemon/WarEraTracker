@@ -166,7 +166,7 @@ function dailyCard(cits){
   return card(title,kids)}
 function setRange(days){var to=new Date(),from=new Date(Date.now()-days*864e5);st.to=days?to.toISOString().slice(0,10):"";st.from=days?from.toISOString().slice(0,10):"";$("f-from").value=st.from;$("f-to").value=st.to;render()}
 function stale(){window.weStale(D.generated)}
-fetch("data.json").then(function(r){return r.json()}).then(function(d){
+fetch("data.json").then(function(r){return r.json()}).then(function(d){window.weSchema(d);
   D=d;D.transfers=D.transfers||[];D.battles=D.battles||[];stale();
   [["7 days",7],["30 days",30],["90 days",90],["All",0]].forEach(function(q){var b=el("button",{class:"chip",text:q[0]});b.onclick=function(){setRange(q[1])};$("quick").appendChild(b)});
   $("f-from").onchange=function(){st.from=this.value;render()};$("f-to").onchange=function(){st.to=this.value;render()};
