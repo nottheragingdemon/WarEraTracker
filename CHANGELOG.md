@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.16.0 — 2026-11-27
+- **Efficiency:** one ranking for the whole alliance (top 100 or bottom 100) instead of a list per nation, with a Country column (sortable) and the Country filter at the top to see one nation. The damage limit is a slider (1–50M, whole millions). Ranks and ↑↓ moves are within the list shown.
+
 ## 2.15.6 — 2026-11-27
 - **Efficiency:** the damage limit (5M by default) can be changed on the page in whole millions; the ranking, build mix and last week's ranks follow it.
 

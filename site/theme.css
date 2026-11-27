@@ -194,3 +194,7 @@ table.tight td,table.tight th{white-space:normal}table.tight td.n{white-space:no
 .thsort{all:unset;cursor:pointer;font:inherit;color:inherit;font-weight:inherit;text-align:inherit}
 .thsort:hover{text-decoration:underline}
 .thsort:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+/* the damage-limit slider on the efficiency page */
+.numin{display:block;margin:.5rem 0}
+.numin input[type=range]{width:min(100%,360px);vertical-align:middle;margin-left:.5rem}
