@@ -22,6 +22,8 @@ header[data-testid="stHeader"],[data-testid="stToolbar"],[data-testid="stDecorat
 .st-key-appnav a{display:flex !important;flex-direction:column;align-items:center;gap:1px;padding:4px 10px !important;border-radius:10px;text-decoration:none !important;min-width:58px}
 .st-key-appnav a p{font-size:11px !important;line-height:1.2;margin:0;white-space:nowrap}
 .st-key-appnav a span[data-testid="stIconEmoji"],.st-key-appnav a span:first-child{font-size:20px !important;line-height:1.1;margin:0 !important}
+.st-key-appnav .wenavsec{display:flex;align-items:center;height:100%;padding:0 4px 0 10px;margin-left:4px;border-left:1px solid #2a313a;color:#9aa4b2;font-size:10px;letter-spacing:.06em;text-transform:uppercase}
+.st-key-appnav [data-testid="stMarkdownContainer"] p{margin:0}
 .st-key-appnav a[aria-current="page"],.st-key-appnav a[data-testid*="Active"],.st-key-appnav a.active{background:rgba(74,222,128,0.14)}
 </style>""", unsafe_allow_html=True)
 
@@ -134,4 +136,7 @@ with st.container(key="appnav"):   # the app menu: one button per app (styled fi
     for key, pg in _shown:
         st.page_link(pg, label=SHORT[key], icon=pg.icon)
     st.page_link("https://we.hawtre.net/", label="we.hawtre", icon="↗️")
+    st.markdown('<span class="wenavsec">Games</span>', unsafe_allow_html=True)   # the Games section: links to web games
+    st.page_link("https://maptap.gg/", label="MapTap", icon="🎮")
+    st.page_link("https://boreen.ie/", label="Boreen", icon="🎮")
 nav.run()

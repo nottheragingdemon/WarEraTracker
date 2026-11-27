@@ -13,7 +13,7 @@ SITE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 ASK_URL = "https://claude.ai/artifact/QyeXBuXu5Sksfsdeco8Dhx"
 ASK_LINK = f'<a href="{ASK_URL}" target="_blank" rel="noopener noreferrer" class="ext" data-dev>Ask WarEra ↗</a>'
 ASK_NAV = ('<nav class="apps" id="apps"><a href="index.html" aria-current="page">Ask WarEra</a>'
-           '<a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>')
+           '<a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a><span class="navsec" aria-hidden="true">Games</span><a href="https://maptap.gg/" target="_blank" rel="noopener noreferrer" class="game" aria-label="Games: MapTap">MapTap ↗</a><a href="https://boreen.ie/" target="_blank" rel="noopener noreferrer" class="game" aria-label="Games: Boreen">Boreen ↗</a></nav>')
 
 
 def read(name):

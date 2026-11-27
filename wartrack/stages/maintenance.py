@@ -25,7 +25,7 @@ def prune(db, days=None):
         SELECT MAX(ts) FROM bounty_snap WHERE ts<? GROUP BY substr(ts,1,10))""", (iso(7), iso(7)))
     for t, col in (("transfers", "ts"), ("donations", "ts")):
         db.execute(f"DELETE FROM {t} WHERE {col}<?", (cut,))
-    for t in ("region_rate", "wage_snap", "wage_snap2", "run_log", "country_income"):
+    for t in ("region_rate", "wage_snap", "wage_snap2", "wage_snap3", "run_log", "country_income"):
         db.execute(f"DELETE FROM {t} WHERE t<?", (cut_ms,))
     db.execute("DELETE FROM company_skip WHERE checked<?", (iso(7),))
     db.execute("DELETE FROM player_snap WHERE day<?", (cut[:10],))

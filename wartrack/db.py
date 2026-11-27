@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
 CREATE TABLE IF NOT EXISTS coverage_hist(day TEXT, host TEXT, staffed INTEGER, game_companies INTEGER, workers INTEGER, game_workers INTEGER, tax REAL, game_tax REAL, PRIMARY KEY(day, host));
 CREATE TABLE IF NOT EXISTS company_loc(id TEXT PRIMARY KEY, region TEXT, owner TEXT, disabled INTEGER, checked TEXT, listed INTEGER);
+CREATE TABLE IF NOT EXISTS wage_snap3(host TEXT, core TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, core, owner_country, t));
 CREATE TABLE IF NOT EXISTS wage_snap2(host TEXT, owner_country TEXT, t INTEGER, companies INTEGER, workers INTEGER, wages REAL, mgr REAL, PRIMARY KEY(host, owner_country, t));
 CREATE TABLE IF NOT EXISTS trades(id TEXT, ts TEXT, country TEXT, buyer_country TEXT, money REAL, item TEXT, quantity REAL, PRIMARY KEY(id, country));
 CREATE TABLE IF NOT EXISTS country_income(country TEXT, t INTEGER, money REAL, income TEXT, PRIMARY KEY(country, t));
@@ -39,7 +40,7 @@ CREATE TABLE IF NOT EXISTS player_skill_hist(eid TEXT, checked TEXT, spent INTEG
 CREATE TABLE IF NOT EXISTS player_now(eid TEXT PRIMARY KEY, country TEXT, mu TEXT, name TEXT, wealth REAL, dmg_total REAL, dmg_week REAL, ts TEXT);
 CREATE TABLE IF NOT EXISTS region_rate(region TEXT, t INTEGER, emp REAL, mgr REAL, PRIMARY KEY(region,t));
 CREATE TABLE IF NOT EXISTS companies(id TEXT PRIMARY KEY, name TEXT, owner TEXT, item TEXT, value REAL, region TEXT, owner_country TEXT, seen TEXT, workers INT, wages REAL, mgr REAL);
-CREATE TABLE IF NOT EXISTS region_now(region TEXT PRIMARY KEY, name TEXT, country TEXT, emp REAL, mgr REAL, res REAL, companies INT, employees INT);
+CREATE TABLE IF NOT EXISTS region_now(region TEXT PRIMARY KEY, name TEXT, country TEXT, emp REAL, mgr REAL, res REAL, companies INT, employees INT, core TEXT);
 CREATE TABLE IF NOT EXISTS country_tax(country TEXT PRIMARY KEY, name TEXT, income REAL, manager REAL, market REAL);
 CREATE TABLE IF NOT EXISTS country_now(country TEXT PRIMARY KEY, name TEXT, money REAL, wealth REAL, wealth_rank INT, population INT, development REAL, updated TEXT);
 CREATE TABLE IF NOT EXISTS wealth_now(eid TEXT PRIMARY KEY, country TEXT, mu TEXT, value REAL, rank INT, updated TEXT);
@@ -83,4 +84,6 @@ def connect(path):
     db.executescript(SCHEMA)
     if "income" not in [r[1] for r in db.execute("PRAGMA table_info(country_now)")]:
         db.execute("ALTER TABLE country_now ADD COLUMN income TEXT")   # the game's hourly income per stream, as JSON
+    if "core" not in [r[1] for r in db.execute("PRAGMA table_info(region_now)")]:
+        db.execute("ALTER TABLE region_now ADD COLUMN core TEXT")   # the region's original country (it gets a share of tax when conquered)
     return db

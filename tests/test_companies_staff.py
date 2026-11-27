@@ -54,7 +54,7 @@ class CompanyTests(unittest.TestCase):
         EC.collect_companies(f, db, Scope())
         rows = {r["id"]: (r["owner_country"], r["workers"], r["wages"]) for r in db.execute("SELECT * FROM companies")}
         self.assertEqual(rows, {"k1": ("c1", 2, 0.5), "k2": ("x9", 1, 0.05)})   # k2: non-alliance owner kept; k3 elsewhere, k4 disabled
-        snaps = {(r["host"], r["owner_country"]): (r["companies"], r["workers"]) for r in db.execute("SELECT * FROM wage_snap2")}
+        snaps = {(r["host"], r["owner_country"]): (r["companies"], r["workers"]) for r in db.execute("SELECT * FROM wage_snap3")}
         self.assertEqual(snaps, {("c1", "c1"): (1, 2), ("c1", "x9"): (1, 1)})
         Fake.ALL = {k: v for k, v in Fake.ALL.items() if k != "k2"}        # k2 closes: the next index run drops it
         try:

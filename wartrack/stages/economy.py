@@ -24,10 +24,16 @@ def collect_regions(c, db):
     db.execute("DELETE FROM region_now")
     for r in d.values():
         inc = r.get("income") or {}
-        db.execute("INSERT OR REPLACE INTO region_now VALUES(?,?,?,?,?,?,?,?)",
+        db.execute("INSERT OR REPLACE INTO region_now(region,name,country,emp,mgr,res,companies,employees,core) VALUES(?,?,?,?,?,?,?,?,?)",
                    (r["_id"], r.get("name") or r.get("code"), r.get("country"), float(inc.get("employeeIncomeTax") or 0),
                     float(inc.get("managerIncomeTax") or 0), float(inc.get("strategicResourcesBonus") or 0),
-                    r.get("companyCount") or 0, r.get("employeeCount") or 0))
+                    r.get("companyCount") or 0, r.get("employeeCount") or 0, r.get("initialCountry") or r.get("country")))
+    try:   # share of a conquered region's tax the game hands to the region's original country
+        pct = ((c.call("gameConfig.getGameConfig") or {}).get("country") or {}).get("conqueredRegionCoreTaxPercent")
+        if isinstance(pct, (int, float)):
+            db.execute("INSERT OR REPLACE INTO meta VALUES('core_tax_pct',?)", (str(pct),))
+    except Exception as e:
+        log(f"game config: skipped ({e})")
     try:
         lastr = {r["country"]: (r["income"], r["manager"]) for r in db.execute(
             "SELECT country,income,manager FROM rate_hist WHERE (country,t) IN (SELECT country,MAX(t) FROM rate_hist GROUP BY country)")}
@@ -55,20 +61,20 @@ def collect_regions(c, db):
 
 
 def snapshot_wages(db, rows):
-    """Per (host country, owner country): active companies, workers, wages/h and manager pay/h at this check. A row is
+    """Per (host country, region's core country, owner country): active companies, workers, wages/h and manager pay/h at this check. A row is
     written only when something changed by more than 0.5% (or the company or worker count changed), to keep history small."""
     import time
     now = int(time.time() * 1000)
-    host_of = {r["region"]: r["country"] for r in db.execute("SELECT region, country FROM region_now")}
+    host_of = {r["region"]: (r["country"], r["core"] or r["country"]) for r in db.execute("SELECT region, country, core FROM region_now")}
     agg = {}
     for r in rows:  # (id,name,owner,item,value,region,owner_country,seen,workers,wages,mgr)
-        h = host_of.get(r[5])
-        if not h or not r[6]:
+        hc = host_of.get(r[5])
+        if not hc or not r[6]:
             continue
-        a = agg.setdefault((h, r[6]), [0, 0, 0.0, 0.0]); a[0] += 1; a[1] += r[8] or 0; a[2] += r[9] or 0; a[3] += r[10] or 0
-    last = {(x["host"], x["owner_country"]): (x["companies"], x["workers"], x["wages"], x["mgr"] or 0.0) for x in db.execute(
-        "SELECT host,owner_country,companies,workers,wages,mgr FROM wage_snap2 WHERE (host,owner_country,t) IN "
-        "(SELECT host,owner_country,MAX(t) FROM wage_snap2 GROUP BY host,owner_country)")}
+        a = agg.setdefault((hc[0], hc[1], r[6]), [0, 0, 0.0, 0.0]); a[0] += 1; a[1] += r[8] or 0; a[2] += r[9] or 0; a[3] += r[10] or 0
+    last = {(x["host"], x["core"], x["owner_country"]): (x["companies"], x["workers"], x["wages"], x["mgr"] or 0.0) for x in db.execute(
+        "SELECT host,core,owner_country,companies,workers,wages,mgr FROM wage_snap3 WHERE (host,core,owner_country,t) IN "
+        "(SELECT host,core,owner_country,MAX(t) FROM wage_snap3 GROUP BY host,core,owner_country)")}
     moved = lambda a, b: abs(a - b) > max(1e-9, 0.005 * max(abs(a), abs(b)))
     for k in set(agg) | set(last):
         cur = tuple(agg.get(k) or (0, 0, 0.0, 0.0))
@@ -76,7 +82,7 @@ def snapshot_wages(db, rows):
         if prev is None and cur == (0, 0, 0.0, 0.0):
             continue
         if prev is None or prev[0] != cur[0] or prev[1] != cur[1] or moved(prev[2], cur[2]) or moved(prev[3], cur[3]):
-            db.execute("INSERT OR REPLACE INTO wage_snap2 VALUES(?,?,?,?,?,?,?)", (k[0], k[1], now, cur[0], cur[1], round(cur[2], 6), round(cur[3], 6)))
+            db.execute("INSERT OR REPLACE INTO wage_snap3 VALUES(?,?,?,?,?,?,?,?)", (*k, now, cur[0], cur[1], round(cur[2], 6), round(cur[3], 6)))
 
 
 def collect_company_index(c, db, scope, recheck_days=30, budget=None):

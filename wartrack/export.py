@@ -46,9 +46,11 @@ SKILLS = ["companies", "energy", "management", "production", "attack", "precisio
 
 
 def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
-    """Wage history per (host country, owner country) for the Company tax tracker: every snapshot from the last 48 hours,
-    the last one in each 6-hour block before that, for 35 days. Rows: [host, owner country, t, companies, workers, wages/h, manager pay/h].
-    Older per-region snapshots (wage_snap, before 27 Nov 2026) are summed to the same level."""
+    """Wage history per (host country, region's core country, owner country) for the Company tax tracker: every snapshot from
+    the last 48 hours, the last one in each 6-hour block before that, for 35 days.
+    Rows: [host, owner country, t, companies, workers, wages/h, manager pay/h, core country].
+    The core country differs from the host only for conquered regions (it gets a share of their tax). Older snapshots
+    (wage_snap per region, wage_snap2 per host, before 27 Nov 2026) did not split by core: their rows have no 8th field."""
     import time
     now = int(time.time() * 1000)
     lo, full_from, bucket = now - days * 864e5, now - full_hours * 36e5, int(bucket_hours * 36e5)
@@ -59,7 +61,7 @@ def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
     for r in db.execute("SELECT * FROM wage_snap WHERE t>=? ORDER BY t", (lo,)):
         h = host_of.get(r["region"])
         if h and r["owner_country"]:
-            old.setdefault((h, r["owner_country"]), []).append((r["t"], r["region"], (r["companies"], r["workers"], r["wages"], r["mgr"] or 0)))
+            old.setdefault((h, None, r["owner_country"]), []).append((r["t"], r["region"], (r["companies"], r["workers"], r["wages"], r["mgr"] or 0)))
     for k, evs in old.items():
         cur, out = {}, []
         for t, reg, v in evs:
@@ -71,9 +73,12 @@ def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
                 out.append((t, tot))
         series.setdefault(k, []).extend(out)
     for r in db.execute("SELECT * FROM wage_snap2 WHERE t>=? ORDER BY t", (lo,)):
-        series.setdefault((r["host"], r["owner_country"]), []).append((r["t"], [r["companies"], r["workers"], r["wages"], r["mgr"] or 0]))
+        series.setdefault((r["host"], None, r["owner_country"]), []).append((r["t"], [r["companies"], r["workers"], r["wages"], r["mgr"] or 0]))
+    for r in db.execute("SELECT * FROM wage_snap3 WHERE t>=? ORDER BY t", (lo,)):
+        series.setdefault((r["host"], r["core"] or r["host"], r["owner_country"]), []).append(
+            (r["t"], [r["companies"], r["workers"], r["wages"], r["mgr"] or 0]))
     rows = []
-    for (h, o), evs in series.items():
+    for (h, core, o), evs in series.items():
         evs.sort(key=lambda x: x[0])
         keep, last_bucket = [], {}
         for t, v in evs:
@@ -82,7 +87,7 @@ def company_history(db, E, days=35, full_hours=48, bucket_hours=6):
             else:
                 last_bucket[t // bucket] = (t, v)   # the last snapshot in each block wins
         for t, v in sorted(last_bucket.values()) + keep:
-            rows.append([E("country", h), E("country", o), t, v[0], v[1], round(v[2], 4), round(v[3], 4)])
+            rows.append([E("country", h), E("country", o), t, v[0], v[1], round(v[2], 4), round(v[3], 4)] + ([E("country", core)] if core else []))
     rows.sort(key=lambda r: r[2])
     return rows
 
@@ -215,7 +220,8 @@ def export(db, out, since, scope=None):
     donors = [[r["day"], E("country", r["country"]), E("user", r["donor"]), r["total"], r["n"]]
               for r in db.execute("SELECT substr(ts,1,10) day, country, donor, SUM(money) total, COUNT(*) n FROM donations "
                                   "WHERE donor_country=country GROUP BY day, country, donor ORDER BY day DESC")]
-    regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"]]
+    regions_now = {r["region"]: [r["name"], E("country", r["country"]), r["emp"], r["mgr"], r["companies"], r["employees"],
+                                 E("country", r["core"] or r["country"])]
                    for r in db.execute("SELECT * FROM region_now")}
     country_tax = {str(E("country", r["country"])): [r["income"], r["manager"]] for r in db.execute("SELECT * FROM country_tax")}
     wage_hist = company_history(db, E)
@@ -276,7 +282,8 @@ def export(db, out, since, scope=None):
             "ents": ents, "battles": battles, "statsP": stats_p, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
-            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate}
+            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate,
+            "coreTaxPct": float((db.execute("SELECT v FROM meta WHERE k='core_tax_pct'").fetchone() or ["10"])[0])}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     company_extra = {k: data.pop(k) for k in ("wageHist", "companies")}   # only the Company page and Ask WarEra need these

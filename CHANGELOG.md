@@ -3,6 +3,11 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.7.0 — 2026-11-27
+- **Company tax tracker:** a region picker after the host country, and conquered regions: the game hands 10% (`conqueredRegionCoreTaxPercent`, read from the game config) of a conquered region's tax to its original country, e.g. the United Kingdom gets 10% of the tax from Northern Ireland, which Ireland holds. Per hour, day by day and the month's bill now show what is passed on and what the host keeps; with the original country as the source, it also shows what that country gets back.
+- **Collector:** stores each region's original country and the game's share, and records wage history per host, original country and owner (`wage_snap3`).
+- **Games:** a Games section in every menu with links to MapTap and Boreen.
+
 ## 1.6.0 — 2026-11-27
 - **Streamlit:** a fixed menu at the top with one button per app (icon and short name; the current app is highlighted) replaces Streamlit's top or side navigation, and Streamlit's own top bar is hidden, so the pages use the whole screen.
 
