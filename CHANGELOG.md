@@ -3,6 +3,12 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.11.0 — 2026-11-27
+- **Settings:** the GitHub token is checked when the page opens and the result shows at the top; "core regions" stays "core" when the page shows the published agreements; a "Month-end check" section shows the latest dry run and can start one (the token needs the Actions permission on the back-end repo for this).
+- **Phones:** the tax cards use two columns, zero "sent by the game" rows are hidden in the per-partner cards.
+- **Status:** a paper price line chart (daily average with the low-to-high band); fixed the agreement partners showing as dashes in "Company coverage".
+- **Guide:** the screenshots are retaken every Monday by a workflow.
+
 ## 2.10.0 — 2026-11-27
 - **Settings:** failed saves now say why in plain words (expired token, no access, someone else saved first, GitHub down) and keep what you typed. Countries with an agreement are listed first. If the app's token can't read the agreements file, the published agreements are shown with a warning and saving is switched off, instead of an empty list.
 - **Status:** a "Saved month statements" card.

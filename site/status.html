@@ -72,7 +72,7 @@ function render(){
         f.label+": "+age+" (expected within "+(f.limit_h<48?f.limit_h+" h":(f.limit_h/24).toFixed(1).replace(/\.0$/,"")+" days")+")"]))});
     v.appendChild(card("Data freshness",[fl,el("div",{class:"note",text:"The newest record of each kind of data, checked at every refresh. A stale line means something stopped saving data even though no run failed; it is also posted to Discord. Donations, trades and transfers depend on players, so they get longer limits."})]))}
   // company coverage: the tracker against the game's own figures, per alliance host country (all owners)
-  if(D.agreements)v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Tax agreements are in force, so only companies owned by agreed countries are collected ("+Object.keys(D.agreements).map(function(h){return nm(+h)+": "+(D.agreements[h].map(nm).join(", ")||"none")}).join(" · ")+"). Coverage against the game’s country totals isn’t measured while that is the case."+(IX&&IX.known?" Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located.":"")})]));
+  if(D.agreements)v.appendChild(card("Company coverage",[el("div",{class:"note",text:"Tax agreements are in force, so only companies owned by agreed countries are collected ("+Object.keys(D.agreements).map(function(h){return nm(+h)+": "+(D.agreements[h].map(function(x){return nm(Array.isArray(x)?x[0]:x)}).join(", ")||"none")}).join(" · ")+"). Coverage against the game’s country totals isn’t measured while that is the case."+(IX&&IX.known?" Company index: "+IX.located.toLocaleString()+" of "+IX.known.toLocaleString()+" companies in the game located.":"")})]));
   if(CV.length&&!D.agreements){var pct=function(a,b){return b?(100*a/b).toFixed(0)+"%":"–"};
     var rows=CV.slice().sort(function(a,b){return b[7]-a[7]});
     var CH=S.coverageHist||[],wk=new Date(Date.now()-7*864e5).toISOString().slice(0,10),trend=function(h){
@@ -109,7 +109,15 @@ function render(){
     if(pd.length>1){var mx=Math.max.apply(null,pd.map(function(x){return x[3]}).concat([0.0001])),box=el("div",{class:"hbars"});
       pd.slice(-14).reverse().forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";
         box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0].slice(5)}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:x[1].toFixed(4)})]))});
-      v.appendChild(card("Paper price, daily average",[box,el("div",{class:"note",text:"Sending a tax payment costs paper; this is the market price sampled every hour (low to high over the last day: "+pd[pd.length-1][2].toFixed(4)+" to "+pd[pd.length-1][3].toFixed(4)+")."})]))}})();
+      var days=pd.slice(-30),lo=Math.min.apply(null,days.map(function(x){return x[2]})),hi=Math.max.apply(null,days.map(function(x){return x[3]})),W=320,H=110,P=8,ns="http://www.w3.org/2000/svg",sv=document.createElementNS(ns,"svg");
+      sv.setAttribute("viewBox","0 0 "+W+" "+H);sv.setAttribute("role","img");sv.setAttribute("aria-label","Paper price, daily average and range, last "+days.length+" days");sv.style.cssText="width:100%;max-width:520px;height:auto;display:block;margin-bottom:8px";
+      var X=function(i){return P+(days.length>1?i*(W-2*P)/(days.length-1):0)},Y=function(y){return H-P-(hi>lo?(y-lo)/(hi-lo):0.5)*(H-2*P)};
+      function mk(t,a){var n=document.createElementNS(ns,t);for(var k in a)n.setAttribute(k,a[k]);return n}
+      sv.appendChild(mk("path",{d:days.map(function(x,i){return(i?"L":"M")+X(i)+" "+Y(x[3])}).join("")+days.slice().reverse().map(function(x,j){return"L"+X(days.length-1-j)+" "+Y(x[2])}).join("")+"Z",fill:"var(--accent)","fill-opacity":"0.15"}));
+      sv.appendChild(mk("path",{d:days.map(function(x,i){return(i?"L":"M")+X(i)+" "+Y(x[1])}).join(""),fill:"none",stroke:"var(--accent)","stroke-width":"2","stroke-linejoin":"round"}));
+      days.forEach(function(x,i){var c=mk("circle",{cx:X(i),cy:Y(x[1]),r:i===days.length-1?3.5:2,fill:"var(--accent)"});var tt=mk("title",{});tt.textContent=x[0]+": average "+x[1].toFixed(4)+" (low "+x[2].toFixed(4)+", high "+x[3].toFixed(4)+")";c.appendChild(tt);sv.appendChild(c)});
+      var rng=el("div",{class:"note",text:"Last "+days.length+" days: the line is the daily average, the shaded band the day’s low to high. Range "+lo.toFixed(4)+" to "+hi.toFixed(4)+"."});
+      v.appendChild(card("Paper price, daily average",[sv,rng,box,el("div",{class:"note",text:"Sending a tax payment costs paper; this is the market price sampled every hour (low to high over the last day: "+pd[pd.length-1][2].toFixed(4)+" to "+pd[pd.length-1][3].toFixed(4)+")."})]))}})();
   // health of the last 7 days: from the stored run records (full refreshes only)
   (function(){var wk=full.filter(function(r){return Date.parse(r[0])>Date.now()-7*864e5});if(wk.length<3)return;
     var bad=wk.filter(function(r){return r[5]}).length,secs=wk.map(function(r){return r[2]}),avg=secs.reduce(function(a,b){return a+b},0)/secs.length,mx=Math.max.apply(null,secs);

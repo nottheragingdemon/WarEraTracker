@@ -114,8 +114,10 @@ code{font-family:ui-monospace,SFMono-Regular,monospace}
 @media (max-width:640px){
  body{font-size:14px}
  .card{padding:12px 10px}
- .kpis{grid-template-columns:repeat(3,1fr);gap:8px}
+ .kpis{grid-template-columns:repeat(2,1fr);gap:8px}
+ .kpis .kpi:last-child:nth-child(odd){grid-column:1/-1}
  .kpi{padding:10px 8px}
+ .kpi span{font-size:11px;letter-spacing:.02em}
  .idc code{font-size:10px}
  .chartwrap{overflow-x:auto}
 }
@@ -165,6 +167,7 @@ tr.detail td{background:var(--panel-2)}
  html:not(.plain-tables) table.stack.compact tr{display:flex;flex-wrap:wrap;gap:2px 14px;padding:8px 10px;margin:0 0 8px}
  html:not(.plain-tables) table.stack.compact td{display:inline-flex;width:auto;gap:5px;padding:1px 0;align-items:baseline;justify-content:flex-start;text-align:left}
  html:not(.plain-tables) table.stack.compact td::before{font-size:10px}
+ html:not(.plain-tables) table.stack.compact td.z{display:none}
  html:not(.plain-tables) table.stack.compact td.lead{order:-1;flex-basis:100%;font-weight:600;font-size:15px}
  html:not(.plain-tables) table.stack.compact td.lead::before{content:none}
  html:not(.plain-tables) table.stack.compact tr.detail td{flex-basis:100%;display:block}

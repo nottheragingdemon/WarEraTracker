@@ -47,7 +47,7 @@ function nm(i){if(i<0||i==null)return"–";var e=D.ents[i];return e[2]||(e[1].sl
 function tbl(cols,rows,plain){
   var t=el("table",{class:plain?"tight":cols.length>4?"stack compact":"stack"}),h=el("tr");   // wide tables: compact cards on phones (first column as the heading)
   cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
-  var b=el("tbody");rows.forEach(function(r){var tr=el("tr");cols.forEach(function(c){var v=c[1](r),td=el("td",{class:(c[2]?"n":"")+(c===cols[0]&&cols.length>4?" lead":""),"data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});t.appendChild(b);
+  var b=el("tbody");rows.forEach(function(r){var tr=el("tr");cols.forEach(function(c){var v=c[1](r),td=el("td",{class:(c[2]?"n":"")+(c===cols[0]&&cols.length>4?" lead":"")+(/^Sent by the game| keeps$/.test(c[0])&&String(v)==="0.00"?" z":""),"data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});t.appendChild(b);
   return weCsvWrap(el("div",{class:"tw"},[t]))}
 var kpis=window.weKpis;
 var card=window.weCard;

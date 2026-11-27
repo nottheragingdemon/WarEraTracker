@@ -127,6 +127,49 @@ def _gh(method, path, body=None):
         return json.loads(r.read().decode())
 
 
+def _gh_actions(method, path, body=None):
+    """GitHub Actions API for the back-end repo (needs the token to have Actions: read and write)."""
+    import urllib.request
+    req = urllib.request.Request(f"https://api.github.com/repos/{st.secrets.get('GITHUB_REPO', REPO)}/actions/{path}",
+                                 data=json.dumps(body).encode() if body is not None else None, method=method,
+                                 headers={"Authorization": f"Bearer {str(st.secrets['GITHUB_TOKEN'])}", "Accept": "application/vnd.github+json",
+                                          "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "warera-ireland-tools"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        raw = r.read().decode()
+        return json.loads(raw) if raw else {}
+
+
+def dryrun_panel():
+    """Latest month-end dry run, and a button to start one (the check runs on GitHub against a copy of the history; nothing real changes)."""
+    with st.expander("Month-end check: will next month's statement come out right?"):
+        st.caption("Saves this month's statement on a copy of the history, as if the month had just ended, and checks the figures, the paper price "
+                   "and the CSV. It also runs by itself on 30 November. Nothing real is changed.")
+        try:
+            runs = _gh_actions("GET", "workflows/month-dryrun.yml/runs?per_page=1").get("workflow_runs") or []
+            if runs:
+                r = runs[0]
+                state = r["conclusion"] or r["status"]
+                {"success": st.success, "failure": st.error}.get(state, st.info)(f"Latest check: {state} ({r['created_at'][:16].replace('T', ' ')} UTC).")
+                st.link_button("See the details on GitHub", r["html_url"])
+            else:
+                st.caption("No check has run yet.")
+        except Exception as e:   # noqa: BLE001
+            st.caption("Couldn't read the latest check. " + explain_actions_error(e))
+        if st.button("Run the check now", key="dryrun_go"):
+            try:
+                _gh_actions("POST", "workflows/month-dryrun.yml/dispatches", {"ref": "main"})
+                st.success("Started. It takes about a minute; reopen this section to see the result.")
+            except Exception as e:   # noqa: BLE001
+                st.error("Couldn't start it. " + explain_actions_error(e))
+
+
+def explain_actions_error(e):
+    import urllib.error
+    if isinstance(e, urllib.error.HTTPError) and e.code in (401, 403, 404):
+        return "The app's GitHub token needs the Actions permission (read and write) on the back-end repository for this."
+    return explain_save_error(e)
+
+
 def explain_save_error(e):
     """A plain-language reason for a failed save (GitHub's raw error text means little on a phone)."""
     import urllib.error
@@ -162,6 +205,11 @@ def token_status():
         return "ok", "Token works (no expiry date)."
     left = (dt.datetime.strptime(exp.replace(" UTC", "").strip(), "%Y-%m-%d %H:%M:%S") - dt.datetime.utcnow()).days
     return ("warn" if left < 14 else "ok"), f"Token works and expires {exp[:10]} ({left} days left)."
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def token_status_cached():
+    return token_status()
 
 
 def _has_token():
@@ -221,12 +269,27 @@ def settings():
         if ents[int(a)][2] == ALLIANCE:
             hosts = sorted(ents[c][2] for c in members if ents[c][2])
     sha, current, cur_ratio = None, {}, float(data.get("paperRatio") or 0.5)
+    if _has_token():   # checked when the page opens (kept for 5 minutes), so a dead token shows before anything is edited
+        kind, msg = token_status_cached()
+        {"ok": st.success, "warn": st.warning, "bad": st.error}[kind](msg)
+        dryrun_panel()
 
     def published():   # the agreements as published in data.json (ids turned back into names); core regions show as the list of regions
         out = {}
         rn = {k: r[0] for k, r in (data.get("regionsNow") or {}).items()}
+        def scope(h, ids):   # the published list of region ids back to "all" / "core" when it is exactly that
+            if ids is None:
+                return "all"
+            ids = set(ids)
+            mine = {k for k, r in (data.get("regionsNow") or {}).items() if r[1] == int(h)}
+            core = {k for k in mine if len(data["regionsNow"][k]) > 6 and data["regionsNow"][k][6] == int(h)}
+            if ids and ids == mine:
+                return "all"
+            if ids and ids == core:
+                return "core"
+            return [rn.get(r, r) for r in ids]
         for h, items in (data.get("agreements") or {}).items():
-            out[ents[int(h)][2]] = [{"country": ents[x[0]][2], "regions": "all" if x[1] is None else [rn.get(r, r) for r in x[1]],
+            out[ents[int(h)][2]] = [{"country": ents[x[0]][2], "regions": scope(h, x[1]),
                                      "pay_percent": x[2] if len(x) > 2 else 90, "payments_since": x[3] if len(x) > 3 else "2026-11-01"} for x in items]
         return out
     if _has_token():
@@ -306,9 +369,6 @@ def settings():
     if new == {h: v for h, v in current.items() if v} and abs(ratio - cur_ratio) < 1e-9:
         st.caption("No changes.")
         return
-    if st.button("Check the GitHub token"):
-        kind, msg = token_status()
-        {"ok": st.success, "warn": st.warning, "bad": st.error}[kind](msg)
     if abs(ratio - cur_ratio) > 1e-9:
         st.write(f"• Paper per unit of tax {cur_ratio:g} → {ratio:g}. Applies to every month's paper figures at the next refresh.")
     for line in preview_changes(data, current, new):

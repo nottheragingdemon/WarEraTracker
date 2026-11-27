@@ -74,9 +74,24 @@ class SettingsAgreements(unittest.TestCase):
         self.assertTrue(labels[0].startswith("Ireland:"), labels[:3])
         self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
 
+    def test_core_stays_core_and_token_and_dryrun_panel(self):
+        at = self.run_settings("_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
+                               "import json as _j, base64 as _b\n"
+                               "_f = {'paper_ratio': 0.5, 'agreements': {'Ireland': [{'country': 'Mexico', 'regions': 'core', 'pay_percent': 100, 'payments_since': '2026-11-01'}]}}\n"
+                               "def _gh(m, p, body=None): return {'sha': 's', 'content': _b.b64encode(_j.dumps(_f).encode()).decode()}\n"
+                               "def _gh_actions(m, p, body=None): return {'workflow_runs': [{'conclusion': 'success', 'status': 'completed', 'created_at': '2026-11-27T10:00:00Z', 'html_url': 'https://x'}]}\n")
+        self.assertTrue(any("Token works" in s.value for s in at.success))
+        self.assertTrue(any("Latest check: success" in s.value for s in at.success))
+        self.assertIn("Core regions only (not conquered ones)", [x.value for x in at.selectbox])
+
+    def test_published_core_detected(self):
+        at = self.run_settings("")
+        self.assertIn("Core regions only (not conquered ones)", [x.value for x in at.selectbox])
+
     def test_unreadable_file_falls_back_and_blocks_saving(self):
-        at = self.run_settings("import urllib.error\n_has_token = lambda: True\n"
-                               "def _gh(*a, **k): raise urllib.error.HTTPError('u', 404, 'nf', {}, None)\n")
+        at = self.run_settings("import urllib.error\n_has_token = lambda: True\ntoken_status_cached = lambda: ('ok', 'Token works.')\n"
+                               "def _gh(*a, **k): raise urllib.error.HTTPError('u', 404, 'nf', {}, None)\n"
+                               "def _gh_actions(*a, **k): raise urllib.error.HTTPError('u', 403, 'no', {}, None)\n")
         self.assertEqual(at.multiselect[0].value, ["Mexico", "United Kingdom"])
         self.assertTrue(any("Couldn't read agreements.json" in w.value for w in at.warning))
         self.assertEqual([b.label for b in at.button if b.label == "Save agreements"], [])
