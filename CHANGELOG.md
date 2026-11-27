@@ -7,6 +7,7 @@ To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collect
 - **Tax agreements:** only source countries with a tax agreement are collected and billed (`agreements.json`; for now Ireland ↔ United Kingdom). The collector follows only companies in agreement hosts owned by agreed countries' citizens; statements, the Discord post and the month-by-month view include agreed countries only. Status no longer measures coverage against the game's country totals while agreements are in force.
 - **Streamlit Settings page** (behind the dev key): pick each host's agreed countries and save; it writes `agreements.json` to the repo with a `GITHUB_TOKEN` from the app's Secrets (fine-grained, this repo, Contents read and write).
 - **Tax what-if:** the whole-country line scales the game's own figure by the rate change (it no longer depends on tracking every company).
+- **Company tax tracker:** opens on Ireland · Northern Ireland · United Kingdom (any can still be changed).
 - **Player efficiency:** *Top 20 / Bottom 20* switch (the least efficient players, with their rank in the nation); the collector follows up to 300 players a country (was 100) so the bottom of the 1M+ damage list is covered.
 
 ## 1.11.0 — 2026-11-27

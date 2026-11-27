@@ -36,7 +36,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={host:-1,src:-2,region:"*",month:""};
+var D=null,st={host:-1,src:-2,region:"*",month:"",firstReg:true,firstSrc:true};   // opens on Ireland · Northern Ireland · United Kingdom
 var $=function(i){return document.getElementById(i)};
 var el=window.weEl;
 var num=window.weNum;
@@ -326,6 +326,7 @@ function fillSelects(){
     rs.appendChild(el("option",{value:ALL_REGIONS,text:"All regions ("+tot+")"}));
     Object.keys(regN).sort(function(a,b){return R[a][0].localeCompare(R[b][0])}).forEach(function(k){var c=coreOf(k);
       rs.appendChild(el("option",{value:k,text:R[k][0]+" ("+regN[k]+")"+(c>=0&&c!==st.host?" · conquered from "+nm(c):"")}))});
+    if(st.firstReg){st.firstReg=false;var ni=Object.keys(regN).filter(function(k){return R[k][0]==="Northern Ireland"})[0];if(ni)st.region=ni}   // default view: Northern Ireland
     if(st.region!==ALL_REGIONS&&!regN[st.region])st.region=ALL_REGIONS;
     rs.value=st.region}
   function fillSrc(){
@@ -334,6 +335,7 @@ function fillSelects(){
     var keys=Object.keys(srcN).sort(function(a,b){return srcN[b]-srcN[a]||nm(+a).localeCompare(nm(+b))});
     [["Emerald Accord",keys.filter(function(k){return ea&&ea.has(+k)})],["Other countries",keys.filter(function(k){return !(ea&&ea.has(+k))})]].forEach(function(g){
       if(!g[1].length)return;var og=el("optgroup",{label:g[0]});g[1].forEach(function(k){og.appendChild(el("option",{value:k,text:nm(+k)+" ("+srcN[k]+")"}))});ss.appendChild(og)});
+    if(st.firstSrc){st.firstSrc=false;var uk=Object.keys(srcN).filter(function(k){return nm(+k)==="United Kingdom"})[0];if(uk)st.src=+uk}   // default view: United Kingdom
     if(st.src!==ALL_OWNERS&&!srcN[st.src])st.src=ALL_OWNERS;
     ss.value=String(st.src)}
   fillReg();fillSrc();
