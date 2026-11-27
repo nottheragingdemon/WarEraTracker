@@ -62,4 +62,5 @@ jobs:
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW: ${{ github.workflow }}
-        run: python3 scripts/battlecheck.py --failure "WarEra Ireland tools: the $WORKFLOW run failed. $RUN_URL"
+        run: |
+          python3 scripts/battlecheck.py --failure "WarEra Ireland tools: the $WORKFLOW run failed. $RUN_URL"
