@@ -23,3 +23,14 @@ class LiveCheck(unittest.TestCase):
                 return 200, "ok"
             raise urllib.error.HTTPError(u, 303, "see other", {}, None)
         self.assertTrue(lc.check(f, "https://x/")[0])
+
+    def test_redirect_loop_everywhere_is_up_but_5xx_is_not(self):
+        def loop(u):
+            raise urllib.error.HTTPError(u, 303, "x", {}, None)
+        self.assertTrue(lc.check(loop, "https://x/")[0])
+
+        def down(u):
+            if u.endswith("_stcore/health"):
+                raise urllib.error.HTTPError(u, 503, "x", {}, None)
+            return 200, "<html></html>"
+        self.assertFalse(lc.check(down, "https://x/")[0])

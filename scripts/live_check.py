@@ -3,7 +3,7 @@
 
     STREAMLIT_URL=https://wareratracker.streamlit.app/ python3 scripts/live_check.py
 
-Checks the app's health endpoint and that the page answers. An app that has gone to sleep (free apps do after a while without
+Checks the app's health endpoint and that the page answers (a sign-in or cookie redirect counts as up: only hard failures, 5xx and unreachable, alert). An app that has gone to sleep (free apps do after a while without
 visitors) is reported as asleep, not as a failure. What is *inside* the app is covered by the tests (scripts/smoke_pages.py --streamlit):
 the pages run in an iframe, which a plain request can't read.
 """
@@ -32,6 +32,10 @@ def check(fetch=get, url=URL):
         return True, "the app is asleep (it wakes on the next visit)"
     try:
         hs, hb = fetch(url + "_stcore/health")
+    except urllib.error.HTTPError as e:
+        if 300 <= e.code < 400:   # Streamlit Cloud sends visitors without its cookie through a sign-in/handshake redirect loop
+            return True, "the app answers with a redirect (sign-in or cookie handshake); it can't be looked inside from here"
+        return False, f"the app's health check answered HTTP {e.code}"
     except Exception as e:   # noqa: BLE001
         return False, f"the app's health check failed: {e}"
     if hs != 200 or hb.strip().lower() != "ok":
