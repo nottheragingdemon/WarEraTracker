@@ -250,8 +250,10 @@ function paperMonth(mk){var m=(D.paperMonths||{})[mk];return m?{avg:m[0],lo:m[1]
 function paperOf(pay,mk){var q=pay*(D.paperRatio==null?0.5:D.paperRatio),pr=D.paperPrice,m=mk&&paperMonth(mk);
   return{qty:q,now:pr==null?null:q*pr,avg:m?q*m.avg:null}}
 function paperTxt(pay,mk){var x=paperOf(pay,mk);return x.qty.toFixed(2)+" paper"+(x.now==null?"":" ≈ "+m2(x.now)+" at today’s price")+(x.avg==null?"":", "+m2(x.avg)+" at the month’s average")}
+function paperAsOf(){var t=D.paperPriceAt,h=t?(Date.now()-Date.parse(t))/36e5:null;
+  return t?"updated "+t.slice(0,16).replace("T"," ")+" UTC"+(h>3?" — "+Math.round(h)+" h old, the price may have changed":""):"time unknown"}
 function paperNote(mk){var m=paperMonth(mk),r=D.paperRatio==null?0.5:D.paperRatio;
-  return " Paper to send = the amount paid × "+r+". The paper price moves a lot, so the cost is shown at today’s price"+(D.paperPrice!=null?" ("+D.paperPrice.toFixed(4)+" each, last hourly update)":" (not collected yet)")+
+  return " Paper to send = the amount paid × "+r+". The paper price moves a lot, so the cost is shown at today’s price"+(D.paperPrice!=null?" ("+D.paperPrice.toFixed(4)+" each, "+paperAsOf()+")":" (not collected yet)")+
     " and at the average price for "+monthName(mk)+(m?" ("+m.avg.toFixed(4)+", low "+m.lo.toFixed(4)+", high "+m.hi.toFixed(4)+", "+m.n+" samples"+(m.n<48?"; only collected since the sample count began":"")+")":" (no price samples for that month)")+"."}
 /* month statement: what each source country's companies owed the host in the month, split into the core-country share and what the host keeps */
 function statement(M,mk,hn,rn){

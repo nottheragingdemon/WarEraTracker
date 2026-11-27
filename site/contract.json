@@ -1,7 +1,6 @@
 {
  "schema": 4,
  "keys": [
-  "agreementPayments",
   "agreements",
   "alliances",
   "battles",
@@ -31,5 +30,18 @@
   "tradeDays",
   "transfers",
   "wealthNow"
+ ],
+ "parts": {
+  "battle-data.json": [
+   "statsP"
+  ],
+  "transfer-data.json": [
+   "donors"
+  ]
+ },
+ "nonEmpty": [
+  "ents",
+  "battles",
+  "players"
  ]
 }

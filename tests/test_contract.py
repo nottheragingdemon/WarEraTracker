@@ -12,6 +12,16 @@ class Contract(unittest.TestCase):
         self.assertEqual([k for k in c["keys"] if k not in d], [])
         self.assertIn(d.get("schema", c["schema"]), (c["schema"],))   # absent only in files published before schema numbers
 
+    def test_parts_and_non_empty(self):
+        c = json.load(open(os.path.join(SITE, "contract.json")))
+        d = json.load(open(os.path.join(SITE, "data.json")))
+        for k in c["nonEmpty"]:
+            self.assertTrue(d[k], k)
+        for name, keys in c["parts"].items():
+            part = json.load(open(os.path.join(SITE, name)))
+            for k in keys:
+                self.assertTrue(part[k], f"{name}: {k}")
+
     def test_pages_check_schema(self):
         for name in os.listdir(SITE):
             if name.endswith(".html"):

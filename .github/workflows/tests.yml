@@ -22,3 +22,5 @@ jobs:
         run: python -m py_compile scripts/battlecheck.py
       - name: Every page loads its data without JavaScript errors (headless Chrome)
         run: python scripts/smoke_pages.py
+      - name: The same pages as the Streamlit app serves them (data inlined), with real numbers on screen
+        run: python scripts/smoke_pages.py --streamlit
