@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS contracts(
 CREATE TABLE IF NOT EXISTS names(etype TEXT, eid TEXT, name TEXT, country TEXT, PRIMARY KEY(etype,eid));
 CREATE TABLE IF NOT EXISTS run_log(t INTEGER PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT);
+CREATE TABLE IF NOT EXISTS run_stats(ts TEXT PRIMARY KEY, kind TEXT, seconds REAL, calls INTEGER, gw INTEGER, skipped TEXT, timings TEXT);
 CREATE TABLE IF NOT EXISTS player_snap(eid TEXT, day TEXT, wealth REAL, dmg_total REAL, dmg_week REAL, ts TEXT, PRIMARY KEY(eid, day));
 CREATE TABLE IF NOT EXISTS player_skill(eid TEXT PRIMARY KEY, checked TEXT, reset_at TEXT, spent INTEGER, eco INTEGER, levels TEXT);
 CREATE TABLE IF NOT EXISTS player_skill_hist(eid TEXT, checked TEXT, spent INTEGER, eco INTEGER, PRIMARY KEY(eid, checked));
@@ -68,4 +69,6 @@ def connect(path):
     if wcols and "mgr" not in wcols:
         db.execute("ALTER TABLE wage_snap ADD COLUMN mgr REAL")
     db.executescript(SCHEMA)
+    if "income" not in [r[1] for r in db.execute("PRAGMA table_info(country_now)")]:
+        db.execute("ALTER TABLE country_now ADD COLUMN income TEXT")   # the game's hourly income per stream, as JSON
     return db

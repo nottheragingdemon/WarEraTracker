@@ -30,6 +30,8 @@ jobs:
         run: pip install aiohttp
       - name: Restore history from the state branch
         run: sh state.sh restore
+      - name: Find the newest backup (shown on the Status page)
+        run: echo "LAST_BACKUP=$(git ls-remote --heads origin 'backup/state-*' | sed 's#.*refs/heads/backup/state-##' | sort | tail -1)" >> "$GITHUB_ENV"
       - name: Collect and export
         env:
           WARERA_API_KEY: ${{ secrets.WARERA_API_KEY }}

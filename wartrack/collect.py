@@ -259,7 +259,7 @@ def collect_transfers(c, db, scope=None, days=90):
     log(f"transfers: {new} new between member countries")
 
 
-def collect_donations(c, db, scope=None, days=60, budget=300.0):
+def collect_donations(c, db, scope=None, days=90, budget=300.0):
     """Player donations to each member country's treasury (transactionType donation), newest first; stops at the first
     one already stored or older than `days`. The donor's own country is looked up so citizens' donations can be separated."""
     import time as _t
@@ -270,12 +270,25 @@ def collect_donations(c, db, scope=None, days=60, budget=300.0):
     cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
     known = {r["id"] for r in db.execute("SELECT id FROM donations")}
     new = 0
+    # a country whose stored donations don't yet reach back `days` is read past the ones already stored (a one-off backfill)
+    done_key = f"donations_back_{days:g}"
+    backfill = {m for m in members if not db.execute("SELECT 1 FROM meta WHERE k=?", (f"{done_key}_{m}",)).fetchone()}
+    reached = set()
+
     def fresh(m):
-        out = []
-        for t in c.pages("transaction.getPaginatedTransactions", max_pages=80, countryId=m, transactionType="donation", limit=100):
-            if t["_id"] in known or t["createdAt"] < cutoff or _t.monotonic() - t0 > budget:
+        out, back = [], m in backfill
+        for t in c.pages("transaction.getPaginatedTransactions", max_pages=200 if back else 80, countryId=m, transactionType="donation", limit=100):
+            if t["createdAt"] < cutoff:
+                reached.add(m); break
+            if _t.monotonic() - t0 > budget:
+                break
+            if t["_id"] in known:
+                if back:
+                    continue
                 break
             out.append(t)
+        else:
+            reached.add(m)   # the list ended: nothing older exists
         return out
     for m, found in zip(sorted(members), c.map(fresh, sorted(members))):
         for t in found:
@@ -289,6 +302,10 @@ def collect_donations(c, db, scope=None, days=60, budget=300.0):
     for u, d in c.lookup_users(need).items():
         if d.get("country"):
             db.execute("UPDATE donations SET donor_country=? WHERE donor=?", (d["country"], u)); looked += 1
+    for m in backfill & reached:
+        db.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (f"{done_key}_{m}", now_iso()))
+    if backfill:
+        log(f"donations: backfilled {len(backfill & reached)} of {len(backfill)} countries to {days:g} days")
     db.execute("DELETE FROM donations WHERE ts < ?", (cutoff,))
     db.commit()
     nameless = [r["donor"] for r in db.execute("SELECT DISTINCT d.donor FROM donations d LEFT JOIN users u ON u.id=d.donor WHERE d.donor_country=d.country AND (u.name IS NULL)")]
@@ -390,9 +407,11 @@ def collect_regions(c, db):
             db.execute("INSERT OR REPLACE INTO country_tax VALUES(?,?,?,?,?)",
                        (ct["_id"], ct.get("name"), tx.get("income"), tx.get("manager"), tx.get("market")))
             cw = (ct.get("rankings") or {}).get("countryWealth") or {}
-            db.execute("INSERT OR REPLACE INTO country_now VALUES(?,?,?,?,?,?,?,?)",
+            db.execute("""INSERT OR REPLACE INTO country_now(country,name,money,wealth,wealth_rank,population,development,updated,income)
+                          VALUES(?,?,?,?,?,?,?,?,?)""",
                        (ct["_id"], ct.get("name"), ct.get("money"), cw.get("value"), cw.get("rank"),
-                        ct.get("currentPopulation"), ct.get("currentDevelopment"), now_iso()))
+                        ct.get("currentPopulation"), ct.get("currentDevelopment"), now_iso(),
+                        json.dumps(ct["income"], separators=(",", ":")) if isinstance(ct.get("income"), dict) else None))
     except Exception as e:
         log(f"country taxes: skipped ({e})")
     db.commit()
@@ -531,6 +550,7 @@ def prune(db, days=None):
     db.execute("DELETE FROM company_skip WHERE checked<?", (iso(7),))
     db.execute("DELETE FROM player_snap WHERE day<?", (cut[:10],))
     db.execute("DELETE FROM player_skill_hist WHERE checked<?", (cut,))
+    db.execute("DELETE FROM run_stats WHERE ts<?", (iso(14),))
     db.commit()
     log(f"prune: {db.total_changes - before} old rows removed (keeping {days:g} days)")
 

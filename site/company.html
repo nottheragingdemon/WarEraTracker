@@ -20,7 +20,7 @@
       </div>
     </div>
   </div>
-  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html" aria-current="page">Company tax tracker</a><a href="transfers.html">EA Money Transfers</a><a href="efficiency.html">Player efficiency</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html" aria-current="page">Company tax tracker</a><a href="transfers.html">EA Money Transfers</a><a href="efficiency.html">Player efficiency</a><a href="status.html">Status</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
@@ -144,7 +144,32 @@ function render(){
   var lim=st.limit||100,cs=M.comps.slice().sort(function(a,b){return(b[7]||0)-(a[7]||0)});
   var c5=card("Active "+sn+" companies in "+hn,[tbl([["Company",function(c){return c[0]||""}],["Owner",function(c){return nm(c[1])}],["Makes",function(c){return c[2]||""}],["Region",function(c){return D.regionsNow[c[4]][0]}],["Employees",function(c){return m0(c[6]||0)},1],["Wages /h",function(c){return m4(c[7]||0)},1],["Manager /h",function(c){return m4(c[8]||0)},1]],cs.slice(0,lim))]);
   if(cs.length>lim){var b=el("button",{class:"chip",text:"Show more ("+(cs.length-lim)+" left)"});b.onclick=function(){st.limit=lim+200;render()};c5.appendChild(b)}
-  v.appendChild(c5)}
+  v.appendChild(c5);
+  v.appendChild(incomeCard(hn))}
+/* 7: the host country's whole income right now, per day, by stream (the game reports hourly figures; per day = 24 x) */
+var STREAMS=[["employeeIncomeTax","Employee income tax"],["managerIncomeTax","Manager income tax"],["development","Development"],["strategicResourcesBonus","Strategic resources bonus"],["govType","Government type bonus"]];
+function incomeCard(hn){
+  var row=(D.countryNow||{})[String(st.host)],inc=row&&row[5];
+  if(!inc)return card("Country income per day: "+hn,[note("The game’s income figures for "+hn+" arrive with the next refresh.")]);
+  var parts=STREAMS.map(function(x){return[x[1],(+inc[x[0]]||0)*24]}),known={total:1};STREAMS.forEach(function(x){known[x[0]]=1});
+  Object.keys(inc).forEach(function(k){if(!known[k])parts.push([k.replace(/([A-Z])/g," $1").replace(/^./,function(c){return c.toUpperCase()}),(+inc[k]||0)*24])});   // any stream the game adds later
+  var total=(inc.total!=null?+inc.total:parts.reduce(function(a,p){return a+p[1]/24},0))*24;
+  parts.sort(function(a,b){return b[1]-a[1]});
+  var mx=Math.max.apply(null,parts.map(function(p){return p[1]}).concat([1])),box=el("div",{class:"hbars"});
+  parts.forEach(function(p){var b=el("div",{class:"hbar"});b.style.width=(p[1]>0?Math.max(1,100*p[1]/mx):0)+"%";
+    box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:p[0]}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:String(m0(p[1]))})]))});
+  var rows=parts.map(function(p){return[p[0],p[1],p[1]/24,total?p[1]/total:0]}).concat([["Total",total,total/24,1]]);
+  var t=tbl([["Income stream",function(r){return r[0]}],["Per day",function(r){return m1(r[1])},1],["Per hour",function(r){return m2(r[2])},1],["Share",function(r){return(100*r[3]).toFixed(1)+"%"},1]],rows);
+  var tr=t.querySelectorAll("tbody tr");if(tr.length)tr[tr.length-1].style.fontWeight="600";
+  // every alliance nation for comparison
+  var ea=null;Object.keys(D.alliances||{}).forEach(function(a){if(nm(+a)==="The Emerald Accord")ea=D.alliances[a]});
+  var kids=[el("div",{class:"kpis"},[el("div",{class:"kpi"},[el("b",{text:String(m0(total))}),el("span",{text:"Total income per day"})]),el("div",{class:"kpi"},[el("b",{text:String(m2(total/24))}),el("span",{text:"Per hour"})]),
+      el("div",{class:"kpi"},[el("b",{text:String(m0(row[0]))}),el("span",{text:"Treasury now"})])]),box,t,
+    note("The game’s current income rate for "+hn+", per hour × 24. Employee income tax here is the whole country’s, from every company in it, not only the ones tracked above. Market tax on sales isn’t reported per hour by the game, so it isn’t included.")];
+  if(ea){var er=ea.map(function(c){var r=(D.countryNow||{})[String(c)],i=r&&r[5];return i?{c:c,i:i,t:(i.total!=null?+i.total:0)*24}:null}).filter(Boolean).sort(function(a,b){return b.t-a.t});
+    if(er.length){kids.push(el("h3",{text:"All Emerald Accord nations, per day"}));
+      kids.push(tbl([["Nation",function(r){return nm(r.c)+(r.c===st.host?" ●":"")}],["Total",function(r){return m0(r.t)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0((+r.i[x[0]]||0)*24)},1]})),er))}}
+  return card("Country income per day: "+hn,kids)}
 
 /* ---------- controls ---------- */
 function fillSelects(){

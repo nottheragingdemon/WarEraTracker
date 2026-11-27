@@ -20,7 +20,7 @@
       </div>
     </div>
   </div>
-  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html">EA Money Transfers</a><a href="efficiency.html" aria-current="page">Player efficiency</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html">EA Money Transfers</a><a href="efficiency.html" aria-current="page">Player efficiency</a><a href="status.html">Status</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
@@ -58,13 +58,13 @@ function badge(b,p){if(!b)return el("span",{class:"muted",text:"–"});
   return w}
 function skillLine(p){if(!p.lv)return"Skills not loaded yet.";return SK.map(function(k,i){return k+" "+p.lv[i]}).filter(function(x){return !/ 0$/.test(x)}).join(" · ")+" ("+p.spent+" points, "+p.eco+" in economy skills)"}
 function table(list,metric){
-  var t=el("table",{class:"stack"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage"];
+  var t=el("table",{class:"stack compact"}),cols=["#","Player","Build","Wealth","Wealth change","Damage (7 days)",metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage"];
   var h=el("tr");cols.forEach(function(c,i){h.appendChild(el("th",{class:i>=3||i===0?"n":"",text:c}))});t.appendChild(el("thead",null,[h]));
   var tb=el("tbody");
   list.forEach(function(p,i){var v=metric==="gain"?p.perGain:p.perWealth;
     var cells=[raw(String(i+1),i+1),nm(p.u),null,raw(big(p.wealth),p.wealth),raw(sgn(p.gain),p.gain),raw(big(p.dmg),p.dmg),raw(v==null?"–":big(v),v)];
     var tr=el("tr",{class:st.open[p.u]?"sel":""});tr.style.cursor="pointer";
-    cells.forEach(function(c,j){var td=el("td",{class:j>=3||j===0?"n":"","data-label":cols[j]});if(j===2)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
+    cells.forEach(function(c,j){var td=el("td",{class:(j>=3||j===0?"n":"")+(j===1?"lead":""),"data-label":cols[j]});if(j===2)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
     tr.onclick=function(){st.open[p.u]=!st.open[p.u];render()};tb.appendChild(tr);
     if(st.open[p.u]){var d=el("tr",{class:"detail"});var td=el("td",{colspan:String(cols.length),"data-label":""});
       td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · "+skillLine(p)+(p.hist?" · compared with "+p.day:" · no earlier snapshot yet")+(p.reset?" · skills last reset "+p.reset.slice(0,10):"")}));

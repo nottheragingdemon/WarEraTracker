@@ -9,7 +9,7 @@ Each page is served from a temporary copy with a small probe added: it records u
 import http.server, os, re, shutil, subprocess, sys, tempfile, threading
 
 SITE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "site")
-PAGES = {"index.html": "Updated ", "company.html": "Updated ", "transfers.html": "Updated ", "efficiency.html": "Updated ", "ask.html": "Data updated "}
+PAGES = {"index.html": "Updated ", "company.html": "Updated ", "transfers.html": "Updated ", "efficiency.html": "Updated ", "status.html": "Updated ", "ask.html": "Data updated "}
 PROBE = """<script>window.__errs=[];window.addEventListener("error",function(e){__errs.push(String(e.message))});
 window.addEventListener("unhandledrejection",function(e){__errs.push("promise: "+String(e.reason&&e.reason.message||e.reason))});
 try{localStorage.setItem("we-dev","1")}catch(e){}

@@ -20,7 +20,7 @@
       </div>
     </div>
   </div>
-  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html" aria-current="page">EA Money Transfers</a><a href="efficiency.html">Player efficiency</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
+  <nav class="apps" id="apps"><a href="index.html">WarEra Tracker</a><a href="company.html">Company tax tracker</a><a href="transfers.html" aria-current="page">EA Money Transfers</a><a href="efficiency.html">Player efficiency</a><a href="status.html">Status</a><a href="ask.html">Ask WarEra</a><a href="https://we.hawtre.net/" target="_blank" rel="noopener noreferrer" class="ext">we.hawtre.net ↗</a></nav>
 </header>
 <div class="wrap">
   <div class="sub" id="meta">Loading…</div>
@@ -96,15 +96,15 @@ function renderTransfers(){
 
 /* ---------- citizen donations tab ---------- */
 /* a table whose column headings sort it: cols = [heading, display(row), sortValue(row), numeric]; the sort is remembered per table */
-function sortTable(key,cols,rows,def,onRow,selOf){
+function sortTable(key,cols,rows,def,onRow,selOf){   // the first column is the row's name: it leads the compact phone card
   var s=st.srt[key]||(st.srt[key]={i:def[0],dir:def[1]}),kf=cols[s.i][2];
   rows=rows.slice().sort(function(a,b){var x=kf(a),y=kf(b);if(typeof x==="string")return s.dir*x.localeCompare(y);return s.dir*((x||0)-(y||0))});
-  var t=el("table",{class:"stack"}),h=el("tr");
+  var t=el("table",{class:"stack compact"}),h=el("tr");
   cols.forEach(function(c,i){var th=el("th",{class:c[3]?"n":"",text:c[0]+(i===s.i?(s.dir>0?" ▲":" ▼"):""),"aria-sort":i===s.i?(s.dir>0?"ascending":"descending"):"none"});
     th.style.cursor="pointer";th.onclick=function(){if(s.i===i)s.dir=-s.dir;else{s.i=i;s.dir=c[3]?-1:1}render()};h.appendChild(th)});
   t.appendChild(el("thead",null,[h]));var tb=el("tbody");
   rows.forEach(function(r){var tr=el("tr");if(selOf&&selOf(r))tr.className="sel";if(onRow){tr.style.cursor="pointer";tr.onclick=function(){onRow(r)}}
-    cols.forEach(function(c){var v=c[1](r),td=el("td",{class:c[3]?"n":"","data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});tb.appendChild(tr)});
+    cols.forEach(function(c,ci){var v=c[1](r),td=el("td",{class:(c[3]?"n":"")+(ci===0?" lead":""),"data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});tb.appendChild(tr)});
   t.appendChild(tb);
   // the same sort as a control, for phones where the table shows as cards without headings
   var sel=el("select",{"aria-label":"Sort by"});cols.forEach(function(c,i){sel.appendChild(el("option",{value:String(i),text:c[0]}))});sel.value=String(s.i);

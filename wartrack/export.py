@@ -107,7 +107,8 @@ def export(db, out, since, scope=None):
         companies.append([r["name"], E("user", r["owner"]), r["item"], round(r["value"] or 0), r["region"], E("country", r["owner_country"]),
                           r["workers"] or 0, round(r["wages"] or 0, 6), round(r["mgr"] or 0, 6)])
         companies_at = r["seen"]
-    country_now = {str(E("country", r["country"])): [r["money"], r["wealth"], r["wealth_rank"], r["population"], r["development"]]
+    country_now = {str(E("country", r["country"])): [r["money"], r["wealth"], r["wealth_rank"], r["population"], r["development"],
+                                                     json.loads(r["income"]) if r["income"] else None]
                    for r in db.execute("SELECT * FROM country_now")}
     # player efficiency: latest values, the snapshot from about a week ago (the oldest of the last 7 days), skill allocation
     today = dt.datetime.now(dt.timezone.utc).date()
@@ -170,11 +171,26 @@ def export(db, out, since, scope=None):
     for k, b, e, sd, v in stats:
         packed.setdefault((k, b), []).extend([e * 3 + sd, int(v) if v == int(v) else v])
     stats_p = [[k, b, f] for (k, b), f in packed.items()]
+    # Status page: recent collector runs, alert and digest marks, backups, table sizes
+    def state(k):
+        try:
+            r = db.execute("SELECT v FROM alert_state WHERE k=?", (k,)).fetchone()
+            return r[0] if r else None
+        except Exception:
+            return None
+    status = {"runs": [[r["ts"], r["kind"], r["seconds"], r["calls"], r["gw"], r["skipped"], json.loads(r["timings"] or "[]")]
+                       for r in db.execute("SELECT * FROM run_stats ORDER BY ts DESC LIMIT 200")],
+              "digestAt": state("digest_at"), "lastBattleAlert": state("battle_created"), "lastEndAlert": state("battle_ended"),
+              "lastBackup": os.environ.get("LAST_BACKUP") or None, "gateway": os.environ.get("WARERA_GATEWAY", "1") != "0",
+              "rows": {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in
+                       ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill")},
+              "donationsSince": db.execute("SELECT MIN(ts) FROM donations").fetchone()[0],
+              "transfersSince": db.execute("SELECT MIN(ts) FROM transfers").fetchone()[0]}
     data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
             "ents": ents, "battles": battles, "statsP": stats_p, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
-            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist}
+            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     with open(out, "w") as f:

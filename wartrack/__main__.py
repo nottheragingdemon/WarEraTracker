@@ -53,7 +53,7 @@ def main():
         since = C.parse_when(a.since)
         what = set(a.what.split(","))
         import time as _time
-        timings = []
+        timings, run_t0 = [], _time.monotonic()
 
         def timed(name, fn, *args):
             t0, n0 = _time.monotonic(), cl.n
@@ -89,9 +89,14 @@ def main():
             C.log("stages skipped this run: " + ", ".join(failed))
             from . import alerts as AL
             AL.skipped(db, failed)
-        if what & {"battles", "damage", "companies"}:   # full runs only, not the 15-minute sample
+        if what & {"damage", "companies"}:   # full runs only, not the 15-minute sample
             timed("prune", C.prune, db)
         C.log("timings: " + ", ".join(f"{n} {t:.0f}s/{k} calls" for n, t, k in timings))
+        import json as _json
+        db.execute("INSERT OR REPLACE INTO run_stats VALUES(?,?,?,?,?,?,?)",   # for the Status page
+                   (C.now_iso(), "full" if what & {"damage", "companies"} else "sample", round(_time.monotonic() - run_t0, 1), cl.n, cl.gw_served,
+                    ",".join(failed), _json.dumps([[n, round(t, 1), k] for n, t, k in timings])))
+        db.commit()
         print(f"done, {cl.n} API calls ({cl.gw_served} served via the warerastats gateway)")
         return
     if a.cmd == "alerts":
