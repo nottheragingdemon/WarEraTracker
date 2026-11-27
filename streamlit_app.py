@@ -117,6 +117,24 @@ def _gh(method, path, body=None):
         return json.loads(r.read().decode())
 
 
+def token_status():
+    """('ok'|'warn'|'bad', message) for the Settings token: GitHub reports a fine-grained token's expiry in a response header."""
+    import datetime as dt, urllib.error, urllib.request
+    try:
+        req = urllib.request.Request(f"https://api.github.com/repos/{st.secrets.get('GITHUB_REPO', REPO)}", headers={
+            "Authorization": f"Bearer {st.secrets['GITHUB_TOKEN']}", "User-Agent": "warera-ireland-tools"})
+        with urllib.request.urlopen(req, timeout=20) as r:
+            exp = r.headers.get("github-authentication-token-expiration")
+    except urllib.error.HTTPError as e:
+        return "bad", f"GitHub rejected the token (HTTP {e.code}). It has expired or can't reach the back-end repository."
+    except Exception as e:
+        return "bad", f"Couldn't check the token: {e}"
+    if not exp:
+        return "ok", "Token works (no expiry date)."
+    left = (dt.datetime.strptime(exp.replace(" UTC", "").strip(), "%Y-%m-%d %H:%M:%S") - dt.datetime.utcnow()).days
+    return ("warn" if left < 14 else "ok"), f"Token works and expires {exp[:10]} ({left} days left)."
+
+
 def _has_token():
     try:
         return bool(st.secrets["GITHUB_TOKEN"])
@@ -236,6 +254,9 @@ def settings():
     if new == {h: v for h, v in current.items() if v}:
         st.caption("No changes.")
         return
+    if st.button("Check the GitHub token"):
+        kind, msg = token_status()
+        {"ok": st.success, "warn": st.warning, "bad": st.error}[kind](msg)
     for line in preview_changes(data, current, new):
         st.write("• " + line)
     if st.button("Save agreements", type="primary"):
