@@ -105,9 +105,17 @@ function trend(p){
 /* ---- Sworn enemies: players from the enemy countries (set in Settings) who dealt heavy damage while their wealth fell, and citizens' big donations ---- */
 function etbl(cols,rows,empty){
   if(!rows.length)return el("div",{class:"note",text:empty});
-  var t=el("table",{class:cols.length>4?"stack compact":"stack"}),h=el("tr");cols.forEach(function(c){h.appendChild(el("th",{class:c[2]?"n":"",text:c[0]}))});t.appendChild(el("thead",null,[h]));
-  var b=el("tbody");rows.forEach(function(r){var tr=el("tr",{class:r._flag?"sel":""});cols.forEach(function(c,j){var v=c[1](r),td=el("td",{class:(c[2]?"n":"")+(j===0&&cols.length>4?" lead":""),"data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});
-  t.appendChild(b);return weCsvWrap(el("div",{class:"tw"},[t]))}
+  var t=el("table",{class:cols.length>4?"stack compact":"stack"}),h=el("tr"),b=el("tbody"),srt={i:-1,dir:-1};
+  function key(r,c){var v=c[1](r);if(v&&v.raw!==undefined)return v.raw===""?null:+v.raw;var x=String(v);return c[2]&&x!==""&&!isNaN(parseFloat(x.replace(/,/g,"")))?parseFloat(x.replace(/,/g,"")):x.toLowerCase()}
+  function draw(){
+    var list=rows.slice();
+    if(srt.i>=0){var c=cols[srt.i];list.sort(function(a,z){var x=key(a,c),y=key(z,c);if(x==null&&y==null)return 0;if(x==null)return 1;if(y==null)return -1;return(x<y?-1:x>y?1:0)*srt.dir})}
+    b.textContent="";
+    list.forEach(function(r){var tr=el("tr",{class:r._flag?"sel":""});cols.forEach(function(c,j){var v=c[1](r),td=el("td",{class:(c[2]?"n":"")+(j===0&&cols.length>4?" lead":""),"data-label":c[0],text:String(v)});if(v&&v.raw!==undefined)td.setAttribute("data-raw",v.raw);tr.appendChild(td)});b.appendChild(tr)});
+    Array.prototype.forEach.call(h.children,function(th,k){th.setAttribute("aria-sort",k===srt.i?(srt.dir>0?"ascending":"descending"):"none");var bt=th.firstChild;bt.textContent=cols[k][0]+(k===srt.i?(srt.dir>0?" ▲":" ▼"):"")})}
+  cols.forEach(function(c,k){var th=el("th",{class:c[2]?"n":""}),bt=el("button",{type:"button",class:"thsort",title:"Sort by "+c[0],text:c[0]});
+    bt.onclick=function(){if(srt.i===k)srt.dir=-srt.dir;else{srt.i=k;srt.dir=c[2]?-1:1}draw()};th.appendChild(bt);h.appendChild(th)});
+  t.appendChild(el("thead",null,[h]));t.appendChild(b);draw();return weCsvWrap(el("div",{class:"tw"},[t]))}
 function numIn(label,key,step,unit){var l=el("label",{text:label}),i=el("input",{type:"number",min:"0",step:String(step),value:String(st[key])});i.onchange=function(){var x=parseFloat(this.value);st[key]=isNaN(x)||x<0?0:x;render()};l.appendChild(i);if(unit)l.appendChild(document.createTextNode(" "+unit));return l}
 function renderEnemies(){
   var v=$("view"),E=D.enemy;v.textContent="";
