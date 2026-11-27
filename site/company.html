@@ -148,12 +148,19 @@ function render(){
   v.appendChild(incomeCard(hn))}
 /* 7: the host country's whole income right now, per day, by stream (the game reports hourly figures; per day = 24 x) */
 var STREAMS=[["employeeIncomeTax","Employee income tax"],["managerIncomeTax","Manager income tax"],["development","Development"],["strategicResourcesBonus","Strategic resources bonus"],["govType","Government type bonus"]];
+/* market tax estimate: the country's market tax rate x the value of market trades linked to it (the buyer's country), as a 7-day daily average */
+function marketEst(c){
+  var rate=+((D.marketRate||{})[String(c)]||0),days={},today=new Date().toISOString().slice(0,10),from=new Date(Date.now()-7*864e5).toISOString().slice(0,10);
+  (D.tradeDays||[]).forEach(function(r){if(r[0]===c)days[r[1]]=r});
+  var v=0,n=0;Object.keys(days).forEach(function(d){if(d>=from&&d<today){v+=days[d][2];n+=days[d][3]}});
+  return{rate:rate,avg:v/7,trades:n,perDay:v/7*rate/100,days:days}}
 function incomeCard(hn){
   var row=(D.countryNow||{})[String(st.host)],inc=row&&row[5];
   if(!inc)return card("Country income per day: "+hn,[note("The game’s income figures for "+hn+" arrive with the next refresh.")]);
   var parts=STREAMS.map(function(x){return[x[1],(+inc[x[0]]||0)*24]}),known={total:1};STREAMS.forEach(function(x){known[x[0]]=1});
   Object.keys(inc).forEach(function(k){if(!known[k])parts.push([k.replace(/([A-Z])/g," $1").replace(/^./,function(c){return c.toUpperCase()}),(+inc[k]||0)*24])});   // any stream the game adds later
-  var total=(inc.total!=null?+inc.total:parts.reduce(function(a,p){return a+p[1]/24},0))*24;
+  var me=marketEst(st.host);if(D.tradeDays)parts.push(["Market tax (estimate)",me.perDay]);
+  var total=(inc.total!=null?+inc.total:parts.reduce(function(a,p){return a+p[1]/24},0))*24+(D.tradeDays?me.perDay:0);
   parts.sort(function(a,b){return b[1]-a[1]});
   var mx=Math.max.apply(null,parts.map(function(p){return p[1]}).concat([1])),box=el("div",{class:"hbars"});
   parts.forEach(function(p){var b=el("div",{class:"hbar"});b.style.width=(p[1]>0?Math.max(1,100*p[1]/mx):0)+"%";
@@ -165,7 +172,8 @@ function incomeCard(hn){
   var ea=null;Object.keys(D.alliances||{}).forEach(function(a){if(nm(+a)==="The Emerald Accord")ea=D.alliances[a]});
   var kids=[el("div",{class:"kpis"},[el("div",{class:"kpi"},[el("b",{text:String(m0(total))}),el("span",{text:"Total income per day"})]),el("div",{class:"kpi"},[el("b",{text:String(m2(total/24))}),el("span",{text:"Per hour"})]),
       el("div",{class:"kpi"},[el("b",{text:String(m0(row[0]))}),el("span",{text:"Treasury now"})])]),box,t,
-    note("The game’s current income rate for "+hn+", per hour × 24. Employee income tax here is the whole country’s, from every company in it, not only the ones tracked above. Market tax on sales isn’t reported per hour by the game, so it isn’t included.")];
+    note("The game’s current income rate for "+hn+", per hour × 24. Employee income tax here is the whole country’s, from every company in it, not only the ones tracked above."+
+      (D.tradeDays?" Market tax is an estimate: the game doesn’t report it, so it is "+hn+"’s market tax rate ("+me.rate+"%) × the average daily value of market trades linked to "+hn+" over the last 7 full days ("+m0(me.avg)+" a day, "+me.trades+" trades). The game links each trade to the buyer’s country; if the tax goes to the seller’s country instead, this figure will be off.":" Market tax isn’t reported by the game, so it isn’t included."))];
   // day by day: the average hourly rate that day x 24 (sampled every 15 minutes to an hour)
   var hist=(D.countryIncomeDays||[]).filter(function(r){return r[0]===st.host}).slice(-30);
   if(hist.length){kids.push(el("h3",{text:"Income per day, last "+hist.length+" days"}));
@@ -173,11 +181,12 @@ function incomeCard(hn){
     hist.slice().reverse().forEach(function(r){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*(+r[4].total||0)/hm)+"%";
       hb.appendChild(el("div",{class:"hrow",title:r[2]+" samples that day"},[el("span",{class:"hname",text:r[1]+(r[2]<12?" (partial)":"")}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:String(m0(+r[4].total||0))})]))});
     kids.push(hb);
-    kids.push(tbl([["Day",function(r){return r[1]}],["Total",function(r){return m0(+r[4].total||0)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0(+r[4][x[0]]||0)},1]})).concat([["Treasury (end of day)",function(r){return m0(r[3])},1]]),hist.slice().reverse()));
+    var mt=function(r){var t=me.days[r[1]];return t?t[2]*me.rate/100:0};
+    kids.push(tbl([["Day",function(r){return r[1]}],["Total (game streams)",function(r){return m0(+r[4].total||0)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0(+r[4][x[0]]||0)},1]})).concat([["Market tax (est.)",function(r){return m1(mt(r))},1],["Treasury (end of day)",function(r){return m0(r[3])},1]]),hist.slice().reverse()));
     kids.push(note("Each day is the average hourly rate across that day’s checks × 24. “Partial” marks days with fewer than 12 checks (for example today, or when tracking started)."))}
   if(ea){var er=ea.map(function(c){var r=(D.countryNow||{})[String(c)],i=r&&r[5];return i?{c:c,i:i,t:(i.total!=null?+i.total:0)*24}:null}).filter(Boolean).sort(function(a,b){return b.t-a.t});
     if(er.length){kids.push(el("h3",{text:"All Emerald Accord nations, per day"}));
-      kids.push(tbl([["Nation",function(r){return nm(r.c)+(r.c===st.host?" ●":"")}],["Total",function(r){return m0(r.t)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0((+r.i[x[0]]||0)*24)},1]})),er))}}
+      kids.push(tbl([["Nation",function(r){return nm(r.c)+(r.c===st.host?" ●":"")}],["Total",function(r){return m0(r.t+marketEst(r.c).perDay)},1]].concat(STREAMS.map(function(x){return[x[1],function(r){return m0((+r.i[x[0]]||0)*24)},1]})).concat([["Market tax (est.)",function(r){var e=marketEst(r.c);return m1(e.perDay)},1]]),er))}}
   return card("Country income per day: "+hn,kids)}
 
 /* ---------- controls ---------- */

@@ -185,6 +185,10 @@ def export(db, out, since, scope=None):
             x["sum"][k] = x["sum"].get(k, 0) + float(v or 0)
     country_income_days = [[E("country", c), day, x["n"], round(x["money"] or 0, 2), {k: round(v / x["n"] * 24, 2) for k, v in x["sum"].items()}]
                            for (c, day), x in sorted(inc_days.items(), key=lambda kv: kv[0][1])]
+    # market trades per member country per day (value, count) for the market tax estimate, with each country's market tax rate
+    trade_days = [[E("country", r["country"]), r["day"], round(r["v"], 2), r["n"]] for r in db.execute(
+        "SELECT country, substr(ts,1,10) day, SUM(money) v, COUNT(*) n FROM trades GROUP BY country, day ORDER BY day")]
+    market_rate = {str(E("country", r["country"])): r["market"] for r in db.execute("SELECT country, market FROM country_tax")}
     # Status page: recent collector runs, alert and digest marks, backups, table sizes
     def state(k):
         try:
@@ -197,14 +201,14 @@ def export(db, out, since, scope=None):
               "digestAt": state("digest_at"), "lastBattleAlert": state("battle_created"), "lastEndAlert": state("battle_ended"),
               "lastBackup": os.environ.get("LAST_BACKUP") or None, "gateway": os.environ.get("WARERA_GATEWAY", "1") != "0",
               "rows": {t: db.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0] for t in
-                       ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill", "country_income")},
+                       ("battles", "battle_stat", "bounty_snap", "contracts", "companies", "transfers", "donations", "player_snap", "player_skill", "country_income", "trades")},
               "donationsSince": db.execute("SELECT MIN(ts) FROM donations").fetchone()[0],
               "transfersSince": db.execute("SELECT MIN(ts) FROM transfers").fetchone()[0]}
     data = {"v": 3, "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"), "since": since,
             "ents": ents, "battles": battles, "statsP": stats_p, "orders": orders, "bounty": bounty, "contracts": contracts,
             "alliances": alliances, "relMu": rel_mu, "relUser": rel_user, "taxHist": tax_history(db), "companies": companies, "companiesAt": companies_at,
             "regionsNow": regions_now, "countryNow": country_now, "transfers": transfers, "donations": donations, "donors": donors, "wealthNow": wealth, "countryTax": country_tax,
-            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days}
+            "wageHist": wage_hist, "rateHist": rate_hist, "runs": runs, "players": players, "skillOrder": SKILLS, "playerHist": player_hist, "status": status, "countryIncomeDays": country_income_days, "tradeDays": trade_days, "marketRate": market_rate}
     # bounty history and contracts are only used by Ask WarEra: they go to a second file so the other pages download less
     extra = {k: data.pop(k) for k in ("bounty", "contracts")}
     with open(out, "w") as f:

@@ -3,6 +3,11 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.2.0 — 2026-11-27
+- **Company tax tracker:** market tax estimate in the country income section (per day, in the day-by-day table and for every alliance nation): the country's market tax rate × the value of market trades linked to it (7-day average). Clearly marked as an estimate.
+- **Collector:** new `trades` stage (market trades for alliance countries, 30 days, incremental with a one-off backfill).
+- **Ask WarEra:** `market_trades_days` table.
+
 ## 1.1.0 — 2026-11-27
 - **Company tax tracker:** country income per day, day by day for the last 30 days (by stream, with the treasury at the end of each day), from new hourly income history.
 - **Alerts:** large transfers between alliance nations, a citizen's big donation day, sharp treasury drops (thresholds as repository variables).

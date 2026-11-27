@@ -259,6 +259,48 @@ def collect_transfers(c, db, scope=None, days=90):
     log(f"transfers: {new} new between member countries")
 
 
+def collect_trades(c, db, scope=None, days=30, budget=120.0):
+    """Market trades (transactionType trading) linked to each member country (the buyer's country), newest first; stops at
+    the first one already stored or older than `days`, with a one-off backfill. Used to estimate market tax."""
+    import time as _t
+    members = sorted(scope.members) if scope and scope.members else []
+    if not members:
+        log("trades: no alliance members in scope, skipped"); return
+    t0 = _t.monotonic()
+    cutoff = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    known = {r["id"] for r in db.execute("SELECT id FROM trades")}
+    done_key = f"trades_back_{days:g}"
+    backfill = {m for m in members if not db.execute("SELECT 1 FROM meta WHERE k=?", (f"{done_key}_{m}",)).fetchone()}
+    reached = set()
+
+    def fresh(m):
+        out, back = [], m in backfill
+        for t in c.pages("transaction.getPaginatedTransactions", max_pages=60 if back else 20, countryId=m, transactionType="trading", limit=100):
+            if t["createdAt"] < cutoff:
+                reached.add(m); break
+            if _t.monotonic() - t0 > budget:
+                break
+            if t["_id"] in known:
+                if back:
+                    continue
+                break
+            out.append(t)
+        else:
+            reached.add(m)
+        return out
+    new = 0
+    for m, found in zip(members, c.map(fresh, members)):
+        for t in found:
+            db.execute("INSERT OR IGNORE INTO trades VALUES(?,?,?,?,?,?)",
+                       (t["_id"], t["createdAt"], t.get("buyerCountryId") or m, t.get("money") or 0, t.get("itemCode"), t.get("quantity")))
+            new += 1
+    for m in backfill & reached:
+        db.execute("INSERT OR REPLACE INTO meta VALUES(?,?)", (f"{done_key}_{m}", now_iso()))
+    db.execute("DELETE FROM trades WHERE ts < ?", (cutoff,))
+    db.commit()
+    log(f"trades: {new} new market trades" + (f", backfilled {len(backfill & reached)} of {len(backfill)} countries" if backfill else ""))
+
+
 def collect_donations(c, db, scope=None, days=90, budget=300.0):
     """Player donations to each member country's treasury (transactionType donation), newest first; stops at the first
     one already stored or older than `days`. The donor's own country is looked up so citizens' donations can be separated."""
