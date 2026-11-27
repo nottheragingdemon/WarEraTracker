@@ -64,7 +64,7 @@ class ThinTests(unittest.TestCase):
         recent = [t for t, _ in out if t >= now - 48 * H]
         mid = [t for t, _ in out if now - 35 * D <= t < now - 48 * H]
         old = [t for t, _ in out if t < now - 35 * D]
-        self.assertEqual(len(recent), 48)
+        self.assertEqual(len(recent), 49)   # hours 0..48 inclusive
         self.assertLessEqual(len(mid), 33 * 4 + 2)
         self.assertLessEqual(len(old), 26)
         self.assertEqual([t for t, _ in out], sorted(t for t, _ in out))
