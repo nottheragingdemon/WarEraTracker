@@ -375,7 +375,7 @@ function fillFilters(){
   presets();setRange(0);refreshLists()}
 
 function stale(){window.weStale(D.generated)}
-fetch("data.json").then(function(r){return r.json()}).then(function(d){window.weSchema(d);
+fetch("data.json").then(function(r){return r.json()}).then(async function(d){window.weSchema(d);await weLoad(d,"battle-data.json",["statsP"]);
   D=d;D.stats=weStats(D);build();fillFilters();stale();
   var h=(location.hash||"").slice(1);if(TABS.some(function(t){return t[0]===h}))st.tab=h;
   $("meta").textContent="Updated "+fmtD(D.generated)+" UTC · "+D.battles.length+" battles · data from api2.warera.io · collected since "+fmtD(D.since);

@@ -3,6 +3,11 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.2.0 — 2026-11-27
+- **Smaller main download.** Battle statistics (`battle-data.json`) and donor lists (`transfer-data.json`) moved out of `data.json`, which drops from about 2.0 MB to 0.7 MB. Only the pages that need them load them (Battles and Ask: battle stats; Transfers: donors).
+- **Status:** a "Last 7 days" card (full refreshes, runs with a skipped stage, average and slowest duration, slowest stage and whether it is getting slower).
+- Checked: the game's treasury transfers carry no memo or reason, so payments can't be matched to tax agreements beyond treasury transfers to the partner (unchanged).
+
 ## 2.1.1 — 2026-11-27
 - Settings page: **Check the GitHub token** button (works or not, expiry date, warning under 14 days).
 - Back end (separate repo): the monthly restore drill only requires tables every backup has; the first real run found that older backups lack newer tables.

@@ -102,6 +102,16 @@ function render(){
     t.slice().sort(function(a,b){return b[1]-a[1]}).forEach(function(x){var b=el("div",{class:"hbar"});b.style.width=Math.max(1,100*x[1]/mx)+"%";
       box.appendChild(el("div",{class:"hrow"},[el("span",{class:"hname",text:x[0]}),el("div",{class:"htrack"},[b]),el("span",{class:"hval",text:x[1].toFixed(1)+" s"})]))});
     v.appendChild(card("Where the last full refresh spent its time",[box,el("div",{class:"note",text:when(lf[0])+" · "+lf[3]+" API calls"+(lf[4]?" ("+lf[4]+" via the gateway)":"")+". Stages that are skipped most hours (MU list, closed contracts) show near 0 s."})]))}
+  // health of the last 7 days: from the stored run records (full refreshes only)
+  (function(){var wk=full.filter(function(r){return Date.parse(r[0])>Date.now()-7*864e5});if(wk.length<3)return;
+    var bad=wk.filter(function(r){return r[5]}).length,secs=wk.map(function(r){return r[2]}),avg=secs.reduce(function(a,b){return a+b},0)/secs.length,mx=Math.max.apply(null,secs);
+    var recent=wk.slice(0,24),older=wk.slice(24),sa={},sb={};   // newest first: last 24 runs against the rest of the week
+    function acc(list,o){list.forEach(function(r){(r[6]||[]).forEach(function(x){(o[x[0]]=o[x[0]]||[]).push(x[1])})})}acc(recent,sa);acc(older,sb);
+    function mean(a){return a&&a.length?a.reduce(function(p,q){return p+q},0)/a.length:null}
+    var slow=Object.keys(sa).map(function(k){var n=mean(sa[k]),o=mean(sb[k]);return{k:k,n:n,o:o}}).sort(function(a,b){return b.n-a.n})[0];
+    var kp=[[wk.length,"Full refreshes, last 7 days","expected about 168"],[bad,"With a skipped stage",bad?"see Recent runs":"none"],[Math.round(avg)+" s","Average duration","slowest "+Math.round(mx)+" s"]];
+    if(slow)kp.push([slow.k,"Slowest stage (avg "+slow.n.toFixed(1)+" s)",slow.o!=null&&older.length?(slow.n>slow.o*1.5&&slow.n-slow.o>2?"getting slower: "+slow.o.toFixed(1)+" s earlier this week":"steady"):""]);
+    v.appendChild(card("Last 7 days",[kpis(kp)]))})();
   // recent runs
   var shown=runs.filter(function(r){return st.kind==="all"||r[1]===st.kind}).slice(0,st.limit);
   var tb=el("tbody");shown.forEach(function(r){var tr=el("tr");[[when(r[0]),""],[r[1]==="full"?"Full refresh":"15-minute check",""],[Math.round(r[2])+" s","n"],[String(r[3]),"n"],[r[5]?"skipped: "+r[5]:"ok",""]].forEach(function(c,i){
