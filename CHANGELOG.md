@@ -3,6 +3,13 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.10.0 — 2026-11-27
+- **Settings:** failed saves now say why in plain words (expired token, no access, someone else saved first, GitHub down) and keep what you typed. Countries with an agreement are listed first. If the app's token can't read the agreements file, the published agreements are shown with a warning and saving is switched off, instead of an empty list.
+- **Status:** a "Saved month statements" card.
+- **Tax tracker:** shorter card labels; the "Completed months" card only shows once there is one.
+- **Guide:** phone screenshots of the tax tracker and Status.
+- **Checks:** a live page check (every 12 h, opens each Streamlit page in a browser and looks for errors or missing data). Back end: a month-end dry run (30 Nov) and the restore drill now compares saved statements with the live ones.
+
 ## 2.9.0 — 2026-11-27
 - **Settings:** the paper needed per unit of tax (default 0.5) is a setting, and each agreement can have an end date (its last day): once that month is saved the agreement drops out and is no longer collected. Both show in the change preview.
 - **Paper average** is now weighted by how long each price held (a missed hour no longer counts like any other).

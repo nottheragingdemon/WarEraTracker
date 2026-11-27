@@ -1,0 +1,33 @@
+name: Live page check
+
+# Every 12 hours: open each live Streamlit page in a real browser and check it shows data (not Loading… or an error).
+# An app that is asleep or can't be looked into is not a failure (the Live app check covers "is it up").
+on:
+  schedule:
+    - cron: "47 5,17 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install playwright && python -m playwright install --with-deps chromium
+      - name: Check the pages
+        env:
+          STREAMLIT_URL: ${{ vars.STREAMLIT_URL || 'https://wareratracker.streamlit.app/' }}
+        run: python3 scripts/live_pages.py
+      - name: Failure alert
+        if: failure()
+        env:
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 scripts/battlecheck.py --failure "WarEra Ireland tools - a live Streamlit page shows an error or no data. $RUN_URL"
