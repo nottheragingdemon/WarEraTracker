@@ -20,10 +20,12 @@ def get(url):
 
 def check(fetch=get, url=URL):
     """(ok, message)."""
+    body = ""
     try:
         status, body = fetch(url)
     except urllib.error.HTTPError as e:
-        return False, f"{url} answered HTTP {e.code}"
+        if not 300 <= e.code < 400:   # Streamlit Cloud redirects first visits (cookie handshake): fine, the health check decides
+            return False, f"{url} answered HTTP {e.code}"
     except Exception as e:   # noqa: BLE001
         return False, f"{url} could not be reached: {e}"
     if "get this app back up" in body.lower():

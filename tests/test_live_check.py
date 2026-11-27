@@ -16,3 +16,10 @@ class LiveCheck(unittest.TestCase):
         self.assertFalse(lc.check(err, "https://x/")[0])
         bad = lambda u: (200, "nope") if u.endswith("_stcore/health") else (200, "<html></html>")
         self.assertFalse(lc.check(bad, "https://x/")[0])
+
+    def test_redirect_on_first_visit_is_fine(self):
+        def f(u):
+            if u.endswith("_stcore/health"):
+                return 200, "ok"
+            raise urllib.error.HTTPError(u, 303, "see other", {}, None)
+        self.assertTrue(lc.check(f, "https://x/")[0])
