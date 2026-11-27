@@ -277,8 +277,11 @@ def collect_companies(c, db, scope):
         active = [(cid, d) for cid, d in zip(group, details) if d and not d.get("disabledAt") and d.get("region") in host_regions
                   and wanted(cid, d.get("user") or cand.get(cid), d.get("region"))]
         ech = [active[k:k + 40] for k in range(0, len(active), 40)]
-        est = [e for res in c.batch_many([[("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for e in res] if active else []
-        staff = [x for res in c.batch_many([[("employee.getCompanyEmployees", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True) for x in res] if active else []
+        # wage estimates and employee lists in one parallel round (they don't depend on each other)
+        both = c.batch_many([[("employee.getCompanyEstimate", {"companyId": cid}) for cid, _ in ch] for ch in ech] +
+                            [[("employee.getCompanyEmployees", {"companyId": cid}) for cid, _ in ch] for ch in ech], official=True, group=16) if active else []
+        est = [e for res in both[:len(ech)] for e in res]
+        staff = [x for res in both[len(ech):] for x in res]
         for (cid, d), e, sl in zip(active, est or [None] * len(active), staff or [None] * len(active)):
             ws = sl if isinstance(sl, list) else []
             if e:

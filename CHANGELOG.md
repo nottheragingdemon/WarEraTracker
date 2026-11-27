@@ -3,6 +3,10 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 1.12.1 — 2026-11-27
+- **Faster saves:** the hourly history save compresses with all CPU cores (`xz -T0 -6` instead of single-threaded `-9`), the slowest step of each refresh (about 57 s).
+- **Faster companies stage:** wage estimates and employee lists are fetched in one parallel round instead of two.
+
 ## 1.12.0 — 2026-11-27
 - **Tax agreements:** only source countries with a tax agreement are collected and billed (`agreements.json`; for now Ireland ↔ United Kingdom). The collector follows only companies in agreement hosts owned by agreed countries' citizens; statements, the Discord post and the month-by-month view include agreed countries only. Status no longer measures coverage against the game's country totals while agreements are in force.
 - **Streamlit Settings page** (behind the dev key): pick each host's agreed countries and save; it writes `agreements.json` to the repo with a `GITHUB_TOKEN` from the app's Secrets (fine-grained, this repo, Contents read and write).

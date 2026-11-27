@@ -24,7 +24,7 @@ class Fake:
     def lookup_users(self, ids):
         return {u: {"username": u.upper(), "country": {"u1": "c1", "u2": "x9", "u3": "c1"}[u]} for u in ids}
 
-    def batch_many(self, lists, official=False):
+    def batch_many(self, lists, official=False, group=8):
         out = []
         for l in lists:
             res = []

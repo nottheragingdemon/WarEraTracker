@@ -46,7 +46,8 @@ PY
 import sqlite3, sys
 db = sqlite3.connect("wartrack.sqlite"); db.execute("VACUUM INTO ?", (sys.argv[1],)); db.close()
 PY
-    xz -9 -c "$T/clean.sqlite" > "$T/wartrack.sqlite.xz"
+    # all CPU cores, level 6: about 3x faster than single-threaded -9 for ~15% more bytes; restore reads it the same way
+    xz -T0 -6 -c "$T/clean.sqlite" > "$T/wartrack.sqlite.xz"
     # one parentless commit holding only the compressed database, force-pushed to `state` (uses this repo's own remote and credentials)
     BLOB=$(git hash-object -w "$T/wartrack.sqlite.xz")
     TREE=$(printf '100644 blob %s\twartrack.sqlite.xz\n' "$BLOB" | git mktree)
