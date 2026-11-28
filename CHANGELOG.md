@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.19.2 — 2026-11-28
+- **Efficiency:** Bounty is battle money only (mercenary contracts are no longer added: they are credited to the military unit). Fixes the over-count seen for sds1.
+
 ## 2.19.1 — 2026-11-28
 - **Efficiency:** the Income column is renamed Bounty.
 
