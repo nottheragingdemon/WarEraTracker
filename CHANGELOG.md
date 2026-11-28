@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.17.1 — 2026-11-28
+- **Efficiency:** table columns reordered: # · Player · Score · Country · Build · Δ Wealth · Dmg 7d · (Prev · Prev dmg) · Wealth. Shorter headings for phones (full names in the tooltip). The "Wealth per 1M damage" button is gone once wealth history exists.
+
 ## 2.17.0 — 2026-11-28
 - **Efficiency:** the ranking's default is now a damage-weighted score: wealth gained + value × damage (millions), so 10 wealth gained on 10M damage ranks above 10 on 5M. The value of 1M damage is a slider, starting at the alliance's median wealth burned per 1M damage. "Wealth gained per 1M damage" is still available; the "Wealth per 1M damage" button is gone (it only shows while there is no wealth history yet).
 
