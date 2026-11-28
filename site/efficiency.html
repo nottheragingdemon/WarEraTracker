@@ -35,7 +35,7 @@
 <script>
 (function(){
 "use strict";
-var D=null,st={tab:"rank",nation:-1,mu:-1,metric:null,build:"all",end:"top",minM:5,k:null,name:"",open:{},eDmg:3,eDrop:2000,eOnly:false},HIST={},HDAYS=[];
+var D=null,st={tab:"rank",nation:-1,mu:-1,metric:null,build:"all",end:"top",minM:4,k:null,name:"",open:{},eDmg:3,eDrop:2000,eOnly:false},HIST={},HDAYS=[];
 var WAR=0.20,ECO=0.50,MIN=5e6,TOP=100;   // build thresholds (share of skill points in the four economy skills) and the damage floor
 var $=function(i){return document.getElementById(i)};
 var el=window.weEl;
@@ -173,10 +173,10 @@ function kDefault(all){var x=all.filter(function(p){return p.perGain!=null&&p.pe
 function kInput(){var l=el("label",{class:"numin",text:"Value of 1M damage (wealth): "}),o=el("b",{text:String(st.k)}),mx=Math.max(300,st.k*3),
   r=el("input",{type:"range",min:"0",max:String(mx),step:"5",value:String(st.k),"aria-label":"Wealth value of one million damage"});
   r.oninput=function(){o.textContent=this.value};r.onchange=function(){st.k=+this.value;render()};l.appendChild(o);l.appendChild(r);return l}
-function minInput(){var l=el("label",{class:"numin",text:"Damage limit, last 7 days: "}),o=el("b",{text:st.minM+"M"}),
-  r=el("input",{type:"range",min:"1",max:"50",step:"1",value:String(Math.min(50,st.minM)),"aria-label":"Damage limit in millions over the last 7 days","aria-valuetext":st.minM+" million"});
-  r.oninput=function(){o.textContent=this.value+"M"};   // the list follows when the slider is let go
-  r.onchange=function(){st.minM=Math.max(1,Math.round(+this.value)||1);render()};l.appendChild(o);l.appendChild(r);return l}
+function minInput(){var lab=function(x){return x+"M"+(+x>=10?"+":"")},l=el("label",{class:"numin",text:"Damage limit, last 7 days: "}),o=el("b",{text:lab(st.minM)}),
+  r=el("input",{type:"range",min:"1",max:"10",step:"1",value:String(Math.min(10,st.minM)),"aria-label":"Damage limit in millions over the last 7 days; the top position, 10M+, shows only players with 10 million or more","aria-valuetext":lab(st.minM)});
+  r.oninput=function(){o.textContent=lab(this.value)};   // the list follows when the slider is let go; the last position (10M+) keeps everyone with 10M or more
+  r.onchange=function(){st.minM=Math.max(1,Math.min(10,Math.round(+this.value)||1));render()};l.appendChild(o);l.appendChild(r);return l}
 function render(){
   drawTabs();if(st.tab==='enemies'){$("filters").style.display="none";return renderEnemies()}$("filters").style.display="";
   var all=rows(),hist=all.some(function(p){return p.hist});if(!st.metric||(hist&&st.metric==="wealth"))st.metric=hist?"score":"wealth";if(st.k==null)st.k=kDefault(all);all.forEach(function(p){p.score=p.gain!=null?p.gain+st.k*p.dmg/1e6:null;if(p.lw)p.lw.score=p.lw.gain!=null?p.lw.gain+st.k*p.lw.dmg/1e6:null});var metric=st.metric,v=$("view");v.textContent="";MIN=Math.max(1,Math.round(st.minM)||1)*1e6;

@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.17.3 — 2026-11-28
+- **Efficiency:** the damage limit starts at 4M and the slider runs 1M to 10M+ (the last position keeps everyone with 10 million or more).
+
 ## 2.17.1 — 2026-11-28
 - **Efficiency:** table columns reordered: # · Player · Score · Country · Δ Wealth · Dmg 7d · (Prev · Prev dmg) · Build · Wealth. Shorter headings for phones (full names in the tooltip). The "Wealth per 1M damage" button is gone once wealth history exists.
 
