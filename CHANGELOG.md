@@ -3,6 +3,9 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.18.0 — 2026-11-28
+- **Efficiency:** the 7-day window is now rolling. Players are snapshotted every hour (kept 16 days) and the damage, wealth change and "week before" figures compare with the snapshot from exactly 7 (and 14) days before the latest refresh. Until a week of hourly snapshots exists (from 5 December) the end-of-day snapshots are used, so the window can be a few hours off 7 days; "compared with" in a player's detail shows the snapshot used.
+
 ## 2.17.3 — 2026-11-28
 - **Efficiency:** the damage limit starts at 4M and the slider runs 1M to 10M+ (the last position keeps everyone with 10 million or more).
 

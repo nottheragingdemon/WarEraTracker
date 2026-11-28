@@ -46,11 +46,12 @@ function raw(s,v){var o=new String(s);o.raw=v==null||isNaN(v)?"":Math.round(v*10
 var SK=null;
 function build(p){if(!p.spent)return null;var r=p.eco/p.spent;return{share:r,kind:r<=WAR?"War":r>ECO?"Eco":"Hybrid"}}
 function rows(){
-  return D.players.map(function(r){var p={u:r[0],c:r[1],mu:r[2],wealth:r[3],dTot:r[4],dWeek:r[5],day:r[6],wThen:r[7],dThen:r[8],spent:r[9],eco:r[10],lv:r[11],reset:r[12],prev:r[13]};
+  return D.players.map(function(r){var p={u:r[0],c:r[1],mu:r[2],wealth:r[3],dTot:r[4],dWeek:r[5],day:r[6],wThen:r[7],dThen:r[8],spent:r[9],eco:r[10],lv:r[11],reset:r[12],prev:r[13],t14:r[14],w14:r[15],d14:r[16]};
     p.hist=!!p.day;p.dmg=p.hist?Math.max(0,p.dTot-p.dThen):p.dWeek;p.gain=p.hist?p.wealth-p.wThen:null;p.b=build(p);
     p.pb=p.prev?build({spent:p.prev[0],eco:p.prev[1]}):null;p.recent=p.reset&&(Date.now()-Date.parse(p.reset))<7*864e5;
     p.perGain=p.gain!=null&&p.dmg>0?p.gain/(p.dmg/1e6):null;p.perWealth=p.dmg>0?p.wealth/(p.dmg/1e6):null;
-    var lw=weekAgo(p.u);p.lw=lw;if(lw){lw.perGain=lw.dmg>0?lw.gain/(lw.dmg/1e6):null;lw.perWealth=lw.dmg>0?lw.wealth/(lw.dmg/1e6):null}return p})}
+    var lw=p.t14&&p.hist?{gain:p.wThen-p.w14,dmg:Math.max(0,p.dThen-p.d14),wealth:p.wThen,from:p.t14,to:p.day}:weekAgo(p.u);   // rolling: the hourly snapshots 14 and 7 days back when they exist, else the daily ones
+    p.lw=lw;if(lw){lw.perGain=lw.dmg>0?lw.gain/(lw.dmg/1e6):null;lw.perWealth=lw.dmg>0?lw.wealth/(lw.dmg/1e6):null}return p})}
 /* the week before this one, from the daily snapshots: wealth gained and damage dealt between 14 and 7 days before the latest day */
 function weekAgo(u){var h=HIST[u];if(!h||!HDAYS.length)return null;
   var at=function(off){var lim=new Date(Date.parse(HDAYS[HDAYS.length-1])-off*864e5).toISOString().slice(0,10);for(var i=HDAYS.length-1;i>=0;i--)if(HDAYS[i]<=lim&&h[0][i]!=null&&h[1][i]!=null)return i;return -1};
@@ -96,7 +97,7 @@ function table(list,metric){
     cells.forEach(function(c,j){var td=el("td",{class:(C[j].left?"":"n")+(j===1?" lead":""),"data-label":C[j].h});if(C[j].bd)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
     tr.onclick=function(){st.open[p.u]=!st.open[p.u];render()};tb.appendChild(tr);
     if(st.open[p.u]){var d=el("tr",{class:"detail"});var td=el("td",{colspan:String(C.length),"data-label":""});
-      td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · "+skillLine(p)+(p.hist?" · compared with "+p.day:" · no earlier snapshot yet")+(p.reset?" · skills last reset "+p.reset.slice(0,10):"")}));
+      td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · "+skillLine(p)+(p.hist?" · compared with "+String(p.day).replace("T"," ")+(String(p.day).length>10?":00 UTC":""):" · no earlier snapshot yet")+(p.reset?" · skills last reset "+p.reset.slice(0,10):"")}));
       td.appendChild(trend(p));d.appendChild(td);tb.appendChild(d)}});
   t.appendChild(tb);return weCsvWrap(el("div",{class:"tw"},[t]))}
 /* two small charts from the daily snapshots: wealth (line) and damage dealt each day (bars); one measure per chart */
