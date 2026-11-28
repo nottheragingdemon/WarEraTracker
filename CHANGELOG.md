@@ -3,8 +3,11 @@
 Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release → Run workflow, version without the `v`).
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
+## 2.19.1 — 2026-11-28
+- **Efficiency:** the Income column is renamed Bounty.
+
 ## 2.19.0 — 2026-11-28
-- **Efficiency:** new Income column after Score: battle bounty (battle money) plus mercenary contracts won over the last 7 days, split in the player detail. Country moved to third last (before Build and Wealth).
+- **Efficiency:** new Bounty column after Score: battle money plus mercenary contracts won over the last 7 days, split in the player detail. Country moved to third last (before Build and Wealth).
 
 ## 2.18.0 — 2026-11-28
 - **Efficiency:** the 7-day window is now rolling. Players are snapshotted every hour (kept 16 days) and the damage, wealth change and "week before" figures compare with the snapshot from exactly 7 (and 14) days before the latest refresh. Until a week of hourly snapshots exists (from 5 December) the end-of-day snapshots are used, so the window can be a few hours off 7 days; "compared with" in a player's detail shows the snapshot used.

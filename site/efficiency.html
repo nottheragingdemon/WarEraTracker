@@ -72,7 +72,7 @@ function table(list,metric){
     {h:"#",full:"Rank",k:function(p){return p.rank||null}},
     {h:"Player",k:function(p){return String(nm(p.u)).toLowerCase()},asc:1,left:1},
     {h:sm?"Score":"Gain/1M",full:sm?"Score: wealth gained + value of damage":metric==="gain"?"Wealth gained per 1M damage":"Wealth per 1M damage",k:function(p){return mv_(p,metric)}},
-    {h:"Income",full:"Income from battle bounty and mercenary contracts, last 7 days",k:function(p){return p.inc}},
+    {h:"Bounty",full:"Bounty: battle money plus mercenary contracts won, last 7 days",k:function(p){return p.inc}},
     {h:"Δ Wealth",full:"Wealth change over 7 days",k:function(p){return p.gain}},
     {h:"Dmg 7d",full:"Damage over the last 7 days",k:function(p){return p.dmg}}];
   if(hasLw){C.push({h:"Prev",full:"Same measure the week before",k:function(p){return mvl(p,metric)}});C.push({h:"Prev dmg",full:"Damage the week before",k:function(p){return p.lw?p.lw.dmg:null}})}
@@ -98,7 +98,7 @@ function table(list,metric){
     cells.forEach(function(c,j){var td=el("td",{class:(C[j].left?"":"n")+(j===1?" lead":""),"data-label":C[j].h});if(C[j].bd)td.appendChild(badge(p.b,p));else{td.textContent=String(c);if(c&&c.raw!==undefined)td.setAttribute("data-raw",c.raw)}tr.appendChild(td)});
     tr.onclick=function(){st.open[p.u]=!st.open[p.u];render()};tb.appendChild(tr);
     if(st.open[p.u]){var d=el("tr",{class:"detail"});var td=el("td",{colspan:String(C.length),"data-label":""});
-      td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · income, last 7 days: battle bounty "+big(p.bI)+", contracts "+big(p.cI)+" · "+skillLine(p)+(p.hist?" · compared with "+String(p.day).replace("T"," ")+(String(p.day).length>10?":00 UTC":""):" · no earlier snapshot yet")+(p.reset?" · skills last reset "+p.reset.slice(0,10):"")}));
+      td.appendChild(el("div",{class:"note",text:"Military unit: "+nm(p.mu)+" · bounty, last 7 days: battle money "+big(p.bI)+", contracts "+big(p.cI)+" · "+skillLine(p)+(p.hist?" · compared with "+String(p.day).replace("T"," ")+(String(p.day).length>10?":00 UTC":""):" · no earlier snapshot yet")+(p.reset?" · skills last reset "+p.reset.slice(0,10):"")}));
       td.appendChild(trend(p));d.appendChild(td);tb.appendChild(d)}});
   t.appendChild(tb);return weCsvWrap(el("div",{class:"tw"},[t]))}
 /* two small charts from the daily snapshots: wealth (line) and damage dealt each day (bars); one measure per chart */
