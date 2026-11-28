@@ -4,7 +4,7 @@ Each version is tagged `vX.Y.Z` by the *Release* workflow (Actions → Release �
 To go back to a version: `git checkout vX.Y.Z` (or deploy that tag). The collected history (the `state` branch) is separate and is not rolled back.
 
 ## 2.17.0 — 2026-11-28
-- **Efficiency:** the ranking's default is now a damage-weighted score: wealth gained + value × damage (millions), so 10 wealth gained on 10M damage ranks above 10 on 5M. The value of 1M damage is a slider, starting at the alliance's median wealth burned per 1M damage. "Wealth gained per 1M damage" and "Wealth per 1M damage" are still available.
+- **Efficiency:** the ranking's default is now a damage-weighted score: wealth gained + value × damage (millions), so 10 wealth gained on 10M damage ranks above 10 on 5M. The value of 1M damage is a slider, starting at the alliance's median wealth burned per 1M damage. "Wealth gained per 1M damage" is still available; the "Wealth per 1M damage" button is gone (it only shows while there is no wealth history yet).
 
 ## 2.16.0 — 2026-11-27
 - **Efficiency:** one ranking for the whole alliance (top 100 or bottom 100) instead of a list per nation, with a Country column (sortable) and the Country filter at the top to see one nation. The damage limit is a slider (1–50M, whole millions). Ranks and ↑↓ moves are within the list shown.
